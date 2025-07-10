@@ -2,6 +2,7 @@ package com.gopair.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -13,13 +14,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // 关闭 CSRF 保护，便于接口测试
+                // 禁用 CSRF 防护
+                .csrf(csrf -> csrf.disable())
+
                 .authorizeHttpRequests(auth -> auth
-                        // 对 /api/test/ 和 /api/match/ 下的所有请求，都允许匿名访问
-                        .requestMatchers("/api/test/**", "/api/match/**").permitAll()
-                        // 除了上面放行的请求外，任何其他请求都需要身份验证
+                        // .requestMatchers("/api/match/**").permitAll() // 您已经关闭了这一行，很好！
+                        // 这条规则意味着：所有其他请求都需要身份认证
                         .anyRequest().authenticated()
-                );
+                )
+                // 明确指定启用 Basic Auth 认证方式
+                .httpBasic(Customizer.withDefaults());
+
         return http.build();
     }
 }
