@@ -1,6 +1,7 @@
 package com.gopair.backend.common.enums;
 
 import com.gopair.backend.common.IErrorCode;
+import com.gopair.backend.common.constants.MessageConstants;
 
 /**
  * 系统错误码枚举类
@@ -19,31 +20,31 @@ public enum ErrorCode implements IErrorCode {
     /**
      * 系统级错误
      */
-    SYSTEM_ERROR(500, "系统内部错误"),
-    SERVICE_UNAVAILABLE(503, "服务不可用"),
+    SYSTEM_ERROR(500, MessageConstants.SYSTEM_ERROR),
+    SERVICE_UNAVAILABLE(503, MessageConstants.SERVICE_UNAVAILABLE),
     
     /**
      * 业务级错误
      */
-    BUSINESS_ERROR(600, "业务处理异常"),
-    RESOURCE_NOT_FOUND(601, "请求资源不存在"),
-    OPERATION_FAILED(602, "操作失败"),
+    BUSINESS_ERROR(600, MessageConstants.BUSINESS_ERROR),
+    RESOURCE_NOT_FOUND(601, MessageConstants.RESOURCE_NOT_FOUND),
+    OPERATION_FAILED(602, MessageConstants.OPERATION_FAILED),
     
     /**
      * 参数校验错误
      */
-    PARAM_ERROR(700, "参数错误"),
-    PARAM_MISSING(701, "缺少必要参数"),
-    PARAM_TYPE_ERROR(702, "参数类型错误"),
-    PARAM_BIND_ERROR(703, "参数绑定错误"),
+    PARAM_ERROR(700, MessageConstants.PARAM_ERROR),
+    PARAM_MISSING(701, MessageConstants.PARAM_MISSING),
+    PARAM_TYPE_ERROR(702, MessageConstants.PARAM_TYPE_ERROR),
+    PARAM_BIND_ERROR(703, MessageConstants.PARAM_BIND_ERROR),
     
     /**
      * 授权认证错误
      */
-    UNAUTHORIZED(800, "未授权访问"),
-    TOKEN_EXPIRED(801, "令牌已过期"),
-    TOKEN_INVALID(802, "无效的令牌"),
-    ACCESS_DENIED(803, "访问被拒绝");
+    UNAUTHORIZED(800, MessageConstants.UNAUTHORIZED),
+    TOKEN_EXPIRED(801, MessageConstants.TOKEN_EXPIRED),
+    TOKEN_INVALID(802, MessageConstants.TOKEN_INVALID),
+    ACCESS_DENIED(803, MessageConstants.ACCESS_DENIED);
 
     /**
      * 错误码
