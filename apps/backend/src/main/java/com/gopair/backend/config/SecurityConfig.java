@@ -69,7 +69,7 @@ public class SecurityConfig {
             // 配置请求授权
             .authorizeHttpRequests(auth -> auth
                 // 允许对认证接口的匿名访问
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                 
                 // 允许对Knife4j/Swagger相关资源的访问
                 .requestMatchers(
