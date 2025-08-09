@@ -1,0 +1,41 @@
+# 应用基本配置
+spring:
+  application:
+    # 应用名称，用于服务注册与发现
+    name: user-service
+  
+  # 数据源配置
+  datasource:
+    # MySQL数据库连接URL，包含编码和时区设置
+    url: jdbc:mysql://localhost:3306/gopair?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    # 数据库用户名
+    username: root
+    # 数据库密码
+    password: 610692
+    # JDBC驱动类名
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# 服务器配置
+server:
+  # 应用运行端口
+  port: 8080
+
+# MyBatis Plus配置
+mybatis-plus:
+  # XML映射文件路径，支持classpath*通配符搜索所有jar包
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类包路径，用于类型别名
+  type-aliases-package: com.gopair.userservice.domain.po
+  
+  # MyBatis Plus全局配置
+  configuration:
+    # 开启驼峰命名转换，如：数据库字段user_name自动映射到实体类userName属性
+    map-underscore-to-camel-case: true
+    # SQL日志打印实现类，将SQL语句打印到控制台
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  
+  # 全局策略配置
+  global-config:
+    db-config:
+      # ID生成类型，auto表示使用数据库的自增长
+      id-type: auto
