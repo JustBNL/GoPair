@@ -92,4 +92,13 @@ public interface UserService {
      * @return 用户VO
      */
     UserVO getUserVOById(Long userId);
+    
+    /**
+     * 重置用户密码
+     *
+     * @param userId 用户ID
+     * @param newPassword 新密码
+     * @return 是否重置成功
+     */
+    boolean resetPassword(Long userId, String newPassword);
 } 

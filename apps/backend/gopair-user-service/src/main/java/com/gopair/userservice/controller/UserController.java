@@ -85,4 +85,13 @@ public class UserController {
     public R<Boolean> checkEmail(@PathVariable String email) {
         return R.ok(userService.isEmailExists(email));
     }
+    
+    /**
+     * 重置用户密码
+     */
+    @Operation(summary = "重置密码", description = "重置用户密码")
+    @PutMapping("/reset-password/{userId}")
+    public R<Boolean> resetPassword(@PathVariable Long userId, @RequestParam String newPassword) {
+        return R.ok(userService.resetPassword(userId, newPassword));
+    }
 } 

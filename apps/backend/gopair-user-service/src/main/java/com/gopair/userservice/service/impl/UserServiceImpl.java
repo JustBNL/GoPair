@@ -6,13 +6,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.util.BeanCopyUtils;
+import com.gopair.userservice.util.PasswordUtils;
 import com.gopair.userservice.domain.dto.UserDto;
 import com.gopair.userservice.domain.po.User;
 import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.mapper.UserMapper;
 import com.gopair.userservice.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -31,7 +31,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Autowired
     private UserMapper userMapper;
 
-    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private PasswordUtils passwordUtils;
 
     @Override
     public User getUserByUsername(String username) {
@@ -54,7 +55,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         }
 
         // 验证密码
-        if (passwordEncoder.matches(password, user.getPassword())) {
+        if (passwordUtils.matches(password, user.getPassword())) {
             return user;
         }
         
@@ -88,7 +89,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         user.setCreateTime(LocalDateTime.now());
 
         // 密码加密
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setPassword(passwordUtils.encode(user.getPassword()));
         
         // 插入数据库
         return userMapper.insert(user) > 0;
@@ -105,7 +106,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         
         // 如果密码不为空，则加密
         if (StringUtils.hasText(user.getPassword())) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            user.setPassword(passwordUtils.encode(user.getPassword()));
         }
         
         // 更新数据库
@@ -154,5 +155,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         
         // 使用BeanCopyUtils转换为VO对象
         return BeanCopyUtils.copyBean(user, UserVO.class);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean resetPassword(Long userId, String newPassword) {
+        User user = getUserById(userId);
+        if (user == null) {
+            return false;
+        }
+        
+        // 加密新密码
+        String encodedPassword = passwordUtils.encode(newPassword);
+        
+        // 更新密码
+        user.setPassword(encodedPassword);
+        user.setUpdateTime(LocalDateTime.now());
+        
+        return userMapper.updateById(user) > 0;
     }
 } 
