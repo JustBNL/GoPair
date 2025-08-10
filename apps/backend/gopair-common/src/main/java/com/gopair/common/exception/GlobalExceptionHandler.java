@@ -1,7 +1,7 @@
 package com.gopair.common.exception;
 
 import com.gopair.common.core.R;
-import com.gopair.common.enums.ErrorCode;
+import com.gopair.common.enums.impl.CommonErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -31,15 +31,28 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     /**
-     * 处理业务异常
+     * 处理基础异常
      * 
-     * @param e 业务异常
+     * @param e 基础异常
      * @return 错误响应
      */
-    @ExceptionHandler(BusinessException.class)
+    @ExceptionHandler(BaseException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public R<Void> handleBusinessException(BusinessException e) {
-        log.warn("业务异常: {}", e.getMessage());
+    public R<Void> handleBaseException(BaseException e) {
+        log.warn("基础异常: {}", e.getMessage());
+        return R.fail(e.getErrorCode());
+    }
+
+    /**
+     * 处理登录异常
+     * 
+     * @param e 登录异常
+     * @return 错误响应
+     */
+    @ExceptionHandler(LoginException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public R<Void> handleLoginException(LoginException e) {
+        log.warn("登录异常: {}", e.getMessage());
         return R.fail(e.getErrorCode());
     }
 
@@ -56,7 +69,7 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
         log.warn("参数校验失败: {}", message);
-        return R.fail(ErrorCode.PARAM_ERROR.getCode(), message);
+        return R.fail(CommonErrorCode.PARAM_ERROR.getCode(), message);
     }
 
     /**
@@ -72,7 +85,7 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
         log.warn("参数绑定失败: {}", message);
-        return R.fail(ErrorCode.PARAM_ERROR.getCode(), message);
+        return R.fail(CommonErrorCode.PARAM_ERROR.getCode(), message);
     }
 
     /**
@@ -88,7 +101,7 @@ public class GlobalExceptionHandler {
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.joining(", "));
         log.warn("约束校验失败: {}", message);
-        return R.fail(ErrorCode.PARAM_ERROR.getCode(), message);
+        return R.fail(CommonErrorCode.PARAM_ERROR.getCode(), message);
     }
 
     /**
@@ -101,7 +114,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public R<Void> handleAuthenticationException(AuthenticationException e) {
         log.warn("认证失败: {}", e.getMessage());
-        return R.fail(ErrorCode.UNAUTHORIZED);
+        return R.fail(CommonErrorCode.UNAUTHORIZED);
     }
 
     /**
@@ -114,7 +127,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public R<Void> handleAccessDeniedException(AccessDeniedException e) {
         log.warn("权限不足: {}", e.getMessage());
-        return R.fail(ErrorCode.ACCESS_DENIED);
+        return R.fail(CommonErrorCode.ACCESS_DENIED);
     }
 
     /**
@@ -127,7 +140,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public R<Void> handleBadCredentialsException(BadCredentialsException e) {
         log.warn("凭证错误: {}", e.getMessage());
-        return R.fail(ErrorCode.UNAUTHORIZED);
+        return R.fail(CommonErrorCode.UNAUTHORIZED);
     }
 
     /**
@@ -140,6 +153,6 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public R<Void> handleException(Exception e) {
         log.error("系统异常: ", e);
-        return R.fail(ErrorCode.SYSTEM_ERROR);
+        return R.fail(CommonErrorCode.SYSTEM_ERROR);
     }
 } 

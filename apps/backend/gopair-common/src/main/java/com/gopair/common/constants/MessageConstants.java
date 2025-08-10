@@ -22,6 +22,7 @@ public class MessageConstants {
     public static final String LOGIN_FAILED = "登录失败";
     public static final String USERNAME_OR_PASSWORD_ERROR = "用户名或密码错误";
     public static final String INVALID_CREDENTIALS = "用户名或密码错误";
+    public static final String PASSWORD_ERROR = "密码错误";
     public static final String UNAUTHORIZED = "未授权访问";
     public static final String TOKEN_EXPIRED = "令牌已过期";
     public static final String TOKEN_INVALID = "无效的令牌";
@@ -31,15 +32,20 @@ public class MessageConstants {
     /**
      * 用户相关消息
      */
+    // 用户状态相关消息
     public static final String USER_NOT_FOUND = "用户不存在";
     public static final String USER_ALREADY_EXISTS = "用户已存在";
     public static final String USERNAME_ALREADY_EXISTS = "用户名已存在";
     public static final String EMAIL_ALREADY_EXISTS = "邮箱已存在";
+    
+    // 用户操作结果消息
     public static final String USER_INFO_SUCCESS = "获取用户信息成功";
     public static final String GET_USER_INFO_FAILED = "获取用户信息失败";
     public static final String USER_UPDATE_SUCCESS = "用户信息更新成功";
     public static final String USER_DELETE_SUCCESS = "用户删除成功";
     public static final String REGISTER_FAILED = "注册失败";
+    public static final String USER_REGISTER_SUCCESS = "用户注册成功";
+    public static final String PASSWORD_RESET_SUCCESS = "密码重置成功";
     
     /**
      * 参数校验相关消息
