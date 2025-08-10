@@ -13,47 +13,6 @@ import com.gopair.userservice.domain.vo.UserVO;
 public interface UserService {
 
     /**
-     * 根据用户名查询用户
-     *
-     * @param username 用户名
-     * @return 用户信息
-     */
-    User getUserByUsername(String username);
-    
-    /**
-     * 根据用户ID查询用户
-     *
-     * @param userId 用户ID
-     * @return 用户信息
-     */
-    User getUserById(Long userId);
-    
-    /**
-     * 用户认证
-     *
-     * @param username 用户名
-     * @param password 密码
-     * @return 用户信息，认证失败返回null
-     */
-    User authenticateUser(String username, String password);
-    
-    /**
-     * 检查用户名是否存在
-     *
-     * @param username 用户名
-     * @return 是否存在
-     */
-    boolean isUsernameExists(String username);
-    
-    /**
-     * 检查邮箱是否存在
-     *
-     * @param email 邮箱
-     * @return 是否存在
-     */
-    boolean isEmailExists(String email);
-    
-    /**
      * 创建用户
      *
      * @param userDto 用户DTO
@@ -78,27 +37,18 @@ public interface UserService {
     boolean deleteUser(Long userId);
 
     /**
+     * 根据ID查询用户
+     *
+     * @param userId 用户ID
+     * @return 用户信息
+     */
+    UserVO getUserById(Long userId);
+    
+    /**
      * 分页查询用户列表
      *
      * @param userDto 查询条件
      * @return 分页结果
      */
     PageResult<UserVO> getUserPage(UserDto userDto);
-
-    /**
-     * 根据ID获取用户VO
-     *
-     * @param userId 用户ID
-     * @return 用户VO
-     */
-    UserVO getUserVOById(Long userId);
-    
-    /**
-     * 重置用户密码
-     *
-     * @param userId 用户ID
-     * @param newPassword 新密码
-     * @return 是否重置成功
-     */
-    boolean resetPassword(Long userId, String newPassword);
 } 

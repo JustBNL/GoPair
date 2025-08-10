@@ -55,6 +55,35 @@ public class GlobalExceptionHandler {
         log.warn("登录异常: {}", e.getMessage());
         return R.fail(e.getErrorCode());
     }
+    
+    /**
+     * 处理用户服务异常
+     * 
+     * @param e 用户服务异常
+     * @return 错误响应
+     */
+    @ExceptionHandler(UserException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public R<Void> handleUserException(UserException e) {
+        log.warn("用户服务异常: {}", e.getMessage());
+        return R.fail(e.getErrorCode());
+    }
+
+    /**
+     * 处理参数校验异常
+     * 
+     * @param e 参数校验异常
+     * @return 错误响应
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public R<Void> handleValidationException(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(Collectors.joining(", "));
+        log.warn("参数校验失败: {}", message);
+        return R.fail(CommonErrorCode.PARAM_ERROR.getCode(), message);
+    }
 
     /**
      * 处理其他未知异常

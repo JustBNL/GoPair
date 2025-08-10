@@ -7,7 +7,6 @@ import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -20,8 +19,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/user")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     /**
      * 创建用户
@@ -56,7 +58,7 @@ public class UserController {
     @Operation(summary = "查询用户", description = "根据用户ID查询用户信息")
     @GetMapping("/{userId}")
     public R<UserVO> getUserById(@PathVariable Long userId) {
-        return R.ok(userService.getUserVOById(userId));
+        return R.ok(userService.getUserById(userId));
     }
 
     /**
@@ -66,32 +68,5 @@ public class UserController {
     @GetMapping("/page")
     public R<PageResult<UserVO>> getUserPage(UserDto userDto) {
         return R.ok(userService.getUserPage(userDto));
-    }
-
-    /**
-     * 检查用户名是否存在
-     */
-    @Operation(summary = "检查用户名", description = "检查用户名是否已存在")
-    @GetMapping("/check-username/{username}")
-    public R<Boolean> checkUsername(@PathVariable String username) {
-        return R.ok(userService.isUsernameExists(username));
-    }
-
-    /**
-     * 检查邮箱是否存在
-     */
-    @Operation(summary = "检查邮箱", description = "检查邮箱是否已存在")
-    @GetMapping("/check-email/{email}")
-    public R<Boolean> checkEmail(@PathVariable String email) {
-        return R.ok(userService.isEmailExists(email));
-    }
-    
-    /**
-     * 重置用户密码
-     */
-    @Operation(summary = "重置密码", description = "重置用户密码")
-    @PutMapping("/reset-password/{userId}")
-    public R<Boolean> resetPassword(@PathVariable Long userId, @RequestParam String newPassword) {
-        return R.ok(userService.resetPassword(userId, newPassword));
     }
 } 

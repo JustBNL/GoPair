@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gopair.common.core.PageResult;
+import com.gopair.common.enums.impl.UserErrorCode;
+import com.gopair.common.exception.UserException;
 import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.userservice.util.PasswordUtils;
 import com.gopair.userservice.domain.dto.UserDto;
@@ -12,7 +14,6 @@ import com.gopair.userservice.domain.po.User;
 import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.mapper.UserMapper;
 import com.gopair.userservice.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -28,57 +29,51 @@ import java.util.List;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements UserService {
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
+    private final PasswordUtils passwordUtils;
 
-    @Autowired
-    private PasswordUtils passwordUtils;
+    public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils) {
+        this.userMapper = userMapper;
+        this.passwordUtils = passwordUtils;
+    }
 
-    @Override
-    public User getUserByUsername(String username) {
+    /**
+     * 根据用户名查询用户
+     *
+     * @param username 用户名
+     * @return 用户实体
+     */
+    private User getUserByUsername(String username) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getUsername, username);
         return userMapper.selectOne(queryWrapper);
     }
-
-    @Override
-    public User getUserById(Long userId) {
-        return userMapper.selectById(userId);
-    }
-
-    @Override
-    public User authenticateUser(String username, String password) {
-        // 根据用户名查询用户
-        User user = getUserByUsername(username);
-        if (user == null) {
-            return null;
-        }
-
-        // 验证密码
-        if (passwordUtils.matches(password, user.getPassword())) {
-            return user;
-        }
-        
-        return null;
-    }
-
-    @Override
-    public boolean isUsernameExists(String username) {
-        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(User::getUsername, username);
-        return userMapper.selectCount(queryWrapper) > 0;
-    }
-
-    @Override
-    public boolean isEmailExists(String email) {
+    
+    /**
+     * 根据邮箱查询用户
+     *
+     * @param email 邮箱
+     * @return 用户实体
+     */
+    private User getUserByEmail(String email) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getEmail, email);
-        return userMapper.selectCount(queryWrapper) > 0;
+        return userMapper.selectOne(queryWrapper);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean createUser(UserDto userDto) {
+        // 检查用户名是否已存在
+        if (getUserByUsername(userDto.getUsername()) != null) {
+            throw new UserException(UserErrorCode.USERNAME_ALREADY_EXISTS);
+        }
+        
+        // 检查邮箱是否已存在
+        if (StringUtils.hasText(userDto.getEmail()) && getUserByEmail(userDto.getEmail()) != null) {
+            throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        
         // 使用BeanCopyUtils转换为PO对象
         User user = BeanCopyUtils.copyBean(userDto, User.class);
         
@@ -98,6 +93,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateUser(UserDto userDto) {
+        // 检查用户是否存在
+        if (userDto.getUserId() == null || userMapper.selectById(userDto.getUserId()) == null) {
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
+        
+        // 检查用户名是否已被其他用户使用
+        if (StringUtils.hasText(userDto.getUsername())) {
+            User existingUser = getUserByUsername(userDto.getUsername());
+            if (existingUser != null && !existingUser.getUserId().equals(userDto.getUserId())) {
+                throw new UserException(UserErrorCode.USERNAME_ALREADY_EXISTS);
+            }
+        }
+        
+        // 检查邮箱是否已被其他用户使用
+        if (StringUtils.hasText(userDto.getEmail())) {
+            User existingUser = getUserByEmail(userDto.getEmail());
+            if (existingUser != null && !existingUser.getUserId().equals(userDto.getUserId())) {
+                throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+            }
+        }
+        
         // 使用BeanCopyUtils转换为PO对象
         User user = BeanCopyUtils.copyBean(userDto, User.class);
         
@@ -116,7 +132,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteUser(Long userId) {
+        // 检查用户是否存在
+        if (userMapper.selectById(userId) == null) {
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
+        
         return userMapper.deleteById(userId) > 0;
+    }
+
+    @Override
+    public UserVO getUserById(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
+        return BeanCopyUtils.copyBean(user, UserVO.class);
     }
 
     @Override
@@ -144,34 +174,5 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         
         // 返回分页结果
         return new PageResult<>(userVOList, userPage.getTotal(), userPage.getCurrent(), userPage.getSize());
-    }
-
-    @Override
-    public UserVO getUserVOById(Long userId) {
-        User user = getUserById(userId);
-        if (user == null) {
-            return null;
-        }
-        
-        // 使用BeanCopyUtils转换为VO对象
-        return BeanCopyUtils.copyBean(user, UserVO.class);
-    }
-    
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public boolean resetPassword(Long userId, String newPassword) {
-        User user = getUserById(userId);
-        if (user == null) {
-            return false;
-        }
-        
-        // 加密新密码
-        String encodedPassword = passwordUtils.encode(newPassword);
-        
-        // 更新密码
-        user.setPassword(encodedPassword);
-        user.setUpdateTime(LocalDateTime.now());
-        
-        return userMapper.updateById(user) > 0;
     }
 } 
