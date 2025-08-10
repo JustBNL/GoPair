@@ -1,6 +1,6 @@
 package com.gopair.common.core;
 
-import com.gopair.common.enums.IErrorCode;
+import com.gopair.common.enums.ErrorCode;
 import com.gopair.common.constants.MessageConstants;
 
 import java.io.Serializable;
@@ -114,12 +114,13 @@ public class R<T> implements Serializable {
     }
 
     /**
-     * 返回错误消息
-     * 
+     * 返回失败结果
+     *
      * @param errorCode 错误码
-     * @return 错误消息
+     * @param <T>       数据类型
+     * @return 响应结果
      */
-    public static <T> R<T> fail(IErrorCode errorCode) {
+    public static <T> R<T> fail(ErrorCode errorCode) {
         return new R<>(errorCode.getCode(), errorCode.getMessage(), null);
     }
 

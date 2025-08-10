@@ -1,32 +1,31 @@
 package com.gopair.common.exception;
 
-import com.gopair.common.enums.IErrorCode;
+import com.gopair.common.enums.ErrorCode;
 import lombok.Getter;
 
 /**
- * 业务异常类
+ * 基础异常类
  *
- * 用于封装业务逻辑异常，继承自RuntimeException使其成为非受检异常，
+ * 作为所有自定义异常的基类，继承自RuntimeException使其成为非受检异常，
  * 这样在业务代码中就不需要显式地进行try-catch处理。
- * 同时通过包含IErrorCode对象，可以携带具体的错误码和错误信息。
- *
+ * 同时通过包含ErrorCode对象，可以携带具体的错误码和错误信息。
  *
  * @author gopair
  */
 @Getter
-public class BusinessException extends RuntimeException {
+public class BaseException extends RuntimeException {
 
     /**
      * 错误码对象，包含错误码和错误信息
      */
-    private final IErrorCode errorCode;
+    private final ErrorCode errorCode;
 
     /**
      * 构造函数，接收错误码对象
      *
-     * @param errorCode 错误码对象，实现了IErrorCode接口
+     * @param errorCode 错误码对象，实现了ErrorCode接口
      */
-    public BusinessException(IErrorCode errorCode) {
+    public BaseException(ErrorCode errorCode) {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
@@ -34,10 +33,10 @@ public class BusinessException extends RuntimeException {
     /**
      * 构造函数，接收错误码对象和自定义错误信息
      *
-     * @param errorCode 错误码对象，实现了IErrorCode接口
+     * @param errorCode 错误码对象，实现了ErrorCode接口
      * @param message   自定义错误信息
      */
-    public BusinessException(IErrorCode errorCode, String message) {
+    public BaseException(ErrorCode errorCode, String message) {
         super(message);
         this.errorCode = errorCode;
     }
@@ -45,10 +44,10 @@ public class BusinessException extends RuntimeException {
     /**
      * 构造函数，接收错误码对象和原始异常
      *
-     * @param errorCode 错误码对象，实现了IErrorCode接口
+     * @param errorCode 错误码对象，实现了ErrorCode接口
      * @param cause     原始异常
      */
-    public BusinessException(IErrorCode errorCode, Throwable cause) {
+    public BaseException(ErrorCode errorCode, Throwable cause) {
         super(errorCode.getMessage(), cause);
         this.errorCode = errorCode;
     }
@@ -56,11 +55,11 @@ public class BusinessException extends RuntimeException {
     /**
      * 构造函数，接收错误码对象、自定义错误信息和原始异常
      *
-     * @param errorCode 错误码对象，实现了IErrorCode接口
+     * @param errorCode 错误码对象，实现了ErrorCode接口
      * @param message   自定义错误信息
      * @param cause     原始异常
      */
-    public BusinessException(IErrorCode errorCode, String message, Throwable cause) {
+    public BaseException(ErrorCode errorCode, String message, Throwable cause) {
         super(message, cause);
         this.errorCode = errorCode;
     }
