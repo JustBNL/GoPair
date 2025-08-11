@@ -1,0 +1,57 @@
+# 测试环境配置
+spring:
+  application:
+    name: user-service-test
+  
+  # 使用H2内存数据库进行测试
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  # H2数据库配置
+  h2:
+    console:
+      enabled: true
+  
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# 服务器配置
+server:
+  port: 0  # 随机端口，避免冲突
+
+# MyBatis Plus配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.gopair.userservice.domain.po
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# Knife4j配置 - 测试环境禁用
+knife4j:
+  enable: false
+  production: true
+
+# 测试专用JWT配置
+gopair:
+  jwt:
+    secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
+    expiration: 3600000  # 1小时
+
+# 日志配置
+logging:
+  level:
+    com.gopair.userservice: DEBUG
+    org.springframework.web: DEBUG 

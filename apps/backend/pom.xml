@@ -19,6 +19,7 @@
 	<modules>
 		<module>gopair-common</module>
 		<module>gopair-user-service</module>
+		<module>gopair-gateway</module>
 	</modules>
 	
 	<properties>

@@ -1,0 +1,52 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: http://localhost:8080
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=0
+        - id: health-check
+          uri: http://localhost:8080
+          predicates:
+            - Path=/api/v1/health
+          filters:
+            - StripPrefix=0
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+gopair:
+  jwt:
+    secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
+    expiration: 86400000
+  gateway:
+    skip-auth-paths:
+      - /api/v1/users/login
+      - /api/v1/users/register
+      - /api/v1/health
+      - /doc.html
+      - /swagger-ui.html
+      - /v3/api-docs
+
+logging:
+  level:
+    com.gopair.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG 

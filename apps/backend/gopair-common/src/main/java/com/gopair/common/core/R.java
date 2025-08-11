@@ -6,9 +6,9 @@ import com.gopair.common.constants.MessageConstants;
 import java.io.Serializable;
 
 /**
- * 响应信息主体
+ * 统一响应结果封装类
  * 
- * 参考若依框架设计，统一返回结果处理
+ * 参考若依框架设计，只负责响应结果的构建和封装
  * 
  * @author gopair
  */
@@ -41,22 +41,22 @@ public class R<T> implements Serializable {
     private T data;
 
     /**
-     * 初始化一个新创建的 R 对象
+     * 私有构造函数
      * 
      * @param code 状态码
      * @param msg  返回消息
      * @param data 返回数据
      */
-    public R(int code, String msg, T data) {
+    private R(int code, String msg, T data) {
         this.code = code;
         this.msg = msg;
         this.data = data;
     }
 
+    // ==================== 成功响应构建 ====================
+
     /**
      * 返回成功消息
-     * 
-     * @return 成功消息
      */
     public static <T> R<T> ok() {
         return new R<>(SUCCESS, MessageConstants.SUCCESS, null);
@@ -64,9 +64,6 @@ public class R<T> implements Serializable {
 
     /**
      * 返回成功数据
-     * 
-     * @param data 返回数据
-     * @return 成功消息
      */
     public static <T> R<T> ok(T data) {
         return new R<>(SUCCESS, MessageConstants.SUCCESS, data);
@@ -74,64 +71,70 @@ public class R<T> implements Serializable {
 
     /**
      * 返回成功消息
-     * 
-     * @param msg  返回消息
-     * @param data 返回数据
-     * @return 成功消息
      */
     public static <T> R<T> ok(String msg, T data) {
         return new R<>(SUCCESS, msg, data);
     }
 
+    // ==================== 失败响应构建 ====================
+
     /**
-     * 返回错误消息
-     * 
-     * @return 错误消息
+     * 返回默认错误消息
      */
     public static <T> R<T> fail() {
         return new R<>(ERROR, MessageConstants.FAILED, null);
     }
 
     /**
-     * 返回错误消息
-     * 
-     * @param msg 返回消息
-     * @return 错误消息
+     * 返回自定义错误消息
      */
     public static <T> R<T> fail(String msg) {
         return new R<>(ERROR, msg, null);
     }
 
     /**
-     * 返回错误消息
-     * 
-     * @param code 状态码
-     * @param msg  返回消息
-     * @return 错误消息
+     * 返回指定状态码和消息的错误
      */
     public static <T> R<T> fail(int code, String msg) {
         return new R<>(code, msg, null);
     }
 
     /**
-     * 返回失败结果
-     *
-     * @param errorCode 错误码
-     * @param <T>       数据类型
-     * @return 响应结果
+     * 根据错误码构建失败响应
      */
     public static <T> R<T> fail(ErrorCode errorCode) {
         return new R<>(errorCode.getCode(), errorCode.getMessage(), null);
     }
 
     /**
+     * 根据错误码和自定义消息构建失败响应
+     */
+    public static <T> R<T> fail(ErrorCode errorCode, String customMessage) {
+        return new R<>(errorCode.getCode(), customMessage, null);
+    }
+
+    // ==================== 工具方法 ====================
+
+    /**
      * 是否为成功状态
-     * 
-     * @return 是否成功
      */
     public boolean isSuccess() {
         return code == SUCCESS;
     }
+
+    /**
+     * 转换为JSON字符串
+     */
+    public String toJson() {
+        return String.format(
+            "{\"code\":%d,\"msg\":\"%s\",\"data\":%s}",
+            code,
+            msg.replace("\"", "\\\""),
+            data == null ? "null" : "\"" + data.toString().replace("\"", "\\\"") + "\""
+        );
+    }
+
+    // ==================== Getter/Setter ====================
 
     public int getCode() {
         return code;
