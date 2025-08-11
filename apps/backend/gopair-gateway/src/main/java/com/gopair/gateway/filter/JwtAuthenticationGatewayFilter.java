@@ -23,6 +23,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -39,9 +40,6 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     @Value("${gopair.jwt.secret}")
     private String jwtSecret;
 
-    @Value("${gopair.gateway.skip-auth-paths}")
-    private List<String> skipAuthPaths;
-
     /**
      * JWT令牌在Cookie中的名称
      */
@@ -56,6 +54,18 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
      * 传递给下游服务的用户名头名称
      */
     private static final String USERNAME_HEADER = "X-Username";
+
+    /**
+     * 不需要进行JWT验证的路径 (临时使用硬编码，避免配置读取问题)
+     */
+    private static final List<String> SKIP_AUTH_PATHS = Arrays.asList(
+            "/api/v1/users/login",
+            "/api/v1/users/register",
+            "/api/v1/health",
+            "/doc.html",
+            "/swagger-ui.html",
+            "/v3/api-docs"
+    );
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -136,7 +146,7 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
      * @return 如果需要跳过认证则返回true
      */
     private boolean isSkipAuthPath(String path) {
-        return skipAuthPaths.stream().anyMatch(skipPath -> 
+        return SKIP_AUTH_PATHS.stream().anyMatch(skipPath -> 
             path.startsWith(skipPath) || path.contains(skipPath)
         );
     }
