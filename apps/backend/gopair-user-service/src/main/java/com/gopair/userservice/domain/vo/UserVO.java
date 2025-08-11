@@ -51,4 +51,9 @@ public class UserVO {
      * 更新时间
      */
     private LocalDateTime updateTime;
+    
+    /**
+     * 访问令牌（登录时返回）
+     */
+    private String token;
 } 

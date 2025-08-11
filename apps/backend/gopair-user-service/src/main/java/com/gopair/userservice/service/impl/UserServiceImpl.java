@@ -5,10 +5,14 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gopair.common.core.PageResult;
+import com.gopair.common.enums.impl.CommonErrorCode;
 import com.gopair.common.enums.impl.UserErrorCode;
+import com.gopair.common.exception.LoginException;
 import com.gopair.common.exception.UserException;
 import com.gopair.common.util.BeanCopyUtils;
+import com.gopair.common.util.JwtUtils;
 import com.gopair.userservice.util.PasswordUtils;
+import com.gopair.userservice.config.JwtConfig;
 import com.gopair.userservice.domain.dto.UserDto;
 import com.gopair.userservice.domain.po.User;
 import com.gopair.userservice.domain.vo.UserVO;
@@ -31,12 +35,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     private final UserMapper userMapper;
     private final PasswordUtils passwordUtils;
+    private final JwtConfig jwtConfig;
 
-    public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils) {
+    public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils, JwtConfig jwtConfig) {
         this.userMapper = userMapper;
         this.passwordUtils = passwordUtils;
+        this.jwtConfig = jwtConfig;
     }
-
+    
     /**
      * 根据用户名查询用户
      *
@@ -174,5 +180,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         
         // 返回分页结果
         return new PageResult<>(userVOList, userPage.getTotal(), userPage.getCurrent(), userPage.getSize());
+    }
+
+    @Override
+    public UserVO login(UserDto userDto) {
+        // 验证参数
+        if (!StringUtils.hasText(userDto.getUsername()) || !StringUtils.hasText(userDto.getPassword())) {
+            throw new LoginException(CommonErrorCode.PARAM_MISSING);
+        }
+        
+        // 根据用户名查询用户
+        User user = getUserByUsername(userDto.getUsername());
+        if (user == null) {
+            throw new LoginException(UserErrorCode.USER_NOT_FOUND);
+        }
+        
+        // 验证密码
+        if (!passwordUtils.matches(userDto.getPassword(), user.getPassword())) {
+            throw new LoginException(UserErrorCode.INVALID_CREDENTIALS);
+        }
+        
+        // 生成令牌
+        String token = JwtUtils.generateToken(user.getUsername(), user.getUserId().toString(), 
+                jwtConfig.getSecret(), jwtConfig.getExpiration());
+        
+        // 转换为VO对象
+        UserVO userVO = BeanCopyUtils.copyBean(user, UserVO.class);
+        // 设置令牌
+        userVO.setToken(token);
+        
+        return userVO;
     }
 } 

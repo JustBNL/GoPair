@@ -39,3 +39,26 @@ mybatis-plus:
     db-config:
       # ID生成类型，auto表示使用数据库的自增长
       id-type: auto
+
+# Knife4j配置
+knife4j:
+  # 全局开关
+  enable: true
+  # 是否为生产环境
+  production: false
+  # 基础UI设置
+  setting:
+    # UI界面的显示语言
+    language: zh-CN
+    # 是否在页面底部显示Models模块
+    enable-swagger-models: true
+    # 是否开启页面顶部的搜索框
+    enable-search: true
+
+# GoPair自定义配置
+gopair:
+  jwt:
+    # JWT密钥，用于签名和验证令牌（HS512算法要求至少64字节）
+    secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
+    # JWT过期时间，单位：毫秒（24小时 = 24 * 60 * 60 * 1000）
+    expiration: 86400000

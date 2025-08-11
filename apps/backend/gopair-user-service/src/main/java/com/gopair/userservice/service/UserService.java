@@ -2,7 +2,6 @@ package com.gopair.userservice.service;
 
 import com.gopair.common.core.PageResult;
 import com.gopair.userservice.domain.dto.UserDto;
-import com.gopair.userservice.domain.po.User;
 import com.gopair.userservice.domain.vo.UserVO;
 
 /**
@@ -11,6 +10,14 @@ import com.gopair.userservice.domain.vo.UserVO;
  * @author gopair
  */
 public interface UserService {
+
+    /**
+     * 用户登录
+     *
+     * @param userDto 登录请求（包含用户名和密码）
+     * @return 用户信息和令牌
+     */
+    UserVO login(UserDto userDto);
 
     /**
      * 创建用户
