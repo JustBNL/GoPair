@@ -14,11 +14,8 @@ import org.springframework.context.annotation.ComponentScan;
 @AutoConfiguration
 @ComponentScan(basePackages = {
     "com.gopair.common.config",      // 配置类
-    "com.gopair.common.exception",   // 全局异常处理器
     "com.gopair.common.util"         // 工具类（如果有需要Bean化的）
 })
 public class GopairAutoConfiguration {
     
-    // Spring Boot会自动发现并应用此配置类
-    // 无需额外的Bean定义，ComponentScan会处理一切
 }

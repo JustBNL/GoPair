@@ -14,11 +14,23 @@
     <description>GoPair公共工具模块</description>
     
     <dependencies>
+        <!-- Spring Boot基础依赖 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+        
+        <!-- Jackson注解依赖 (用于BaseEntity的@JsonFormat) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
         </dependency>
         
         <!-- JWT 依赖 -->
@@ -37,12 +49,6 @@
             <scope>runtime</scope>
         </dependency>
         
-        <!-- Spring Boot Starter Web (用于R类等) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        
         <!-- Spring Security Crypto (仅用于密码编码，不引入Web安全) -->
         <dependency>
             <groupId>org.springframework.security</groupId>
@@ -53,18 +59,6 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-        </dependency>
-        
-        <!-- Knife4j (用于API文档配置) -->
-        <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-        </dependency>
-        
-        <!-- Validation (用于参数校验) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
     </dependencies>
     

@@ -59,18 +59,11 @@
 			<artifactId>jjwt-jackson</artifactId>
 		</dependency>
 		
-		<!-- GoPair Common 模块 -->
+		<!-- GoPair Common 模块 (已纯净化，无需exclusion) -->
 		<dependency>
 			<groupId>com.gopair</groupId>
 			<artifactId>gopair-common</artifactId>
 			<version>${project.version}</version>
-			<exclusions>
-				<!-- 排除MVC相关依赖，避免冲突 -->
-				<exclusion>
-					<groupId>org.springframework.boot</groupId>
-					<artifactId>spring-boot-starter-web</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 		
 		<!-- 测试依赖 -->

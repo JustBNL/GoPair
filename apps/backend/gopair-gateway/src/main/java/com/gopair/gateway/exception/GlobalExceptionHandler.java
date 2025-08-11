@@ -1,7 +1,7 @@
 package com.gopair.gateway.exception;
 
 import com.gopair.common.core.R;
-import com.gopair.common.exception.ExceptionResolver;
+import com.gopair.common.enums.impl.CommonErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.core.annotation.Order;
@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * 网关全局异常处理器 (Spring WebFlux)
  * 
- * 处理网关服务中的各种异常，直接使用ExceptionResolver处理
+ * 处理网关服务中的各种异常，直接构建错误响应
  * 
  * @author gopair
  */
@@ -44,14 +44,39 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         HttpStatus httpStatus = determineHttpStatus(ex);
         response.setStatusCode(httpStatus);
         
-        // 直接使用ExceptionResolver处理异常
-        R<Void> errorResponse = ExceptionResolver.resolve(ex);
+        // 构建错误响应
+        R<Void> errorResponse = buildErrorResponse(ex);
+        log.error("网关异常: {}", ex.getMessage(), ex);
 
-        // 构建响应体
-        String responseBody = errorResponse.toJson();
+        // 手动构建JSON响应
+        String responseBody = String.format(
+            "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
+            errorResponse.getCode(),
+            errorResponse.getMsg().replace("\"", "\\\"")
+        );
+        
         DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
-
         return response.writeWith(Flux.just(buffer));
+    }
+
+    /**
+     * 构建错误响应
+     */
+    private R<Void> buildErrorResponse(Throwable ex) {
+        if (ex instanceof ResponseStatusException) {
+            ResponseStatusException rse = (ResponseStatusException) ex;
+            return R.fail(CommonErrorCode.BUSINESS_ERROR, rse.getReason());
+        } else if (ex instanceof org.springframework.cloud.gateway.support.NotFoundException) {
+            return R.fail(CommonErrorCode.RESOURCE_NOT_FOUND, "服务未找到");
+        } else if (ex instanceof org.springframework.web.server.ServerWebInputException) {
+            return R.fail(CommonErrorCode.PARAM_ERROR, "请求参数错误");
+        } else if (ex instanceof java.net.ConnectException) {
+            return R.fail(CommonErrorCode.SERVICE_UNAVAILABLE, "服务不可用");
+        } else if (ex instanceof java.util.concurrent.TimeoutException) {
+            return R.fail(CommonErrorCode.SERVICE_UNAVAILABLE, "服务超时");
+        }
+        
+        return R.fail(CommonErrorCode.SYSTEM_ERROR, "系统内部错误");
     }
 
     /**

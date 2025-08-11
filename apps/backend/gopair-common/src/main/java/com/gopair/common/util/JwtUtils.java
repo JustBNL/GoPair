@@ -15,7 +15,6 @@ import java.util.function.Function;
  * JWT工具类
  * 
  * 用于生成和验证JWT令牌，提供令牌的创建、解析和验证功能
- * 重构为纯工具类，不依赖Spring容器，通过参数传递配置信息
  * 
  * @author gopair
  */
