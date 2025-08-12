@@ -3,7 +3,7 @@ package com.gopair.userservice.domain.po;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.gopair.common.entity.BaseEntity;
+import com.gopair.framework.entity.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

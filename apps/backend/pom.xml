@@ -18,6 +18,7 @@
 	<!-- 子模块声明 -->
 	<modules>
 		<module>gopair-common</module>
+		<module>gopair-framework-web</module>
 		<module>gopair-user-service</module>
 		<module>gopair-gateway</module>
 	</modules>

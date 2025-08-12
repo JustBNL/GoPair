@@ -1,4 +1,4 @@
-package com.gopair.common.entity;
+package com.gopair.framework.entity;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
