@@ -1,0 +1,48 @@
+# 测试环境配置
+spring:
+  # 测试数据源配置
+  datasource:
+    # 测试数据库连接URL
+    url: jdbc:mysql://localhost:3306/gopair_test?useSSL=false&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+    # 数据库用户名
+    username: root
+    # 数据库密码
+    password: 610692
+    # JDBC驱动类名
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# MyBatis Plus测试配置
+mybatis-plus:
+  # XML映射文件路径
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类包路径
+  type-aliases-package: com.gopair.userservice.domain.po
+  
+  # MyBatis Plus配置
+  configuration:
+    # 开启驼峰命名转换
+    map-underscore-to-camel-case: true
+    # 控制台SQL日志输出（测试时可以看到SQL）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  
+  # 全局策略配置
+  global-config:
+    db-config:
+      # ID生成类型，auto表示使用数据库的自增长
+      id-type: auto
+
+# 日志配置
+logging:
+  level:
+    # 设置用户服务包的日志级别
+    com.gopair.userservice: INFO
+    # 设置Spring事务日志级别，便于调试事务问题
+    org.springframework.transaction: DEBUG
+
+# GoPair自定义配置（继承主配置）
+gopair:
+  jwt:
+    # JWT密钥
+    secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
+    # JWT过期时间（测试环境可以设置较短时间）
+    expiration: 86400000 
