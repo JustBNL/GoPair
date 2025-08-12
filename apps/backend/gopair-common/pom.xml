@@ -27,12 +27,6 @@
             <optional>true</optional>
         </dependency>
         
-        <!-- Jackson注解依赖 (用于BaseEntity的@JsonFormat) -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-        </dependency>
-        
         <!-- JWT 依赖 -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -56,4 +50,4 @@
         </dependency>
     </dependencies>
     
-</project> 
+</project>

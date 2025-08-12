@@ -1,8 +1,8 @@
 package com.gopair.userservice.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.gopair.common.exception.UserException;
 import com.gopair.userservice.domain.dto.UserDto;
+import com.gopair.userservice.exception.UserException;
 import com.gopair.userservice.domain.po.User;
 import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.mapper.UserMapper;

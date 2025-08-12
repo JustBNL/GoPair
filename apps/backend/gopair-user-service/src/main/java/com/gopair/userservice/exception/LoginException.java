@@ -1,7 +1,7 @@
-package com.gopair.common.exception;
+package com.gopair.userservice.exception;
 
 import com.gopair.common.enums.ErrorCode;
-import lombok.Getter;
+import com.gopair.common.exception.BaseException;
 
 /**
  * 登录异常类
@@ -11,7 +11,6 @@ import lombok.Getter;
  *
  * @author gopair
  */
-@Getter
 public class LoginException extends BaseException {
 
     /**

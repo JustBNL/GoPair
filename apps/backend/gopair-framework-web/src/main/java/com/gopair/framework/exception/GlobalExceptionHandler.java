@@ -2,8 +2,6 @@ package com.gopair.framework.exception;
 
 import com.gopair.common.core.R;
 import com.gopair.common.exception.BaseException;
-import com.gopair.common.exception.LoginException;
-import com.gopair.common.exception.UserException;
 import com.gopair.common.enums.impl.CommonErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,27 +31,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BaseException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public R<Void> handleBaseException(BaseException e) {
-        log.error("业务异常: {}", e.getMessage(), e);
-        return R.fail(e.getErrorCode(), e.getMessage());
-    }
-
-    /**
-     * 处理登录异常
-     */
-    @ExceptionHandler(LoginException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public R<Void> handleLoginException(LoginException e) {
-        log.warn("登录异常: {}", e.getMessage());
-        return R.fail(e.getErrorCode(), e.getMessage());
-    }
-    
-    /**
-     * 处理用户服务异常
-     */
-    @ExceptionHandler(UserException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public R<Void> handleUserException(UserException e) {
-        log.error("用户服务异常: {}", e.getMessage(), e);
+        // 根据错误码类型设置不同的HTTP状态码
+        if (e.getErrorCode().getCode() >= 800 && e.getErrorCode().getCode() < 900) {
+            // 认证授权相关错误返回401
+            log.warn("认证异常: {}", e.getMessage());
+        } else {
+            log.error("业务异常: {}", e.getMessage(), e);
+        }
         return R.fail(e.getErrorCode(), e.getMessage());
     }
 
