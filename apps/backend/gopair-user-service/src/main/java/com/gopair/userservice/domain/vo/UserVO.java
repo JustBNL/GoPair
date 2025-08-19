@@ -18,9 +18,9 @@ public class UserVO {
     private Long userId;
 
     /**
-     * 用户账号
+     * 昵称
      */
-    private String username;
+    private String nickname;
 
     /**
      * 用户邮箱

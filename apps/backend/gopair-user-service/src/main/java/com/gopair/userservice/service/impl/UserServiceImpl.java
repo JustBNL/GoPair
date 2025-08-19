@@ -24,6 +24,8 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 
 /**
  * 用户服务实现类
@@ -44,22 +46,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
     
     /**
-     * 根据用户名查询用户
-     *
-     * @param username 用户名
-     * @return 用户实体
+     * 根据昵称查询用户
      */
-    private User getUserByUsername(String username) {
+    private User getUserByNickname(String nickname) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(User::getUsername, username);
+        queryWrapper.eq(User::getNickname, nickname);
         return userMapper.selectOne(queryWrapper);
     }
     
     /**
      * 根据邮箱查询用户
-     *
-     * @param email 邮箱
-     * @return 用户实体
      */
     private User getUserByEmail(String email) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
@@ -70,9 +66,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean createUser(UserDto userDto) {
-        // 检查用户名是否已存在
-        if (getUserByUsername(userDto.getUsername()) != null) {
-            throw new UserException(UserErrorCode.USERNAME_ALREADY_EXISTS);
+        // 检查昵称是否已存在
+        if (StringUtils.hasText(userDto.getNickname()) && getUserByNickname(userDto.getNickname()) != null) {
+            throw new UserException(UserErrorCode.NICKNAME_ALREADY_EXISTS);
         }
         
         // 检查邮箱是否已存在
@@ -80,39 +76,39 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
         
-        // 使用BeanCopyUtils转换为PO对象
+        // 转换为PO
         User user = BeanCopyUtils.copyBean(userDto, User.class);
         
-        // 设置默认值
+        // 默认状态
         if (user.getStatus() == null) {
-            user.setStatus('0'); // 默认正常状态
+            user.setStatus('0');
         }
         user.setCreateTime(LocalDateTime.now());
 
         // 密码加密
         user.setPassword(passwordUtils.encode(user.getPassword()));
         
-        // 插入数据库
+        // 插入
         return userMapper.insert(user) > 0;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateUser(UserDto userDto) {
-        // 检查用户是否存在
+        // 存在性
         if (userDto.getUserId() == null || userMapper.selectById(userDto.getUserId()) == null) {
             throw new UserException(UserErrorCode.USER_NOT_FOUND);
         }
         
-        // 检查用户名是否已被其他用户使用
-        if (StringUtils.hasText(userDto.getUsername())) {
-            User existingUser = getUserByUsername(userDto.getUsername());
+        // 昵称唯一
+        if (StringUtils.hasText(userDto.getNickname())) {
+            User existingUser = getUserByNickname(userDto.getNickname());
             if (existingUser != null && !existingUser.getUserId().equals(userDto.getUserId())) {
-                throw new UserException(UserErrorCode.USERNAME_ALREADY_EXISTS);
+                throw new UserException(UserErrorCode.NICKNAME_ALREADY_EXISTS);
             }
         }
         
-        // 检查邮箱是否已被其他用户使用
+        // 邮箱唯一
         if (StringUtils.hasText(userDto.getEmail())) {
             User existingUser = getUserByEmail(userDto.getEmail());
             if (existingUser != null && !existingUser.getUserId().equals(userDto.getUserId())) {
@@ -120,29 +116,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             }
         }
         
-        // 使用BeanCopyUtils转换为PO对象
         User user = BeanCopyUtils.copyBean(userDto, User.class);
-        
-        // 设置更新时间
         user.setUpdateTime(LocalDateTime.now());
-        
-        // 如果密码不为空，则加密
         if (StringUtils.hasText(user.getPassword())) {
             user.setPassword(passwordUtils.encode(user.getPassword()));
         }
-        
-        // 更新数据库
         return userMapper.updateById(user) > 0;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteUser(Long userId) {
-        // 检查用户是否存在
         if (userMapper.selectById(userId) == null) {
             throw new UserException(UserErrorCode.USER_NOT_FOUND);
         }
-        
         return userMapper.deleteById(userId) > 0;
     }
 
@@ -157,13 +144,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     @Override
     public PageResult<UserVO> getUserPage(UserDto userDto) {
-        // 创建分页对象
-        Page<User> page = new Page<>(userDto.getPageNum(), userDto.getPageSize());
-        
-        // 构建查询条件
+        // 使用 PageHelper 启动分页
+        PageHelper.startPage(userDto.getPageNum(), userDto.getPageSize());
+
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        if (StringUtils.hasText(userDto.getUsername())) {
-            queryWrapper.like(User::getUsername, userDto.getUsername());
+        if (StringUtils.hasText(userDto.getNickname())) {
+            queryWrapper.like(User::getNickname, userDto.getNickname());
         }
         if (StringUtils.hasText(userDto.getEmail())) {
             queryWrapper.like(User::getEmail, userDto.getEmail());
@@ -171,44 +157,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         if (userDto.getStatus() != null) {
             queryWrapper.eq(User::getStatus, userDto.getStatus());
         }
-        
-        // 执行分页查询
-        IPage<User> userPage = userMapper.selectPage(page, queryWrapper);
-        
-        // 转换为VO对象
-        List<UserVO> userVOList = BeanCopyUtils.copyBeanList(userPage.getRecords(), UserVO.class);
-        
-        // 返回分页结果
-        return new PageResult<>(userVOList, userPage.getTotal(), userPage.getCurrent(), userPage.getSize());
+
+        // PageHelper 会自动拦截下面的第一个 MyBatis 查询
+        List<User> userList = userMapper.selectList(queryWrapper);
+
+        // 将查询结果封装到 PageInfo 对象中，获取更详细的分页信息
+        PageInfo<User> pageInfo = new PageInfo<>(userList);
+
+        List<UserVO> userVOList = BeanCopyUtils.copyBeanList(pageInfo.getList(), UserVO.class);
+        return new PageResult<>(userVOList, pageInfo.getTotal(), (long) pageInfo.getPageNum(), (long) pageInfo.getPageSize());
     }
 
     @Override
     public UserVO login(UserDto userDto) {
-        // 验证参数
-        if (!StringUtils.hasText(userDto.getUsername()) || !StringUtils.hasText(userDto.getPassword())) {
+        // 登录：邮箱 + 密码
+        if (!StringUtils.hasText(userDto.getEmail()) || !StringUtils.hasText(userDto.getPassword())) {
             throw new LoginException(CommonErrorCode.PARAM_MISSING);
         }
-        
-        // 根据用户名查询用户
-        User user = getUserByUsername(userDto.getUsername());
+        User user = getUserByEmail(userDto.getEmail());
         if (user == null) {
             throw new LoginException(UserErrorCode.USER_NOT_FOUND);
         }
-        
-        // 验证密码
         if (!passwordUtils.matches(userDto.getPassword(), user.getPassword())) {
-            throw new LoginException(UserErrorCode.INVALID_CREDENTIALS);
+            throw new LoginException(UserErrorCode.PASSWORD_ERROR);
         }
-        
-        // 生成令牌
-        String token = JwtUtils.generateToken(user.getUsername(), user.getUserId().toString(), 
+        String token = JwtUtils.generateToken(user.getNickname(), user.getUserId().toString(), 
                 jwtConfig.getSecret(), jwtConfig.getExpiration());
-        
-        // 转换为VO对象
         UserVO userVO = BeanCopyUtils.copyBean(user, UserVO.class);
-        // 设置令牌
         userVO.setToken(token);
-        
         return userVO;
     }
 } 

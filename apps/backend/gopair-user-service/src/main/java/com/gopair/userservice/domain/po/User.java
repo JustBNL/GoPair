@@ -26,9 +26,9 @@ public class User extends BaseEntity {
     private Long userId;
 
     /**
-     * 用户账号
+     * 昵称
      */
-    private String username;
+    private String nickname;
 
     /**
      * 密码

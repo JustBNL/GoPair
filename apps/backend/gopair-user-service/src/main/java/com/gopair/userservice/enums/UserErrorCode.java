@@ -25,14 +25,14 @@ public enum UserErrorCode implements ErrorCode {
     USER_ALREADY_EXISTS(1001, MessageConstants.USER_ALREADY_EXISTS),
     
     /**
-     * 用户名已存在
-     */
-    USERNAME_ALREADY_EXISTS(1002, MessageConstants.USERNAME_ALREADY_EXISTS),
-    
-    /**
      * 邮箱已存在
      */
     EMAIL_ALREADY_EXISTS(1003, MessageConstants.EMAIL_ALREADY_EXISTS),
+
+    /**
+     * 昵称已存在
+     */
+    NICKNAME_ALREADY_EXISTS(1006, MessageConstants.NICKNAME_ALREADY_EXISTS),
     
     /**
      * 凭证无效
