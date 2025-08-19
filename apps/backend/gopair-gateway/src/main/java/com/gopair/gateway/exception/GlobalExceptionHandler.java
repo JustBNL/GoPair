@@ -1,3 +1,13 @@
+/*
+ * 网关全局异常处理器已被注释
+ * 
+ * 根据研究分析，该异常处理器实际调用概率极低（<5%），
+ * 因为大部分异常都在过滤器层被直接处理。
+ * 
+ * 如需重新启用，可以取消下面的注释。
+ */
+
+/*
 package com.gopair.gateway.exception;
 
 import com.gopair.common.core.R;
@@ -17,13 +27,6 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 
-/**
- * 网关全局异常处理器 (Spring WebFlux)
- * 
- * 处理网关服务中的各种异常，直接构建错误响应
- * 
- * @author gopair
- */
 @Slf4j
 @Order(-1)
 @Component("gatewayGlobalExceptionHandler")
@@ -59,9 +62,6 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         return response.writeWith(Flux.just(buffer));
     }
 
-    /**
-     * 构建错误响应
-     */
     private R<Void> buildErrorResponse(Throwable ex) {
         if (ex instanceof ResponseStatusException) {
             ResponseStatusException rse = (ResponseStatusException) ex;
@@ -79,9 +79,6 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         return R.fail(CommonErrorCode.SYSTEM_ERROR, "系统内部错误");
     }
 
-    /**
-     * 确定HTTP状态码
-     */
     private HttpStatus determineHttpStatus(Throwable ex) {
         if (ex instanceof ResponseStatusException) {
             return HttpStatus.valueOf(((ResponseStatusException) ex).getStatusCode().value());
@@ -97,4 +94,5 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }
-} 
+}
+*/ 

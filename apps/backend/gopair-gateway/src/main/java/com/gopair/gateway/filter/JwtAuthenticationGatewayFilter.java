@@ -2,6 +2,7 @@ package com.gopair.gateway.filter;
 
 import com.gopair.common.util.JwtUtils;
 import com.gopair.common.enums.impl.CommonErrorCode;
+import com.gopair.gateway.enums.GatewayErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -72,14 +73,14 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         String token = extractTokenFromCookie(request);
         if (!StringUtils.hasText(token)) {
             log.warn("未找到JWT令牌，路径: {}", path);
-            return handleAuthenticationFailure(exchange.getResponse(), "未找到认证令牌");
+            return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.TOKEN_NOT_FOUND.getMessage());
         }
         
         try {
             // 验证JWT令牌
             if (!JwtUtils.validateToken(token, jwtSecret)) {
                 log.warn("JWT令牌验证失败，路径: {}", path);
-                return handleAuthenticationFailure(exchange.getResponse(), "令牌验证失败");
+                return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.TOKEN_VALIDATION_FAILED.getMessage());
             }
             
             // 提取用户信息
@@ -88,7 +89,7 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
             
             if (!StringUtils.hasText(userId) || !StringUtils.hasText(username)) {
                 log.warn("无法从令牌中提取用户信息，路径: {}", path);
-                return handleAuthenticationFailure(exchange.getResponse(), "无效的用户信息");
+                return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.INVALID_USER_INFO.getMessage());
             }
             
             log.debug("认证成功，用户: {}, ID: {}, 路径: {}", username, userId, path);
@@ -103,7 +104,7 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
             
         } catch (Exception e) {
             log.error("JWT令牌处理异常，路径: {}", path, e);
-            return handleAuthenticationFailure(exchange.getResponse(), "认证处理异常");
+            return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.AUTH_PROCESSING_ERROR.getMessage());
         }
     }
     
@@ -140,6 +141,23 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
             "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
             CommonErrorCode.UNAUTHORIZED.getCode(),
             message
+        );
+        
+        DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
+        return response.writeWith(Mono.just(buffer));
+    }
+
+    /**
+     * 处理认证失败（支持错误码对象）
+     */
+    private Mono<Void> handleAuthenticationFailure(ServerHttpResponse response, GatewayErrorCode errorCode) {
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        
+        String responseBody = String.format(
+            "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
+            errorCode.getCode(),
+            errorCode.getMessage()
         );
         
         DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
