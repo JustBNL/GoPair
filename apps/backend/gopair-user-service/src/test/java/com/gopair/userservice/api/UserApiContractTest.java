@@ -6,6 +6,7 @@ import com.gopair.userservice.base.BaseIntegrationTest;
 import com.gopair.userservice.domain.dto.UserDto;
 import com.gopair.userservice.domain.vo.UserVO;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -17,8 +18,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.annotation.Rollback;
 
 import java.util.stream.Stream;
+import java.util.List;
+import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.*;
 import static com.gopair.common.constants.MessageConstants.*;
@@ -26,366 +30,360 @@ import com.gopair.userservice.enums.UserErrorCode;
 
 /**
  * 用户API契约测试
- * 
- * 专注验证API接口的输入输出契约，每个端点独立测试
- * 使用真实的HTTP调用和数据库，确保API契约正确性
- * 
- * @author gopair
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Transactional
 class UserApiContractTest extends BaseIntegrationTest {
 
-    // ==================== 用户注册API契约 ====================
-
-    @Test
-    @DisplayName("用户注册API - 成功场景")
-    void testUserRegistration_Success() {
-        // Given
-        UserDto userDto = createValidUser();
-
-        // When
-        ResponseEntity<R<Boolean>> response = callUserRegistration(userDto);
-
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().isSuccess()).isTrue();
-        assertThat(response.getBody().getData()).isTrue();
-    }
-
-    @Test
-    @DisplayName("用户注册API - 用户名重复失败")
-    void testUserRegistration_DuplicateUsername() {
-        // Given - 先注册一个用户
-        UserDto firstUser = createValidUser();
-        callUserRegistration(firstUser);
-
-        // When - 尝试注册相同用户名
-        UserDto duplicateUser = createValidUser();
-        duplicateUser.setUsername(firstUser.getUsername());
-        duplicateUser.setEmail("different@test.com");
-        ResponseEntity<R<Boolean>> response = callUserRegistration(duplicateUser);
-
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USERNAME_ALREADY_EXISTS.getCode());
-        assertThat(response.getBody().getMsg()).isEqualTo(USERNAME_ALREADY_EXISTS);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideInvalidRegistrationData")
-    @DisplayName("用户注册API - 无效输入边界测试")
-    void testUserRegistration_InvalidInput(UserDto invalidUser, String expectedError) {
-        // When
-        ResponseEntity<R<Boolean>> response = callUserRegistration(invalidUser);
-
-        // Then - 契约测试关注结果，不关心具体的HTTP状态码
-        if (response.getStatusCode() == HttpStatus.OK) {
-            assertThat(response.getBody().isSuccess()).isFalse();
-        } else {
-            // 非200状态码也说明API正确处理了无效输入
-            assertThat(response.getStatusCode()).isIn(HttpStatus.BAD_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    // ==================== 用户登录API契约 ====================
-
-    @Test
-    @DisplayName("用户登录API - 成功场景")
-    void testUserLogin_Success() {
-        // Given - 先注册用户
-        UserDto userDto = createValidUser();
-        callUserRegistration(userDto);
-
-        // When
-        ResponseEntity<R<UserVO>> response = callUserLogin(userDto.getUsername(), userDto.getPassword());
-
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().isSuccess()).isTrue();
-        
-        UserVO userVO = response.getBody().getData();
-        assertThat(userVO.getUsername()).isEqualTo(userDto.getUsername());
-        assertThat(userVO.getToken()).isNotBlank();
-        assertThat(userVO.getUserId()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("用户登录API - 用户不存在")
-    void testUserLogin_UserNotFound() {
-        // Given
-        String nonExistentUser = "nonexistent_" + System.currentTimeMillis();
-
-        // When
-        ResponseEntity<R<UserVO>> response = callUserLogin(nonExistentUser, "password");
-
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
-        assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("用户登录API - 密码错误")
-    void testUserLogin_InvalidPassword() {
-        // Given - 先注册用户
-        UserDto userDto = createValidUser();
-        callUserRegistration(userDto);
-
-        // When - 使用错误密码登录
-        ResponseEntity<R<UserVO>> response = callUserLogin(userDto.getUsername(), "wrongpassword");
-
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.INVALID_CREDENTIALS.getCode());
-        assertThat(response.getBody().getMsg()).isEqualTo(INVALID_CREDENTIALS);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideInvalidLoginData")
-    @DisplayName("用户登录API - 空参数边界测试")
-    void testUserLogin_NullParameters(String username, String password) {
-        // When
-        ResponseEntity<R<UserVO>> response = callUserLogin(username, password);
-
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getMsg()).containsAnyOf("缺少必要参数", "用户名或密码错误", "参数校验失败");
-    }
-
-    // ==================== 用户查询API契约 ====================
-
-    @Test
-    @DisplayName("用户查询API - 成功场景")
-    void testGetUser_Success() {
-        // Given - 先注册用户并获取ID
-        UserDto userDto = createValidUser();
-        callUserRegistration(userDto);
-        UserVO loginResult = callUserLogin(userDto.getUsername(), userDto.getPassword()).getBody().getData();
-
-        // When
-        ResponseEntity<R<UserVO>> response = callGetUser(loginResult.getUserId());
-
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().isSuccess()).isTrue();
-        assertThat(response.getBody().getData().getUsername()).isEqualTo(userDto.getUsername());
-    }
-
-    @Test
-    @DisplayName("用户查询API - 用户不存在")
-    void testGetUser_NotFound() {
-        // Given
-        Long nonExistentId = 999999L;
-
-        // When
-        ResponseEntity<R<UserVO>> response = callGetUser(nonExistentId);
-
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
-        assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideInvalidUserIds")
-    @DisplayName("用户查询API - 无效ID边界测试")
-    void testGetUser_InvalidId(Long invalidId) {
-        // When
-        ResponseEntity<R<UserVO>> response = callGetUser(invalidId);
-
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-    }
-
-    // ==================== 用户更新API契约 ====================
-
-    @Test
-    @DisplayName("用户更新API - 成功场景")
-    void testUserUpdate_Success() {
-        // Given - 先注册用户
-        UserDto userDto = createValidUser();
-        ResponseEntity<R<Boolean>> regResponse = callUserRegistration(userDto);
-        assertThat(regResponse.getBody().isSuccess()).isTrue();
-        
-        ResponseEntity<R<UserVO>> loginResponse = callUserLogin(userDto.getUsername(), userDto.getPassword());
-        assertThat(loginResponse.getBody().isSuccess()).isTrue();
-        UserVO loginResult = loginResponse.getBody().getData();
-        assertThat(loginResult.getUserId()).isNotNull();
-
-        // When - 更新用户信息（使用唯一的用户名和邮箱）
-        UserDto updateDto = new UserDto();
-        updateDto.setUserId(loginResult.getUserId());
-        updateDto.setUsername("updated_" + System.currentTimeMillis());
-        updateDto.setEmail("updated_" + System.currentTimeMillis() + "@example.com");
-        
-        ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
-
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().isSuccess()).isTrue();
-    }
-
-    @Test
-    @DisplayName("用户更新API - 用户不存在")
-    void testUserUpdate_UserNotFound() {
-        // Given
-        UserDto updateDto = new UserDto();
-        updateDto.setUserId(999999L);
-        updateDto.setUsername("nonexistent");
-
-        // When
-        ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
-
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
-        assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("用户更新API - 用户名冲突")
-    void testUserUpdate_DuplicateUsername() {
-        // Given - 先注册两个用户
-        UserDto user1 = createValidUser();
-        UserDto user2 = createValidUser();
-        
-        ResponseEntity<R<Boolean>> reg1 = callUserRegistration(user1);
-        ResponseEntity<R<Boolean>> reg2 = callUserRegistration(user2);
-        
-        // 确保至少第一个用户注册成功，第二个用户如果失败可能是重复用户名
-        assertThat(reg1.getBody().isSuccess()).isTrue();
-        
-        // 如果第二个用户注册失败，我们跳过这个测试，因为测试环境可能有数据冲突
-        if (!reg2.getBody().isSuccess()) {
-            return; // 跳过这个测试，因为环境数据冲突
-        }
-        
-        UserVO loginResult = callUserLogin(user2.getUsername(), user2.getPassword()).getBody().getData();
-
-        // When - 尝试将user2的用户名改为user1的用户名
-        UserDto updateDto = new UserDto();
-        updateDto.setUserId(loginResult.getUserId());
-        updateDto.setUsername(user1.getUsername()); // 使用user1已存在的用户名
-        
-        ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
-
-        // Then - 应该因为用户名冲突而失败，但如果API没有实现此检查，这个测试会失败
-        // 这里我们先验证API不会崩溃，然后检查是否有合理的错误处理
-        if (response.getBody().isSuccess()) {
-            // 如果更新成功，可能是API没有实现用户名唯一性检查，这是一个已知的API限制
+    @Nested
+    class RegistrationApiTests {
+        @Test
+        @DisplayName("用户注册API - 成功场景")
+        void testUserRegistration_Success() {
+            UserDto userDto = createValidUser();
+            ResponseEntity<R<Boolean>> response = callUserRegistration(userDto);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().isSuccess()).isTrue();
             assertThat(response.getBody().getData()).isTrue();
-        } else {
-            // 如果更新失败，验证错误码和消息
-            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USERNAME_ALREADY_EXISTS.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(USERNAME_ALREADY_EXISTS);
+        }
+
+        @Test
+        @DisplayName("用户注册API - 昵称重复失败")
+        void testUserRegistration_DuplicateUsername() {
+            UserDto firstUser = createValidUser();
+            callUserRegistration(firstUser);
+
+            UserDto duplicateUser = createValidUser();
+            duplicateUser.setNickname(firstUser.getNickname());
+            duplicateUser.setEmail("different@test.com");
+            ResponseEntity<R<Boolean>> response = callUserRegistration(duplicateUser);
+
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.NICKNAME_ALREADY_EXISTS.getCode());
+            assertThat(response.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS);
+        }
+
+        @Test
+        @DisplayName("用户注册API - 邮箱重复失败")
+        void testUserRegistration_DuplicateEmail() {
+            UserDto firstUser = createValidUser();
+            callUserRegistration(firstUser);
+
+            UserDto duplicate = createValidUser();
+            duplicate.setEmail(firstUser.getEmail());
+            // 使用更短的时间戳确保昵称不超过20个字符
+            long timestamp = System.currentTimeMillis() % 1000000;
+            duplicate.setNickname("another_" + timestamp);
+            ResponseEntity<R<Boolean>> response = callUserRegistration(duplicate);
+
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.EMAIL_ALREADY_EXISTS.getCode());
+            assertThat(response.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS);
+        }
+
+        @ParameterizedTest
+        @MethodSource("com.gopair.userservice.api.UserApiContractTest#provideInvalidRegistrationData")
+        @DisplayName("用户注册API - 无效输入边界测试")
+        void testUserRegistration_InvalidInput(UserDto invalidUser, String expectedError) {
+            ResponseEntity<R<Boolean>> response = callUserRegistration(invalidUser);
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getMsg()).containsAnyOf(
+                PARAM_MISSING, 
+                NICKNAME_LENGTH_ERROR, 
+                PASSWORD_LENGTH_ERROR, 
+                EMAIL_FORMAT_ERROR
+            );
         }
     }
 
-    // ==================== 用户删除API契约 ====================
+    @Nested
+    class LoginApiTests {
+        @Test
+        @DisplayName("用户登录API - 成功场景")
+        void testUserLogin_Success() {
+            UserDto userDto = createValidUser();
+            callUserRegistration(userDto);
+            ResponseEntity<R<UserVO>> response = callUserLogin(userDto.getEmail(), userDto.getPassword());
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().isSuccess()).isTrue();
+            UserVO userVO = response.getBody().getData();
+            assertThat(userVO.getNickname()).isEqualTo(userDto.getNickname());
+            assertThat(userVO.getToken()).isNotBlank();
+            assertThat(userVO.getUserId()).isNotNull();
+        }
 
-    @Test
-    @DisplayName("用户删除API - 成功场景")
-    void testUserDelete_Success() {
-        // Given - 先注册用户
-        UserDto userDto = createValidUser();
-        callUserRegistration(userDto);
-        UserVO loginResult = callUserLogin(userDto.getUsername(), userDto.getPassword()).getBody().getData();
+        @Test
+        @DisplayName("用户登录API - 用户不存在")
+        void testUserLogin_UserNotFound() {
+            String nonExistentEmail = "nonexist_" + System.currentTimeMillis() + "@example.com";
+            ResponseEntity<R<UserVO>> response = callUserLogin(nonExistentEmail, "password");
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+        }
 
-        // When
-        ResponseEntity<R<Boolean>> response = callUserDelete(loginResult.getUserId());
+        @Test
+        @DisplayName("用户登录API - 密码错误")
+        void testUserLogin_InvalidPassword() {
+            UserDto userDto = createValidUser();
+            callUserRegistration(userDto);
+            ResponseEntity<R<UserVO>> response = callUserLogin(userDto.getEmail(), "wrongpassword");
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.PASSWORD_ERROR.getCode());
+            assertThat(response.getBody().getMsg()).isEqualTo(PASSWORD_ERROR);
+        }
 
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().isSuccess()).isTrue();
-        
-        // 验证用户确实被删除
-        ResponseEntity<R<UserVO>> getResponse = callGetUser(loginResult.getUserId());
-        assertThat(getResponse.getBody().isSuccess()).isFalse();
+        @ParameterizedTest
+        @MethodSource("com.gopair.userservice.api.UserApiContractTest#provideInvalidLoginData")
+        @DisplayName("用户登录API - 空参数边界测试")
+        void testUserLogin_NullParameters(String email, String password) {
+            ResponseEntity<R<UserVO>> response = callUserLogin(email, password);
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getMsg()).isEqualTo(PARAM_MISSING);
+        }
     }
 
-    @Test
-    @DisplayName("用户删除API - 用户不存在")
-    void testUserDelete_NotFound() {
-        // Given
-        Long nonExistentId = 999999L;
+    @Nested
+    class QueryApiTests {
+        @Test
+        @DisplayName("用户查询API - 成功场景")
+        void testGetUser_Success() {
+            UserDto userDto = createValidUser();
+            callUserRegistration(userDto);
+            UserVO loginResult = callUserLogin(userDto.getEmail(), userDto.getPassword()).getBody().getData();
+            ResponseEntity<R<UserVO>> response = callGetUser(loginResult.getUserId());
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().isSuccess()).isTrue();
+            assertThat(response.getBody().getData().getNickname()).isEqualTo(userDto.getNickname());
+        }
 
-        // When
-        ResponseEntity<R<Boolean>> response = callUserDelete(nonExistentId);
+        @Test
+        @DisplayName("用户查询API - 用户不存在")
+        void testGetUser_NotFound() {
+            Long nonExistentId = 999999L;
+            ResponseEntity<R<UserVO>> response = callGetUser(nonExistentId);
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+        }
 
-        // Then
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
-        assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+        @ParameterizedTest
+        @MethodSource("com.gopair.userservice.api.UserApiContractTest#provideInvalidUserIds")
+        @DisplayName("用户查询API - 无效ID边界测试")
+        void testGetUser_InvalidId(Long invalidId) {
+            ResponseEntity<R<UserVO>> response = callGetUser(invalidId);
+            assertThat(response.getBody().isSuccess()).isFalse();
+        }
     }
 
-    // ==================== 分页查询API契约 ====================
+    @Nested
+    class UpdateApiTests {
+        @Test
+        @DisplayName("用户更新API - 成功场景")
+        void testUserUpdate_Success() {
+            UserDto userDto = createValidUser();
+            ResponseEntity<R<Boolean>> regResponse = callUserRegistration(userDto);
+            assertThat(regResponse.getBody().isSuccess()).isTrue();
+            ResponseEntity<R<UserVO>> loginResponse = callUserLogin(userDto.getEmail(), userDto.getPassword());
+            assertThat(loginResponse.getBody().isSuccess()).isTrue();
+            UserVO loginResult = loginResponse.getBody().getData();
+            assertThat(loginResult.getUserId()).isNotNull();
+            UserDto updateDto = new UserDto();
+            updateDto.setUserId(loginResult.getUserId());
+            updateDto.setNickname("updated_" + System.currentTimeMillis());
+            updateDto.setEmail("updated_" + System.currentTimeMillis() + "@example.com");
+            ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().isSuccess()).isTrue();
+            ResponseEntity<R<UserVO>> getResponse = callGetUser(loginResult.getUserId());
+            assertThat(getResponse.getBody().isSuccess()).isTrue();
+            assertThat(getResponse.getBody().getData().getNickname()).isEqualTo(updateDto.getNickname());
+            assertThat(getResponse.getBody().getData().getEmail()).isEqualTo(updateDto.getEmail());
+        }
 
-    @Test
-    @DisplayName("分页查询API - 成功场景")
-    void testUserPage_Success() {
-        // When - 调用分页查询API
-        ResponseEntity<R<PageResult<UserVO>>> response = callUserPage(1, 10);
+        @Test
+        @DisplayName("用户更新API - 用户不存在")
+        void testUserUpdate_UserNotFound() {
+            UserDto updateDto = new UserDto();
+            updateDto.setUserId(999999L);
+            updateDto.setNickname("nonexistent");
+            ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+        }
 
-        // Then - 验证API基本功能正常
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().isSuccess()).isTrue();
-        
-        PageResult<UserVO> pageResult = response.getBody().getData();
-        assertThat(pageResult).isNotNull();
-        assertThat(pageResult.getTotal()).isGreaterThanOrEqualTo(0); // 数据库中应有数据，但可能为0
-        // 验证分页查询基本功能正常，数据结构正确
-        if (!pageResult.getRecords().isEmpty()) {
+        @Test
+        @DisplayName("用户更新API - 昵称和邮箱冲突")
+        void testUserUpdate_DuplicateFields() {
+            // 创建并注册三个用户
+            UserDto user1 = createValidUser();
+            UserDto user2 = createValidUser();
+            UserDto user3 = createValidUser();
+            
+            ResponseEntity<R<Boolean>> reg1 = callUserRegistration(user1);
+            ResponseEntity<R<Boolean>> reg2 = callUserRegistration(user2);
+            ResponseEntity<R<Boolean>> reg3 = callUserRegistration(user3);
+            
+            assertThat(reg1.getBody().isSuccess()).isTrue();
+            if (!reg2.getBody().isSuccess() || !reg3.getBody().isSuccess()) {
+                return;
+            }
+            
+            UserVO loginResult = callUserLogin(user3.getEmail(), user3.getPassword()).getBody().getData();
+            
+            // 测试昵称冲突
+            UserDto nicknameUpdateDto = new UserDto();
+            nicknameUpdateDto.setUserId(loginResult.getUserId());
+            nicknameUpdateDto.setNickname(user1.getNickname());
+            ResponseEntity<R<Boolean>> nicknameResponse = callUserUpdate(nicknameUpdateDto);
+            if (nicknameResponse.getBody().isSuccess()) {
+                assertThat(nicknameResponse.getBody().getData()).isTrue();
+            } else {
+                assertThat(nicknameResponse.getBody().getCode()).isIn(
+                    UserErrorCode.NICKNAME_ALREADY_EXISTS.getCode()
+                );
+                assertThat(nicknameResponse.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS);
+            }
+            
+            // 测试邮箱冲突
+            UserDto emailUpdateDto = new UserDto();
+            emailUpdateDto.setUserId(loginResult.getUserId());
+            emailUpdateDto.setEmail(user2.getEmail());
+            ResponseEntity<R<Boolean>> emailResponse = callUserUpdate(emailUpdateDto);
+            if (emailResponse.getBody().isSuccess()) {
+                assertThat(emailResponse.getBody().getData()).isTrue();
+            } else {
+                assertThat(emailResponse.getBody().getCode()).isIn(
+                    UserErrorCode.EMAIL_ALREADY_EXISTS.getCode()
+                );
+                assertThat(emailResponse.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS);
+            }
+        }
+    }
+
+    @Nested
+    class DeleteApiTests {
+        @Test
+        @DisplayName("用户删除API - 成功场景")
+        void testUserDelete_Success() {
+            UserDto userDto = createValidUser();
+            callUserRegistration(userDto);
+            UserVO loginResult = callUserLogin(userDto.getEmail(), userDto.getPassword()).getBody().getData();
+            ResponseEntity<R<Boolean>> response = callUserDelete(loginResult.getUserId());
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().isSuccess()).isTrue();
+            assertThat(response.getBody().getData()).isTrue();
+            
+            // 删除后再次查询该用户，验证用户确实已被删除
+            ResponseEntity<R<UserVO>> getResponse = callGetUser(loginResult.getUserId());
+            assertThat(getResponse.getBody().isSuccess()).isFalse();
+            assertThat(getResponse.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(getResponse.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("用户删除API - 用户不存在")
+        void testUserDelete_NotFound() {
+            Long nonExistentId = 999999L;
+            ResponseEntity<R<Boolean>> response = callUserDelete(nonExistentId);
+            assertThat(response.getBody().isSuccess()).isFalse();
+            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @Rollback(false)
+    class PageApiTests {
+        @Test
+        @DisplayName("分页查询API - 成功场景")
+        void testUserPage_Success() {
+            // 插入15个用户用于测试分页功能
+            List<UserDto> testUsers = createAndRegisterMultipleUsers(15);
+            assertThat(testUsers).hasSize(15);
+            
+            // 查询第1页（10条记录）
+            ResponseEntity<R<PageResult<UserVO>>> response = callUserPage(1, 10);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().isSuccess()).isTrue();
+            
+            PageResult<UserVO> pageResult = response.getBody().getData();
+            assertThat(pageResult).isNotNull();
+            assertThat(pageResult.getTotal()).isGreaterThanOrEqualTo(15);
+            assertThat(pageResult.getRecords()).hasSize(10);
+            
+            // 验证返回的用户数据完整性
             UserVO firstUser = pageResult.getRecords().get(0);
             assertThat(firstUser.getUserId()).isNotNull();
-            assertThat(firstUser.getUsername()).isNotNull();
+            assertThat(firstUser.getNickname()).isNotNull();
+            assertThat(firstUser.getEmail()).isNotNull();
+            
+            // 查询第2页（剩余5条记录）
+            ResponseEntity<R<PageResult<UserVO>>> page2Response = callUserPage(2, 10);
+            assertThat(page2Response.getBody().isSuccess()).isTrue();
+            PageResult<UserVO> page2Result = page2Response.getBody().getData();
+            assertThat(page2Result.getTotal()).isGreaterThanOrEqualTo(15);
+            assertThat(page2Result.getRecords()).hasSize(5);
+        }
+
+        @Test
+        @DisplayName("分页查询API - 大页码处理")
+        void testUserPage_EmptyResult() {
+            ResponseEntity<R<PageResult<UserVO>>> response = callUserPage(999, 10);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().isSuccess()).isTrue();
+            PageResult<UserVO> pageResult = response.getBody().getData();
+            assertThat(pageResult).isNotNull();
+            assertThat(pageResult.getTotal()).isGreaterThanOrEqualTo(0);
+            if (pageResult.getRecords() != null) {
+                assertThat(pageResult.getRecords()).isNotNull();
+            }
+        }
+
+        @ParameterizedTest
+        @MethodSource("com.gopair.userservice.api.UserApiContractTest#provideBoundaryPageParameters")
+        @DisplayName("分页查询API - 边界参数测试")
+        void testUserPage_BoundaryParameters(int pageNum, int pageSize) {
+            ResponseEntity<R<PageResult<UserVO>>> response = callUserPage(pageNum, pageSize);
+            assertThat(response.getStatusCode()).isIn(HttpStatus.OK, HttpStatus.BAD_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                assertThat(response.getBody().getData()).isNotNull();
+            }
         }
     }
-
-    @Test
-    @DisplayName("分页查询API - 大页码处理")
-    void testUserPage_EmptyResult() {
-        // When - 查询一个足够大的页码
-        ResponseEntity<R<PageResult<UserVO>>> response = callUserPage(999, 10);
-
-        // Then - 验证API能正确处理大页码，不会崩溃
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().isSuccess()).isTrue();
-        
-        PageResult<UserVO> pageResult = response.getBody().getData();
-        assertThat(pageResult).isNotNull();
-        assertThat(pageResult.getTotal()).isGreaterThanOrEqualTo(0);
-        
-        // 大页码应该返回合理结果，不崩溃即可
-        if (pageResult.getRecords() != null) {
-            assertThat(pageResult.getRecords()).isNotNull();
-        }
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideBoundaryPageParameters")
-    @DisplayName("分页查询API - 边界参数测试")
-    void testUserPage_BoundaryParameters(int pageNum, int pageSize) {
-        // When
-        ResponseEntity<R<PageResult<UserVO>>> response = callUserPage(pageNum, pageSize);
-
-        // Then - 边界参数测试只验证系统不崩溃，结果可能是错误也可能有合理默认值
-        assertThat(response.getStatusCode()).isIn(HttpStatus.OK, HttpStatus.BAD_REQUEST, HttpStatus.INTERNAL_SERVER_ERROR);
-        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            // 如果返回成功，应该有合理的分页结果
-            assertThat(response.getBody().getData()).isNotNull();
-        }
-    }
-
-    // ==================== 私有辅助方法 ====================
 
     private UserDto createValidUser() {
         UserDto userDto = new UserDto();
-        userDto.setUsername("testuser_" + System.currentTimeMillis());
+        // 使用更短的时间戳（只取后6位数字）确保昵称不超过20个字符
+        long timestamp = System.currentTimeMillis() % 1000000;
+        userDto.setNickname("user_" + timestamp);
         userDto.setPassword("123456");
-        userDto.setEmail("test" + System.currentTimeMillis() + "@example.com");
+        userDto.setEmail("test" + timestamp + "@example.com");
         userDto.setStatus('0');
         return userDto;
+    }
+
+    private List<UserDto> createAndRegisterMultipleUsers(int count) {
+        List<UserDto> users = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            UserDto user = createValidUser();
+            // 添加额外的延迟确保时间戳不同
+            try {
+                Thread.sleep(2);  // 增加延迟确保唯一性
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            ResponseEntity<R<Boolean>> response = callUserRegistration(user);
+            if (response.getBody() != null && response.getBody().isSuccess()) {
+                users.add(user);
+            } else {
+                // 记录注册失败的情况，便于调试
+                System.err.println("用户注册失败 #" + i + ": " + 
+                    (response.getBody() != null ? response.getBody().getMsg() : "响应为空"));
+            }
+        }
+        System.out.println("成功创建用户数量: " + users.size() + "/" + count);
+        return users;
     }
 
     private ResponseEntity<R<Boolean>> callUserRegistration(UserDto userDto) {
@@ -397,11 +395,10 @@ class UserApiContractTest extends BaseIntegrationTest {
         );
     }
 
-    private ResponseEntity<R<UserVO>> callUserLogin(String username, String password) {
+    private ResponseEntity<R<UserVO>> callUserLogin(String email, String password) {
         UserDto loginDto = new UserDto();
-        loginDto.setUsername(username);
+        loginDto.setEmail(email);
         loginDto.setPassword(password);
-        
         return restTemplate.exchange(
             getUrl("/user/login"),
             HttpMethod.POST,
@@ -446,44 +443,54 @@ class UserApiContractTest extends BaseIntegrationTest {
         );
     }
 
-    // ==================== 测试数据提供者 ====================
-
-    private static Stream<Arguments> provideInvalidRegistrationData() {
+    static Stream<Arguments> provideInvalidRegistrationData() {
         return Stream.of(
-            Arguments.of(createUserWithUsername(""), "用户名"),
-            Arguments.of(createUserWithPassword(""), "密码"),
-            Arguments.of(createUserWithEmail("invalid-email"), "邮箱")
+            // 空值测试
+            Arguments.of(createUserWithNickname(""), "昵称为空"),
+            Arguments.of(createUserWithNickname(null), "昵称为null"),
+            Arguments.of(createUserWithPassword(""), "密码为空"),
+            Arguments.of(createUserWithPassword(null), "密码为null"),
+            Arguments.of(createUserWithEmail(""), "邮箱为空"),
+            Arguments.of(createUserWithEmail(null), "邮箱为null"),
+            
+            // 格式错误测试
+            Arguments.of(createUserWithEmail("invalid-email"), "邮箱格式错误"),
+            
+            // 长度边界测试
+            Arguments.of(createUserWithNickname("a".repeat(21)), "昵称过长(21字符)"),
+            Arguments.of(createUserWithPassword("12345"), "密码过短(5字符)"),
+            Arguments.of(createUserWithPassword("a".repeat(51)), "密码过长(51字符)")
         );
     }
 
-    private static Stream<Arguments> provideInvalidLoginData() {
+    static Stream<Arguments> provideInvalidLoginData() {
         return Stream.of(
             Arguments.of("", "password"),
-            Arguments.of("username", ""),
+            Arguments.of("email@example.com", ""),
             Arguments.of(null, "password"),
-            Arguments.of("username", null)
+            Arguments.of("email@example.com", null)
         );
     }
 
-    private static Stream<Arguments> provideInvalidUserIds() {
+    static Stream<Arguments> provideInvalidUserIds() {
         return Stream.of(
             Arguments.of(0L),
             Arguments.of(-1L)
         );
     }
 
-    private static Stream<Arguments> provideBoundaryPageParameters() {
+    static Stream<Arguments> provideBoundaryPageParameters() {
         return Stream.of(
-            Arguments.of(0, 10),      // 页码为0
-            Arguments.of(-1, 10),     // 负数页码
-            Arguments.of(1, 0),       // 页大小为0
-            Arguments.of(1, 1000)     // 超大页大小
+            Arguments.of(0, 10),
+            Arguments.of(-1, 10),
+            Arguments.of(1, 0),
+            Arguments.of(1, 1000)
         );
     }
 
-    private static UserDto createUserWithUsername(String username) {
+    private static UserDto createUserWithNickname(String nickname) {
         UserDto dto = new UserDto();
-        dto.setUsername(username);
+        dto.setNickname(nickname);
         dto.setPassword("123456");
         dto.setEmail("test@example.com");
         return dto;
@@ -491,7 +498,7 @@ class UserApiContractTest extends BaseIntegrationTest {
 
     private static UserDto createUserWithPassword(String password) {
         UserDto dto = new UserDto();
-        dto.setUsername("testuser");
+        dto.setNickname("testuser");
         dto.setPassword(password);
         dto.setEmail("test@example.com");
         return dto;
@@ -499,7 +506,7 @@ class UserApiContractTest extends BaseIntegrationTest {
 
     private static UserDto createUserWithEmail(String email) {
         UserDto dto = new UserDto();
-        dto.setUsername("testuser");
+        dto.setNickname("testuser");
         dto.setPassword("123456");
         dto.setEmail(email);
         return dto;
