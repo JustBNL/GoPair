@@ -35,8 +35,8 @@ public class MessageConstants {
     // 用户状态相关消息
     public static final String USER_NOT_FOUND = "用户不存在";
     public static final String USER_ALREADY_EXISTS = "用户已存在";
-    public static final String USERNAME_ALREADY_EXISTS = "用户名已存在";
     public static final String EMAIL_ALREADY_EXISTS = "邮箱已存在";
+    public static final String NICKNAME_ALREADY_EXISTS = "昵称已存在";
     
     // 用户操作结果消息
     public static final String USER_INFO_SUCCESS = "获取用户信息成功";
@@ -54,6 +54,13 @@ public class MessageConstants {
     public static final String PARAM_MISSING = "缺少必要参数";
     public static final String PARAM_TYPE_ERROR = "参数类型错误";
     public static final String PARAM_BIND_ERROR = "参数绑定错误";
+    
+    /**
+     * 字段验证相关消息
+     */
+    public static final String NICKNAME_LENGTH_ERROR = "昵称长度必须在1-20个字符之间";
+    public static final String PASSWORD_LENGTH_ERROR = "密码长度必须在6-50个字符之间";
+    public static final String EMAIL_FORMAT_ERROR = "请输入有效的邮箱地址";
     
     /**
      * 系统错误相关消息

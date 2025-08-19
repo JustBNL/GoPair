@@ -1,1 +1,2 @@
-com.gopair.framework.config.WebFrameworkAutoConfiguration 
+com.gopair.framework.config.WebFrameworkAutoConfiguration
+com.gopair.framework.web.context.UserContextWebConfiguration

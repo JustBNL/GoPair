@@ -21,11 +21,4 @@ import org.springframework.context.annotation.Configuration;
 })
 public class WebFrameworkAutoConfiguration {
     
-    // 这里可以添加条件Bean配置
-    // 例如：
-    // @Bean
-    // @ConditionalOnMissingBean
-    // public SomeFrameworkBean someFrameworkBean() {
-    //     return new SomeFrameworkBean();
-    // }
 } 
