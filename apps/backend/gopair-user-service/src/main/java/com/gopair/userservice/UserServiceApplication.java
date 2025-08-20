@@ -5,6 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import com.gopair.userservice.config.JwtConfig;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 /**
  * 用户服务启动类
@@ -14,6 +15,7 @@ import com.gopair.userservice.config.JwtConfig;
 @SpringBootApplication
 @MapperScan("com.gopair.userservice.mapper")
 @EnableConfigurationProperties(JwtConfig.class)
+@EnableDiscoveryClient
 public class UserServiceApplication {
 
     public static void main(String[] args) {

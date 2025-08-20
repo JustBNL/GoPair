@@ -27,6 +27,12 @@
             <artifactId>gopair-framework-web</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- Nacos Discovery -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
         
         <!-- MySQL -->
         <dependency>

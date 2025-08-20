@@ -1,20 +1,23 @@
 server:
-  port: 8081
+  port: 0
 
 spring:
   application:
     name: gateway-service
   cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
     gateway:
       routes:
         - id: user-service
-          uri: http://localhost:8080
+          uri: lb://user-service
           predicates:
             - Path=/api/v1/users/**
           filters:
             - StripPrefix=0
         - id: room-service
-          uri: http://localhost:8082
+          uri: lb://room-service
           predicates:
             - Path=/api/v1/rooms/**
           filters:

@@ -3,6 +3,11 @@ spring:
   application:
     # 应用名称，用于服务注册与发现
     name: user-service
+  cloud:
+    nacos:
+      discovery:
+        # Nacos Server地址
+        server-addr: 127.0.0.1:8848
   
   # 数据源配置
   datasource:
@@ -18,7 +23,7 @@ spring:
 # 服务器配置
 server:
   # 应用运行端口
-  port: 8080
+  port: 0
 
 # MyBatis Plus配置
 mybatis-plus:
