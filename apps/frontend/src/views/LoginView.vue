@@ -17,16 +17,6 @@
               <div class="logo-icon">🎮</div>
               <h1 class="brand-name">GoPair</h1>
             </div>
-            <div class="brand-features">
-              <div class="feature-item">
-                <span class="feature-icon">💬</span>
-                <span class="feature-text">实时聊天交流</span>
-              </div>
-              <div class="feature-item">
-                <span class="feature-icon">🕹️</span>
-                <span class="feature-text">多种游戏体验</span>
-              </div>
-            </div>
           </div>
 
           <!-- 登录表单区域 -->
@@ -92,7 +82,6 @@
   
   <style scoped>
 
-
 /* ==================== 基础布局样式 ==================== */
   
 /* 登录页面主容器：全屏布局，渐变背景，flex布局 */
@@ -113,12 +102,13 @@
   flex: 1;
   display: flex;
   align-items: center;
-  padding: 40px 20px;
+  padding: 50px 80px;
   position: relative;
   z-index: 1;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  min-height: 0;
 }
   
   /* ==================== 背景装饰效果 ==================== */
@@ -258,6 +248,7 @@
   padding: 48px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 480px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   
   /* 登录卡片进入动画 */
@@ -328,9 +319,9 @@
   }
 }
   
-/* ==================== 三段式响应式布局 ==================== */
+/* ==================== 两段式响应式布局 ==================== */
 
-/* 默认显示桌面端结构，隐藏移动端居中容器 */
+/* 默认显示宽屏布局结构，隐藏精简布局容器 */
 .mobile-center-container {
   display: none;
 }
@@ -341,102 +332,62 @@
   width: 100%;
 }
 
-/* 平板端适配（768px - 1023px）：继承桌面样式，适度调整 */
-@media (min-width: 768px) and (max-width: 1023px) {
+/* 精简布局适配：上下结构，适合竖屏或小面积设备 (当屏幕宽度小于 1024px 或 宽高比小于 6:5 )*/
+@media not ((min-aspect-ratio: 6/5) and (min-width: 1024px)) {
   .login-content {
     padding: 30px 20px;
   }
   
-  .brand-section {
-    padding-right: 40px;
-  }
-  
-  .brand-name {
-    font-size: 40px;
-  }
-  
-  .form-section {
-    flex: 0 0 460px;
-  }
-  
-  .form-card {
-    padding: 40px;
-  }
-}
-
-/* 移动端适配（767px以下）：垂直布局，精简内容 */
-@media (max-width: 767px) {
-  .login-content {
-    position: relative;
-    padding: 0;
-  }
-  
-  /* 隐藏桌面端结构 */
+  /* 隐藏宽屏布局容器 */
   .desktop-tablet-container {
     display: none;
   }
   
-  /* 移动端真正窗口居中容器 */
+  /* 显示精简布局容器：上下结构 */
   .mobile-center-container {
-    display: block;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
-    max-width: 400px;
-    padding: 0 16px;
-    text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
   }
   
   .brand-section {
     padding-right: 0;
-    margin-bottom: 32px;
+    margin-bottom: 40px;
+    text-align: center;
+    width: 100%;
   }
   
   .brand-logo {
     justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
   
   .logo-icon {
-    font-size: 32px;
+    font-size: 40px;
   }
   
   .brand-name {
-    font-size: 24px;
-  }
-  
-  .brand-slogan {
-    font-size: 16px;
-    margin-bottom: 0;
-  }
-  
-  /* 移动端隐藏特性列表 */
-  .brand-features {
-    display: none;
+    font-size: 32px;
   }
   
   .form-section {
     flex: 0 0 auto;
+    width: 100%;
+    max-width: 480px;
   }
   
   .form-card {
-    padding: 32px 24px;
-    max-width: 100%;
+    padding: 40px;
     width: 100%;
   }
   
   .page-footer {
-    font-size: 12px;
-    padding: 16px;
+    font-size: 14px;
+    padding: 20px;
   }
   
-  /* 移动端降低背景装饰干扰 */
-  .circle-1,
-  .circle-2,
-  .circle-3 {
-    opacity: 0.3;
-  }
 }
   </style> 
