@@ -355,7 +355,7 @@
   
   .brand-section {
     padding-right: 0;
-    margin-bottom: 40px;
+    margin-bottom: 4px;
     text-align: center;
     width: 100%;
   }
@@ -380,7 +380,7 @@
   }
   
   .form-card {
-    padding: 40px;
+    padding: 20px;
     width: 100%;
   }
   
