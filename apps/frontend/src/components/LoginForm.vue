@@ -1,3 +1,29 @@
+<!--
+/**
+ * LoginForm 登录表单组件
+ * 
+ * 功能特性：
+ * - 支持登录和注册两种模式，通过标签页切换
+ * - 实现两段式响应式布局，根据设备特性提供差异化体验
+ * - 集成 AuthStore 状态管理，支持记住邮箱等用户偏好
+ * - 完整的表单验证和错误处理
+ * 
+ * 两段式布局说明：
+ * - 丰富横屏模式：适用于宽屏设备(宽高比≥6:5且宽度≥1024px)，提供舒适的视觉体验
+ * - 精简竖屏模式：适用于窄屏设备，提供紧凑的布局和更大的触摸区域
+ * 
+ * 浏览器兼容性：
+ * - 支持现代浏览器的 aspect-ratio 媒体查询
+ * - 为不支持的浏览器提供传统断点降级方案
+ * 
+ * 依赖：Ant Design Vue, Vue 3, Pinia AuthStore
+ * 
+ * @author GoPair Frontend Team
+ * @version 2.0 - 两段式响应式布局版本
+ * @since 2025-01-14
+ */
+-->
+
 <template>
   <div class="login-form-container">
     <div class="form-header">
@@ -355,62 +381,81 @@ onMounted(() => {
   transform: translateY(-20px);
 }
 
-/* ==================== 响应式设计 - 平板端 ==================== */
+/* ==================== 两段式响应式布局 ==================== */
 
-/* 平板端样式：1024px以下设备的适配 */
-@media (max-width: 1024px) {
-  /* 表单容器：移除侧边距，全宽显示 */
+/* 丰富横屏模式：默认样式，适用于宽屏设备和横屏显示 */
+/* 
+ * 丰富模式特征：
+ * - 表单标题：28px，完整显示品牌信息
+ * - 标签页：16px，舒适的点击区域
+ * - 表单间距：标准间距，视觉舒适
+ */
+
+/* 精简竖屏模式：当不满足宽屏条件时 */
+@media not ((min-aspect-ratio: 6/5) and (min-width: 1024px)) {
+  /* 表单容器：紧凑布局，适配小屏 */
   .login-form-container {
     max-width: 100%;
     padding: 0;
   }
   
-  /* 平板端标题：适度缩小字体 */
+  /* 精简模式标题：减小字体，突出简洁性 */
   .form-title {
-    font-size: 26px;
+    font-size: 22px;
   }
   
-  /* 平板端副标题：适度缩小字体 */
-  .form-subtitle {
-    font-size: 15px;
-  }
-  
-  /* 平板端标签页：调整字体和内边距 */
-  .login-tabs :deep(.ant-tabs-tab) {
-    font-size: 15px;
-    padding: 12px 24px;
-  }
-}
-
-/* ==================== 响应式设计 - 手机端 ==================== */
-
-/* 手机端样式：768px以下设备的优化 */
-@media (max-width: 768px) {
-  /* 表单容器：移除内边距，适配小屏 */
-  .login-form-container {
-    max-width: 100%;
-    padding: 0;
-  }
-  
-  /* 手机端标题：进一步缩小字体 */
-  .form-title {
-    font-size: 24px;
-  }
-  
-  /* 手机端副标题：小字体，保持可读性 */
+  /* 精简模式副标题：保持可读性的小字体 */
   .form-subtitle {
     font-size: 14px;
   }
   
-  /* 手机端标签页：小字体，紧凑内边距，适合触摸 */
+  /* 精简模式标签页导航：紧凑间距 */
+  .login-tabs :deep(.ant-tabs-nav) {
+    margin-bottom: 24px;
+  }
+  
+  /* 精简模式标签页：小字体，紧凑内边距，适合触摸 */
   .login-tabs :deep(.ant-tabs-tab) {
     font-size: 14px;
     padding: 10px 20px;
   }
   
-  /* 手机端表单项：减少底部间距，紧凑布局 */
+  /* 精简模式表单项：减少底部间距，紧凑布局 */
   .login-tabs :deep(.ant-form-item) {
-    margin-bottom: 20px;
+    margin-bottom: 18px;
+  }
+}
+
+/* ==================== 浏览器兼容性和降级策略 ==================== */
+
+/* 对于不支持 aspect-ratio 的浏览器，提供传统断点降级 */
+@supports not (aspect-ratio: 1) {
+  @media (max-width: 1024px) {
+    .login-form-container {
+      max-width: 100%;
+      padding: 0;
+    }
+    
+    .form-title {
+      font-size: 22px;
+    }
+    
+    .form-subtitle {
+      font-size: 14px;
+    }
+    
+    .login-tabs :deep(.ant-tabs-nav) {
+      margin-bottom: 24px;
+    }
+    
+    .login-tabs :deep(.ant-tabs-tab) {
+      font-size: 14px;
+      padding: 10px 20px;
+    }
+    
+    .login-tabs :deep(.ant-form-item) {
+      margin-bottom: 18px;
+    }
   }
 }
 </style> 
