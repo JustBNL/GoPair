@@ -234,7 +234,7 @@
   
   /* 表单区域：右侧固定宽度，居中对齐 */
 .form-section {
-  flex: 0 0 520px;
+  flex: 0 0 560px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -335,7 +335,7 @@
 /* 精简布局适配：上下结构，适合竖屏或小面积设备 (当屏幕宽度小于 1024px 或 宽高比小于 6:5 )*/
 @media not ((min-aspect-ratio: 6/5) and (min-width: 1024px)) {
   .login-content {
-    padding: 30px 20px;
+    padding: 30px 30px;
   }
   
   /* 隐藏宽屏布局容器 */
@@ -349,13 +349,13 @@
     flex-direction: column;
     align-items: center;
     width: 100%;
-    max-width: 600px;
+    max-width: 400px;
     margin: 0 auto;
   }
   
   .brand-section {
     padding-right: 0;
-    margin-bottom: 4px;
+    margin-bottom: 24px;
     text-align: center;
     width: 100%;
   }
