@@ -364,10 +364,17 @@ onMounted(() => {
     max-width: 100%;
     padding: 0;
   }
+
+  /* 精简模式表头：减小边距 */
+  .form-header {
+    margin-bottom: 0px;
+    margin-top: 8px;
+  }
   
   /* 精简模式标题：减小字体，突出简洁性 */
   .form-title {
     font-size: 22px;
+    margin-bottom: 0px;
   }
   
   /* 精简模式副标题：保持可读性的小字体 */
@@ -388,7 +395,7 @@ onMounted(() => {
   
   /* 精简模式表单项：减少底部间距，紧凑布局 */
   .login-tabs :deep(.ant-form-item) {
-    margin-bottom: 18px;
-  }
+    margin-bottom: 12px;
+ }
 }
 </style> 
