@@ -8,7 +8,7 @@ import { TOKEN_KEY } from '@/types/auth'
  * 创建axios实例
  */
 const request: AxiosInstance = axios.create({
-  baseURL: '/api/v1/users',
+  baseURL: '/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json;charset=UTF-8'

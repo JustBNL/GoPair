@@ -22,7 +22,7 @@ spring:
 
 # 服务器配置
 server:
-  # 应用运行端口
+  # 自动配置
   port: 0
 
 # MyBatis Plus配置

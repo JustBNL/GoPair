@@ -29,7 +29,6 @@ public class GlobalExceptionHandler {
      * 处理基础异常
      */
     @ExceptionHandler(BaseException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
     public R<Void> handleBaseException(BaseException e) {
         // 根据错误码类型设置不同的HTTP状态码
         if (e.getErrorCode().getCode() >= 800 && e.getErrorCode().getCode() < 900) {

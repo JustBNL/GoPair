@@ -3,7 +3,7 @@
  */
 
 // API基础URL
-export const API_BASE_URL = '/api/v1/users'
+export const API_BASE_URL = ''
 
 // API端点
 export const API_ENDPOINTS = {

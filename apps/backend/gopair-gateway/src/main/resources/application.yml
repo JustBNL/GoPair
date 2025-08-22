@@ -1,5 +1,5 @@
 server:
-  port: 0
+  port: 8081
 
 spring:
   application:
@@ -13,13 +13,13 @@ spring:
         - id: user-service
           uri: lb://user-service
           predicates:
-            - Path=/api/v1/users/**
-          filters:
+            - Path=/user/**
+          filters:     
             - StripPrefix=0
         - id: room-service
           uri: lb://room-service
           predicates:
-            - Path=/api/v1/rooms/**
+            - Path=/room/**
           filters:
             - StripPrefix=0
       globalcors:
@@ -41,7 +41,7 @@ gopair:
     secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
     expiration: 86400000
   gateway:
-    skip-auth-paths: "/api/v1/users/login,/api/v1/users/register,/api/v1/health,/api/v1/rooms/join,/api/v1/rooms/code,/doc.html,/swagger-ui.html,/v3/api-docs"
+    skip-auth-paths: "/user/login,/user,/doc.html,/swagger-ui.html,/v3/api-docs"
 
 logging:
   level:
