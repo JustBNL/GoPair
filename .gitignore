@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### cursor ###
+/.cursorrules
+/.cursor
+/.tasks
+
+### temporary files ###
+/apps/backend/gopair-room-service/
