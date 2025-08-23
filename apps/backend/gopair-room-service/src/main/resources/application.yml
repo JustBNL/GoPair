@@ -1,0 +1,81 @@
+# 应用基本配置
+spring:
+  application:
+    # 应用名称，用于服务注册与发现
+    name: room-service
+  
+  # 数据源配置
+  datasource:
+    # MySQL数据库连接URL，包含编码和时区设置
+    url: jdbc:mysql://localhost:3306/gopair?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    # 数据库用户名
+    username: root
+    # 数据库密码
+    password: 610692
+    # JDBC驱动类名
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# 服务器配置
+server:
+  # 应用运行端口
+  port: 8082
+
+# MyBatis Plus配置
+mybatis-plus:
+  # XML映射文件路径，支持classpath*通配符搜索所有jar包
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类包路径，用于类型别名
+  type-aliases-package: com.gopair.roomservice.domain.po
+  
+  # MyBatis Plus全局配置
+  configuration:
+    # 开启驼峰命名转换，如：数据库字段room_code自动映射到实体类roomCode属性
+    map-underscore-to-camel-case: true
+    # SQL日志打印实现类，将SQL语句打印到控制台
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  
+  # 全局策略配置
+  global-config:
+    db-config:
+      # ID生成类型，auto表示使用数据库的自增长
+      id-type: auto
+
+# Knife4j配置
+knife4j:
+  # 全局开关
+  enable: true
+  # 是否为生产环境
+  production: false
+  # 基础UI设置
+  setting:
+    # UI界面的显示语言
+    language: zh-CN
+    # 是否在页面底部显示Models模块
+    enable-swagger-models: true
+    # 是否开启页面顶部的搜索框
+    enable-search: true
+
+# GoPair自定义配置
+gopair:
+  room:
+    # 房间默认最大成员数
+    default-max-members: 10
+    # 房间默认过期时间（小时）
+    default-expire-hours: 24
+    # 房间码长度
+    code-length: 8
+  
+  # 定时任务配置
+  schedule:
+    # 房间清理任务执行间隔（毫秒）
+    room-cleanup-interval: 900000  # 15分钟
+
+# 日志配置
+logging:
+  level:
+    com.gopair.roomservice: DEBUG
+    org.springframework.web: INFO
+    com.baomidou.mybatisplus: DEBUG
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss} - %msg%n'
+    file: '%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n' 

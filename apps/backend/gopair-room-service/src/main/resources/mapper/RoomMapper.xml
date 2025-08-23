@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gopair.roomservice.mapper.RoomMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.gopair.roomservice.domain.po.Room">
+        <id column="room_id" property="roomId" />
+        <result column="room_code" property="roomCode" />
+        <result column="room_name" property="roomName" />
+        <result column="description" property="description" />
+        <result column="max_members" property="maxMembers" />
+        <result column="current_members" property="currentMembers" />
+        <result column="owner_id" property="ownerId" />
+        <result column="owner_nickname" property="ownerNickname" />
+        <result column="status" property="status" />
+        <result column="expire_time" property="expireTime" />
+        <result column="allow_anonymous" property="allowAnonymous" />
+        <result column="version" property="version" />
+        <result column="create_by" property="createBy" />
+        <result column="create_time" property="createTime" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <!-- 基础字段 -->
+    <sql id="Base_Column_List">
+        room_id, room_code, room_name, description, max_members, current_members,
+        owner_id, owner_nickname, status, expire_time, allow_anonymous, version,
+        create_by, create_time, update_by, update_time
+    </sql>
+
+    <!-- 根据房间码查询房间 -->
+    <select id="selectByRoomCode" resultMap="BaseResultMap">
+        SELECT 
+            <include refid="Base_Column_List" />
+        FROM room 
+        WHERE room_code = #{roomCode}
+        AND status = 0
+    </select>
+
+    <!-- 查询过期房间列表 -->
+    <select id="selectExpiredRooms" resultMap="BaseResultMap">
+        SELECT 
+            <include refid="Base_Column_List" />
+        FROM room 
+        WHERE expire_time &lt; #{currentTime}
+        AND status = 0
+        ORDER BY expire_time ASC
+        LIMIT 100
+    </select>
+
+    <!-- 根据用户ID查询用户创建的房间列表 -->
+    <select id="selectRoomsByOwnerId" resultMap="BaseResultMap">
+        SELECT 
+            <include refid="Base_Column_List" />
+        FROM room 
+        WHERE owner_id = #{ownerId}
+        AND status = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 更新房间当前成员数 -->
+    <update id="updateCurrentMembers">
+        UPDATE room 
+        SET current_members = #{currentMembers},
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+        AND version = #{version}
+    </update>
+
+</mapper> 

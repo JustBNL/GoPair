@@ -26,6 +26,9 @@ export const useAuthStore = defineStore('auth', () => {
   // 用户偏好
   const rememberEmail = ref(false)
   const savedEmail = ref('')
+  
+  // 初始化状态锁
+  const isInitialized = ref(false)
 
   // ==================== 计算属性 ====================
   
@@ -42,16 +45,22 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function login(loginData: LoginRequest): Promise<void> {
     loginLoading.value = true
+    
     try {
       const response = await AuthAPI.login(loginData)
       
-      // 保存用户信息和token
-      user.value = response.data
-      token.value = response.data.token
+      // 确保响应数据完整
+      if (!response.data || !response.data.token) {
+        throw new Error('登录响应数据不完整')
+      }
       
-      // 持久化存储
-      Storage.setUser(response.data)
+      // 先持久化存储，再更新内存状态
       Storage.setToken(response.data.token)
+      Storage.setUser(response.data)
+      
+      // 然后更新内存状态
+      token.value = response.data.token
+      user.value = response.data
       
       // 处理记住邮箱
       if (rememberEmail.value) {
@@ -100,6 +109,9 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     token.value = null
     
+    // 重置初始化状态锁
+    isInitialized.value = false
+    
     // 清除存储
     Storage.clearAuth()
     
@@ -117,19 +129,41 @@ export const useAuthStore = defineStore('auth', () => {
    * 初始化认证状态
    */
   function initAuth(): void {
+    // 防止重复初始化
+    if (isInitialized.value) {
+      console.log('🔒 Auth already initialized, skipping')
+      return
+    }
+    
+    console.log('🔄 Starting auth initialization...')
+    
     // 从本地存储恢复状态
     const storedToken = Storage.getToken()
     const storedUser = Storage.getUser()
     const storedRemember = Storage.getRememberEmail()
     const storedEmail = Storage.getSavedEmail()
     
+    console.log('📦 Storage data:', {
+      hasToken: !!storedToken,
+      hasUser: !!storedUser,
+      remember: storedRemember,
+      savedEmail: storedEmail
+    })
+    
     if (storedToken && storedUser) {
       token.value = storedToken
       user.value = storedUser
+      console.log('✅ Auth state restored from storage')
+    } else {
+      console.log('ℹ️ No valid auth data in storage')
     }
     
     rememberEmail.value = storedRemember
     savedEmail.value = storedEmail
+    
+    // 标记为已初始化
+    isInitialized.value = true
+    console.log('🏁 Auth initialization complete')
   }
 
   /**
@@ -182,6 +216,7 @@ export const useAuthStore = defineStore('auth', () => {
     currentMode,
     rememberEmail,
     savedEmail,
+    isInitialized,
     
     // 计算属性
     isLoggedIn,

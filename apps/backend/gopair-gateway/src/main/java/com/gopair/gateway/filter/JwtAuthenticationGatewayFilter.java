@@ -48,6 +48,16 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
      * JWT令牌在Cookie中的名称
      */
     private static final String JWT_COOKIE_NAME = "token";
+    
+    /**
+     * Authorization请求头名称
+     */
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    
+    /**
+     * Bearer令牌前缀
+     */
+    private static final String BEARER_PREFIX = "Bearer ";
 
     /**
      * 传递给下游服务的用户ID头名称
@@ -72,12 +82,23 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        // 从Cookie中获取JWT令牌
-        String token = extractTokenFromCookie(request);
+        // 优先从Authorization请求头获取JWT令牌
+        String token = extractTokenFromHeader(request);
+        String tokenSource = "Authorization头";
+        
+        // 如果请求头中没有，再从Cookie中获取
+        if (!StringUtils.hasText(token)) {
+            token = extractTokenFromCookie(request);
+            tokenSource = "Cookie";
+        }
+        
+        // 两处都没有找到token
         if (!StringUtils.hasText(token)) {
             log.warn("未找到JWT令牌，路径: {}", path);
             return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.TOKEN_NOT_FOUND.getMessage());
         }
+
+        log.debug("从{}获取到令牌，路径: {}", tokenSource, path);
 
         try {
             // 验证JWT令牌
@@ -132,6 +153,20 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     private String extractTokenFromCookie(ServerHttpRequest request) {
         HttpCookie cookie = request.getCookies().getFirst(JWT_COOKIE_NAME);
         return cookie != null ? cookie.getValue() : null;
+    }
+    
+    /**
+     * 从Authorization请求头中提取JWT令牌
+     */
+    private String extractTokenFromHeader(ServerHttpRequest request) {
+        List<String> authHeaders = request.getHeaders().get(AUTHORIZATION_HEADER);
+        if (authHeaders != null && !authHeaders.isEmpty()) {
+            String authHeader = authHeaders.get(0);
+            if (StringUtils.hasText(authHeader) && authHeader.startsWith(BEARER_PREFIX)) {
+                return authHeader.substring(BEARER_PREFIX.length());
+            }
+        }
+        return null;
     }
 
     /**

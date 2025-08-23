@@ -64,21 +64,8 @@
   </template>
   
   <script setup lang="ts">
-  import { onMounted } from 'vue'
-  import { useRouter } from 'vue-router'
-  import LoginForm from '@/components/LoginForm.vue'
-  import { useAuthStore } from '@/stores/auth'
-  
-  const router = useRouter()
-  const authStore = useAuthStore()
-  
-  onMounted(() => {
-    // 如果已经登录，重定向到主页面
-    if (authStore.isLoggedIn) {
-      router.push('/')
-    }
-  })
-  </script>
+import LoginForm from '@/components/LoginForm.vue'
+</script>
   
   <style scoped>
 

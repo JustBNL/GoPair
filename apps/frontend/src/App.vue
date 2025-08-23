@@ -1,13 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-
-const authStore = useAuthStore()
-
-onMounted(() => {
-  // 应用初始化时初始化认证状态
-  authStore.initAuth()
-})
+// App.vue 保持纯容器角色，不处理认证逻辑
+// 认证状态初始化统一由路由守卫负责
 </script>
 
 <template>

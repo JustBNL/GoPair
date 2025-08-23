@@ -1,0 +1,56 @@
+# 测试环境配置
+spring:
+  application:
+    name: room-service-test
+  
+  # 使用H2内存数据库进行测试
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  # H2数据库配置
+  h2:
+    console:
+      enabled: true
+  
+  # JPA配置（用于自动创建表结构）
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+# 服务器配置
+server:
+  port: 0  # 随机端口
+
+# MyBatis Plus配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.gopair.roomservice.domain.po
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# 日志配置
+logging:
+  level:
+    com.gopair.roomservice: DEBUG
+    org.springframework.web: INFO
+    org.springframework.test: INFO
+    org.h2: INFO
+
+# 房间配置
+gopair:
+  room:
+    default-max-members: 5  # 测试用较小值
+    default-expire-hours: 1  # 测试用较短时间
+    code-length: 8
+  schedule:
+    room-cleanup-interval: 10000  # 测试用较短间隔
+    message-cleanup-interval: 10000
+    message-retain-days: 1 

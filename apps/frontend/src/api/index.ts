@@ -15,7 +15,16 @@ export const API_ENDPOINTS = {
   GET_USER: (userId: number) => `/user/${userId}`,
   UPDATE_USER: '/user',
   DELETE_USER: (userId: number) => `/user/${userId}`,
-  GET_USER_PAGE: '/user/page'
+  GET_USER_PAGE: '/user/page',
+  
+  // 房间管理
+  ROOM_CREATE: '/room',
+  ROOM_JOIN: '/room/join',
+  ROOM_LIST: '/room/my',
+  ROOM_BY_CODE: (code: string) => `/room/code/${code}`,
+  ROOM_MEMBERS: (roomId: number) => `/room/${roomId}/members`,
+  ROOM_LEAVE: (roomId: number) => `/room/${roomId}/leave`,
+  ROOM_CLOSE: (roomId: number) => `/room/${roomId}/close`
 } as const
 
 /**

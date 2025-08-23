@@ -123,6 +123,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, h } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
 import { 
@@ -135,6 +136,7 @@ import type { LoginFormData, RegisterFormData } from '@/types/auth'
 
 // ==================== 组件状态 ====================
 
+const router = useRouter()
 const authStore = useAuthStore()
 
 // 表单引用
@@ -206,17 +208,32 @@ function handleTabChange(key: string) {
  */
 async function handleLogin(values: LoginFormData) {
   try {
+    console.group('🔐 LOGIN PROCESS')
+    console.log('Login request:', { email: values.email })
+    
     await authStore.login({
       email: values.email,
       password: values.password
     })
     
+    console.log('✅ Login API success')
+    console.log('Auth state after login:', {
+      user: authStore.user?.nickname || null,
+      token: authStore.token ? '***' + authStore.token.slice(-6) : null,
+      isLoggedIn: authStore.isLoggedIn
+    })
+    
     // 处理记住邮箱
     authStore.setRememberEmail(values.remember || false, values.email)
     
-    // 登录成功后的跳转逻辑可以在路由守卫中处理
+    // 登录成功后直接跳转 - Vue Router官方推荐模式
+    console.log('🚀 Attempting navigation to /rooms')
+    router.push('/rooms')
+    console.log('✅ router.push(/rooms) called')
+    console.groupEnd()
   } catch (error) {
-    console.error('登录失败:', error)
+    console.error('❌ Login failed:', error)
+    console.groupEnd()
   }
 }
 
