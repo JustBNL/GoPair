@@ -3,9 +3,11 @@ package com.gopair.userservice.controller;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
 import com.gopair.userservice.domain.dto.UserDto;
-import com.gopair.userservice.domain.dto.validation.Create;
-import com.gopair.userservice.domain.dto.validation.Login;
+import com.gopair.userservice.domain.dto.auth.LoginRequest;
+import com.gopair.userservice.domain.dto.auth.RegisterRequest;
 import com.gopair.userservice.domain.vo.UserVO;
+import com.gopair.userservice.domain.vo.auth.LoginResponse;
+import com.gopair.userservice.domain.vo.auth.RegisterResponse;
 import com.gopair.userservice.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -40,21 +42,21 @@ public class UserController {
      */
     @Operation(summary = "用户登录", description = "用户登录并返回令牌")
     @PostMapping("/login")
-    public R<UserVO> login(
-            @Parameter(description = "登录信息(email, password)", required = true) 
-            @Validated(Login.class) @RequestBody UserDto userDto) {
-        return R.ok(userService.login(userDto));
+    public R<LoginResponse> login(
+            @Parameter(description = "登录信息", required = true) 
+            @Validated @RequestBody LoginRequest loginRequest) {
+        return R.ok(userService.login(loginRequest));
     }
 
     /**
-     * 创建用户（昵称 + 邮箱 + 密码）
+     * 用户注册（昵称 + 邮箱 + 密码）
      */
-    @Operation(summary = "创建用户", description = "创建新用户")
-    @PostMapping
-    public R<Boolean> createUser(
-            @Parameter(description = "用户信息(nickname, email, password)", required = true) 
-            @Validated(Create.class) @RequestBody UserDto userDto) {
-        return R.ok(userService.createUser(userDto));
+    @Operation(summary = "用户注册", description = "注册新用户")
+    @PostMapping("/register")
+    public R<RegisterResponse> register(
+            @Parameter(description = "注册信息", required = true) 
+            @Validated @RequestBody RegisterRequest registerRequest) {
+        return R.ok(userService.register(registerRequest));
     }
 
     /**

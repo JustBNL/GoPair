@@ -20,11 +20,6 @@ public enum UserErrorCode implements ErrorCode {
     USER_NOT_FOUND(1000, MessageConstants.USER_NOT_FOUND),
     
     /**
-     * 用户已存在
-     */
-    USER_ALREADY_EXISTS(1001, MessageConstants.USER_ALREADY_EXISTS),
-    
-    /**
      * 邮箱已存在
      */
     EMAIL_ALREADY_EXISTS(1003, MessageConstants.EMAIL_ALREADY_EXISTS),
@@ -33,11 +28,6 @@ public enum UserErrorCode implements ErrorCode {
      * 昵称已存在
      */
     NICKNAME_ALREADY_EXISTS(1006, MessageConstants.NICKNAME_ALREADY_EXISTS),
-    
-    /**
-     * 凭证无效
-     */
-    INVALID_CREDENTIALS(1004, MessageConstants.INVALID_CREDENTIALS),
     
     /**
      * 密码错误

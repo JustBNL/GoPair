@@ -1,4 +1,4 @@
-import type { UserInfo } from '@/types/api'
+import type { UserInfo, CurrentUser } from '@/types/api'
 import { TOKEN_KEY, USER_KEY, EMAIL_KEY, REMEMBER_KEY } from '@/types/auth'
 
 /**
@@ -29,14 +29,14 @@ export class Storage {
   /**
    * 设置用户信息
    */
-  static setUser(user: UserInfo): void {
+  static setUser(user: UserInfo | CurrentUser): void {
     localStorage.setItem(USER_KEY, JSON.stringify(user))
   }
 
   /**
    * 获取用户信息
    */
-  static getUser(): UserInfo | null {
+  static getUser(): CurrentUser | null {
     const userStr = localStorage.getItem(USER_KEY)
     if (userStr) {
       try {

@@ -25,8 +25,8 @@ public class UserContextHolder {
     public static void setContext(UserContext userContext) {
         if (userContext != null) {
             context.set(userContext);
-            log.debug("设置用户上下文: userId={}, username={}, requestId={}", 
-                     userContext.getUserId(), userContext.getUsername(), userContext.getRequestId());
+            log.debug("设置用户上下文: userId={}, nickname={}, requestId={}", 
+                     userContext.getUserId(), userContext.getNickname(), userContext.getRequestId());
         }
     }
 
@@ -50,13 +50,13 @@ public class UserContextHolder {
     }
 
     /**
-     * 获取当前用户名
+     * 获取当前昵称
      * 
-     * @return 用户名，如果用户上下文未设置则返回null
+     * @return 昵称，如果用户上下文未设置则返回null
      */
-    public static String getCurrentUsername() {
+    public static String getCurrentNickname() {
         UserContext ctx = getContext();
-        return ctx != null ? ctx.getUsername() : null;
+        return ctx != null ? ctx.getNickname() : null;
     }
 
     /**

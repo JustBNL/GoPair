@@ -26,7 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * JWT认证网关过滤器 (WebFlux版本)
+ * JWT认证网关过滤器
  *
  * 从Cookie中获取JWT令牌并进行验证，将用户信息传递给下游服务
  *
@@ -65,9 +65,9 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     private static final String USER_ID_HEADER = "X-User-Id";
 
     /**
-     * 传递给下游服务的用户名头名称
+     * 传递给下游服务的昵称头名称
      */
-    private static final String USERNAME_HEADER = "X-Username";
+    private static final String NICKNAME_HEADER = "X-Nickname";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -109,19 +109,19 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
             // 提取用户信息
             String userId = JwtUtils.getUserIdFromToken(token, jwtProperties.getSecret());
-            String username = JwtUtils.getUsernameFromToken(token, jwtProperties.getSecret());
+            String nickname = JwtUtils.getNicknameFromToken(token, jwtProperties.getSecret());
 
-            if (!StringUtils.hasText(userId) || !StringUtils.hasText(username)) {
+            if (!StringUtils.hasText(userId) || !StringUtils.hasText(nickname)) {
                 log.warn("无法从令牌中提取用户信息，路径: {}", path);
                 return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.INVALID_USER_INFO.getMessage());
             }
 
-            log.debug("认证成功，用户: {}, ID: {}, 路径: {}", username, userId, path);
+            log.debug("认证成功，用户: {}, ID: {}, 路径: {}", nickname, userId, path);
 
             // 将用户信息添加到请求头，传递给下游服务
             ServerHttpRequest modifiedRequest = request.mutate()
                     .header(USER_ID_HEADER, userId)
-                    .header(USERNAME_HEADER, username)
+                    .header(NICKNAME_HEADER, nickname)
                     .build();
 
             return chain.filter(exchange.mutate().request(modifiedRequest).build());

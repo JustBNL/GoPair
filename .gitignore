@@ -38,4 +38,4 @@ build/
 /.tasks
 
 ### temporary files ###
-/apps/backend/gopair-room-service/
+# /apps/backend/gopair-room-service/

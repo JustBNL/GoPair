@@ -30,13 +30,13 @@ public class UserInfoExtractor {
     }
 
     /**
-     * 获取当前用户名
+     * 获取当前昵称
      * 
-     * @return 用户名，如果用户未登录则返回默认值
+     * @return 昵称，如果用户未登录则返回默认值
      */
-    public static String getCurrentUsername() {
-        String username = UserContextHolder.getCurrentUsername();
-        return username != null ? username : "未知用户";
+    public static String getCurrentNickname() {
+        String nickname = UserContextHolder.getCurrentNickname();
+        return nickname != null ? nickname : "未知用户";
     }
 
     /**
@@ -60,9 +60,9 @@ public class UserInfoExtractor {
             return customDisplayName.trim();
         }
         
-        String username = getCurrentUsername();
-        if (!"未知用户".equals(username)) {
-            return username;
+        String nickname = getCurrentNickname();
+        if (!"未知用户".equals(nickname)) {
+            return nickname;
         }
         
         return "用户" + userId;
@@ -87,9 +87,9 @@ public class UserInfoExtractor {
      * @return 创建者信息字符串
      */
     public static String formatCreator(Long userId) {
-        String username = getCurrentUsername();
-        if (!"未知用户".equals(username)) {
-            return username + "(" + userId + ")";
+        String nickname = getCurrentNickname();
+        if (!"未知用户".equals(nickname)) {
+            return nickname + "(" + userId + ")";
         }
         return "用户" + userId;
     }

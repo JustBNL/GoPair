@@ -1,5 +1,5 @@
 import { http } from '@/utils/request'
-import type { ApiResponse, UserInfo, LoginRequest, RegisterRequest } from '@/types/api'
+import type { ApiResponse, UserInfo, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse } from '@/types/api'
 import { API_ENDPOINTS } from './index'
 
 /**
@@ -9,19 +9,19 @@ export class AuthAPI {
   /**
    * 用户登录
    * @param loginData 登录数据
-   * @returns 用户信息和token
+   * @returns 登录响应（用户ID、昵称和token）
    */
-  static async login(loginData: LoginRequest): Promise<ApiResponse<UserInfo>> {
-    return http.post<UserInfo>(API_ENDPOINTS.LOGIN, loginData)
+  static async login(loginData: LoginRequest): Promise<ApiResponse<LoginResponse>> {
+    return http.post<LoginResponse>(API_ENDPOINTS.LOGIN, loginData)
   }
 
   /**
    * 用户注册
    * @param registerData 注册数据
-   * @returns 注册结果
+   * @returns 注册响应（用户信息和成功消息）
    */
-  static async register(registerData: RegisterRequest): Promise<ApiResponse<boolean>> {
-    return http.post<boolean>(API_ENDPOINTS.REGISTER, registerData)
+  static async register(registerData: RegisterRequest): Promise<ApiResponse<RegisterResponse>> {
+    return http.post<RegisterResponse>(API_ENDPOINTS.REGISTER, registerData)
   }
 
   /**

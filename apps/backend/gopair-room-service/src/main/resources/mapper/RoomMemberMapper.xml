@@ -2,28 +2,6 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.gopair.roomservice.mapper.RoomMemberMapper">
 
-    <!-- 结果映射 -->
-    <resultMap id="BaseResultMap" type="com.gopair.roomservice.domain.po.RoomMember">
-        <id column="id" property="id" />
-        <result column="room_id" property="roomId" />
-        <result column="user_id" property="userId" />
-        <result column="display_name" property="displayName" />
-        <result column="role" property="role" />
-        <result column="status" property="status" />
-        <result column="join_time" property="joinTime" />
-        <result column="last_active_time" property="lastActiveTime" />
-        <result column="create_by" property="createBy" />
-        <result column="create_time" property="createTime" />
-        <result column="update_by" property="updateBy" />
-        <result column="update_time" property="updateTime" />
-    </resultMap>
-
-    <!-- 基础字段 -->
-    <sql id="Base_Column_List">
-        id, room_id, user_id, display_name, role, status,
-        join_time, last_active_time, create_by, create_time, update_by, update_time
-    </sql>
-
     <!-- 统计房间当前成员数量 -->
     <select id="countMembersByRoomId" resultType="int">
         SELECT COUNT(*)

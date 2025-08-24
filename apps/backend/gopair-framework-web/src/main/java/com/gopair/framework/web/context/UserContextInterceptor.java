@@ -26,9 +26,9 @@ public class UserContextInterceptor implements HandlerInterceptor {
     private static final String USER_ID_HEADER = "X-User-Id";
     
     /**
-     * 用户名头名称
+     * 昵称头名称
      */
-    private static final String USERNAME_HEADER = "X-Username";
+    private static final String NICKNAME_HEADER = "X-Nickname";
 
     /**
      * 请求处理前的预处理
@@ -45,18 +45,18 @@ public class UserContextInterceptor implements HandlerInterceptor {
         try {
             // 从HTTP头中提取用户信息
             String userIdStr = request.getHeader(USER_ID_HEADER);
-            String username = request.getHeader(USERNAME_HEADER);
+            String nickname = request.getHeader(NICKNAME_HEADER);
             
             if (StringUtils.hasText(userIdStr)) {
                 try {
                     Long userId = Long.parseLong(userIdStr);
                     
                     // 创建用户上下文并设置到ThreadLocal
-                    UserContext userContext = UserContext.of(userId, username);
+                    UserContext userContext = UserContext.of(userId, nickname);
                     UserContextHolder.setContext(userContext);
                     
-                    log.debug("用户上下文设置成功: userId={}, username={}, path={}", 
-                             userId, username, request.getRequestURI());
+                    log.debug("用户上下文设置成功: userId={}, nickname={}, path={}", 
+                             userId, nickname, request.getRequestURI());
                              
                 } catch (NumberFormatException e) {
                     log.warn("无效的用户ID格式: {}, path={}", userIdStr, request.getRequestURI());

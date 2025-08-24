@@ -2,8 +2,6 @@ package com.gopair.userservice.domain.dto;
 
 import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.entity.BaseQuery;
-import com.gopair.userservice.domain.dto.validation.Create;
-import com.gopair.userservice.domain.dto.validation.Login;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import jakarta.validation.constraints.Email;
@@ -27,22 +25,19 @@ public class UserDto extends BaseQuery {
     /**
      * 昵称
      */
-    @NotBlank(groups = {Create.class}, message = MessageConstants.PARAM_MISSING)
-    @Size(min = 1, max = 20, groups = {Create.class}, message = MessageConstants.NICKNAME_LENGTH_ERROR)
+    @Size(min = 1, max = 20, message = MessageConstants.NICKNAME_LENGTH_ERROR)
     private String nickname;
 
     /**
      * 密码
      */
-    @NotBlank(groups = {Create.class, Login.class}, message = MessageConstants.PARAM_MISSING)
-    @Size(min = 6, max = 50, groups = {Create.class}, message = MessageConstants.PASSWORD_LENGTH_ERROR)
+    @Size(min = 6, max = 50, message = MessageConstants.PASSWORD_LENGTH_ERROR)
     private String password;
 
     /**
      * 用户邮箱
      */
-    @NotBlank(groups = {Create.class, Login.class}, message = MessageConstants.PARAM_MISSING)
-    @Email(groups = {Create.class, Login.class}, message = MessageConstants.EMAIL_FORMAT_ERROR)
+    @Email(message = MessageConstants.EMAIL_FORMAT_ERROR)
     private String email;
 
     /**

@@ -8,7 +8,7 @@
           <h1 class="page-title">房间管理</h1>
         </div>
         <div class="user-section">
-          <span class="welcome-text">欢迎，{{ authStore.currentUserName }}</span>
+          <span class="welcome-text">欢迎，{{ authStore.currentNickname }}</span>
           <a-button type="text" @click="handleLogout" class="logout-btn">
             <LogoutOutlined />
             退出登录

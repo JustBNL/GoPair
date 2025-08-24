@@ -14,8 +14,12 @@ import com.gopair.common.util.JwtUtils;
 import com.gopair.userservice.util.PasswordUtils;
 import com.gopair.userservice.config.JwtConfig;
 import com.gopair.userservice.domain.dto.UserDto;
+import com.gopair.userservice.domain.dto.auth.LoginRequest;
+import com.gopair.userservice.domain.dto.auth.RegisterRequest;
 import com.gopair.userservice.domain.po.User;
 import com.gopair.userservice.domain.vo.UserVO;
+import com.gopair.userservice.domain.vo.auth.LoginResponse;
+import com.gopair.userservice.domain.vo.auth.RegisterResponse;
 import com.gopair.userservice.mapper.UserMapper;
 import com.gopair.userservice.service.UserService;
 import org.springframework.stereotype.Service;
@@ -65,19 +69,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean createUser(UserDto userDto) {
+    public RegisterResponse register(RegisterRequest registerRequest) {
         // 检查昵称是否已存在
-        if (StringUtils.hasText(userDto.getNickname()) && getUserByNickname(userDto.getNickname()) != null) {
+        if (StringUtils.hasText(registerRequest.getNickname()) && getUserByNickname(registerRequest.getNickname()) != null) {
             throw new UserException(UserErrorCode.NICKNAME_ALREADY_EXISTS);
         }
         
         // 检查邮箱是否已存在
-        if (StringUtils.hasText(userDto.getEmail()) && getUserByEmail(userDto.getEmail()) != null) {
+        if (StringUtils.hasText(registerRequest.getEmail()) && getUserByEmail(registerRequest.getEmail()) != null) {
             throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
         
         // 转换为PO
-        User user = BeanCopyUtils.copyBean(userDto, User.class);
+        User user = BeanCopyUtils.copyBean(registerRequest, User.class);
         
         // 默认状态
         if (user.getStatus() == null) {
@@ -89,7 +93,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         user.setPassword(passwordUtils.encode(user.getPassword()));
         
         // 插入
-        return userMapper.insert(user) > 0;
+        int result = userMapper.insert(user);
+        if (result > 0) {
+            RegisterResponse registerResponse = BeanCopyUtils.copyBean(user, RegisterResponse.class);
+            registerResponse.setMessage("注册成功");
+            return registerResponse;
+        } else {
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
     }
 
     @Override
@@ -169,22 +180,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     @Override
-    public UserVO login(UserDto userDto) {
+    public LoginResponse login(LoginRequest loginRequest) {
         // 登录：邮箱 + 密码
-        if (!StringUtils.hasText(userDto.getEmail()) || !StringUtils.hasText(userDto.getPassword())) {
+        if (!StringUtils.hasText(loginRequest.getEmail()) || !StringUtils.hasText(loginRequest.getPassword())) {
             throw new LoginException(CommonErrorCode.PARAM_MISSING);
         }
-        User user = getUserByEmail(userDto.getEmail());
+        User user = getUserByEmail(loginRequest.getEmail());
         if (user == null) {
             throw new LoginException(UserErrorCode.USER_NOT_FOUND);
         }
-        if (!passwordUtils.matches(userDto.getPassword(), user.getPassword())) {
+        if (!passwordUtils.matches(loginRequest.getPassword(), user.getPassword())) {
             throw new LoginException(UserErrorCode.PASSWORD_ERROR);
         }
         String token = JwtUtils.generateToken(user.getNickname(), user.getUserId().toString(), 
                 jwtConfig.getSecret(), jwtConfig.getExpiration());
-        UserVO userVO = BeanCopyUtils.copyBean(user, UserVO.class);
-        userVO.setToken(token);
-        return userVO;
+        LoginResponse loginResponse = new LoginResponse();
+        loginResponse.setUserId(user.getUserId());
+        loginResponse.setNickname(user.getNickname());
+        loginResponse.setToken(token);
+        return loginResponse;
     }
 } 

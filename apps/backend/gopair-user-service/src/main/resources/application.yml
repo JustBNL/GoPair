@@ -3,67 +3,20 @@ spring:
   application:
     # 应用名称，用于服务注册与发现
     name: user-service
-  cloud:
-    nacos:
-      discovery:
-        # Nacos Server地址
-        server-addr: 127.0.0.1:8848
-  
-  # 数据源配置
-  datasource:
-    # MySQL数据库连接URL，包含编码和时区设置
-    url: jdbc:mysql://localhost:3306/gopair?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    # 数据库用户名
-    username: root
-    # 数据库密码
-    password: 610692
-    # JDBC驱动类名
-    driver-class-name: com.mysql.cj.jdbc.Driver
+  profiles:
+    # 当前环境配置
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import:
+      - optional:nacos:gopair-platform.yml?group=DEFAULT_GROUP&refresh=true
+      - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
 
-# 服务器配置
-server:
-  # 自动配置
-  port: 0
-
-# MyBatis Plus配置
+# 仅保留服务特定的MyBatis Plus配置
 mybatis-plus:
-  # XML映射文件路径，支持classpath*通配符搜索所有jar包
-  mapper-locations: classpath*:/mapper/**/*.xml
   # 实体类包路径，用于类型别名
   type-aliases-package: com.gopair.userservice.domain.po
-  
-  # MyBatis Plus全局配置
-  configuration:
-    # 开启驼峰命名转换，如：数据库字段user_name自动映射到实体类userName属性
-    map-underscore-to-camel-case: true
-    # SQL日志打印实现类，将SQL语句打印到控制台
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  
-  # 全局策略配置
-  global-config:
-    db-config:
-      # ID生成类型，auto表示使用数据库的自增长
-      id-type: auto
 
-# Knife4j配置
-knife4j:
-  # 全局开关
-  enable: true
-  # 是否为生产环境
-  production: false
-  # 基础UI设置
-  setting:
-    # UI界面的显示语言
-    language: zh-CN
-    # 是否在页面底部显示Models模块
-    enable-swagger-models: true
-    # 是否开启页面顶部的搜索框
-    enable-search: true
-
-# GoPair自定义配置
-gopair:
-  jwt:
-    # JWT密钥，用于签名和验证令牌（HS512算法要求至少64字节）
-    secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
-    # JWT过期时间，单位：毫秒（24小时 = 24 * 60 * 60 * 1000）
-    expiration: 86400000
+# 应用特定日志配置
+logging:
+  level:
+    com.gopair.userservice: DEBUG

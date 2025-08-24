@@ -28,23 +28,18 @@ public enum CommonErrorCode implements ErrorCode {
      */
     BUSINESS_ERROR(600, MessageConstants.BUSINESS_ERROR),
     RESOURCE_NOT_FOUND(601, MessageConstants.RESOURCE_NOT_FOUND),
-    OPERATION_FAILED(602, MessageConstants.OPERATION_FAILED),
     
     /**
      * 参数校验错误
      */
     PARAM_ERROR(700, MessageConstants.PARAM_ERROR),
     PARAM_MISSING(701, MessageConstants.PARAM_MISSING),
-    PARAM_TYPE_ERROR(702, MessageConstants.PARAM_TYPE_ERROR),
-    PARAM_BIND_ERROR(703, MessageConstants.PARAM_BIND_ERROR),
     
     /**
      * 授权认证错误
      */
     UNAUTHORIZED(800, MessageConstants.UNAUTHORIZED),
-    TOKEN_EXPIRED(801, MessageConstants.TOKEN_EXPIRED),
-    TOKEN_INVALID(802, MessageConstants.TOKEN_INVALID),
-    ACCESS_DENIED(803, MessageConstants.ACCESS_DENIED);
+    NO_PERMISSION(803, MessageConstants.NO_PERMISSION);
 
     /**
      * 错误码

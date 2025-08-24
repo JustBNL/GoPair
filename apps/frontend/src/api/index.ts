@@ -9,7 +9,7 @@ export const API_BASE_URL = ''
 export const API_ENDPOINTS = {
   // 用户认证
   LOGIN: '/user/login',
-  REGISTER: '/user',
+  REGISTER: '/user/register',
   
   // 用户管理
   GET_USER: (userId: number) => `/user/${userId}`,

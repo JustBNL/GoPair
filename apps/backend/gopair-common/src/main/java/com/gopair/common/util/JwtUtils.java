@@ -21,13 +21,13 @@ import java.util.function.Function;
 public class JwtUtils {
 
     /**
-     * 从令牌中获取用户名
+     * 从令牌中获取昵称
      * 
      * @param token JWT令牌
      * @param secret 密钥
-     * @return 用户名
+     * @return 昵称
      */
-    public static String getUsernameFromToken(String token, String secret) {
+    public static String getNicknameFromToken(String token, String secret) {
         return getClaimFromToken(token, Claims::getSubject, secret);
     }
 
@@ -96,36 +96,36 @@ public class JwtUtils {
     /**
      * 生成令牌
      * 
-     * @param username 用户名
+     * @param nickname 昵称
      * @param secret 密钥
      * @param expiration 过期时间（毫秒）
      * @return JWT令牌
      */
-    public static String generateToken(String username, String secret, long expiration) {
+    public static String generateToken(String nickname, String secret, long expiration) {
         Map<String, Object> claims = new HashMap<>();
-        return doGenerateToken(claims, username, secret, expiration);
+        return doGenerateToken(claims, nickname, secret, expiration);
     }
 
     /**
      * 生成令牌并包含用户ID
      * 
-     * @param username 用户名
+     * @param nickname 昵称
      * @param userId 用户ID
      * @param secret 密钥
      * @param expiration 过期时间（毫秒）
      * @return JWT令牌
      */
-    public static String generateToken(String username, String userId, String secret, long expiration) {
+    public static String generateToken(String nickname, String userId, String secret, long expiration) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
-        return doGenerateToken(claims, username, secret, expiration);
+        return doGenerateToken(claims, nickname, secret, expiration);
     }
 
     /**
      * 生成令牌的核心方法
      * 
      * @param claims 声明信息
-     * @param subject 主题（通常是用户名）
+     * @param subject 主题（通常是昵称）
      * @param secret 密钥
      * @param expiration 过期时间（毫秒）
      * @return JWT令牌
@@ -175,12 +175,12 @@ public class JwtUtils {
      * 验证令牌
      * 
      * @param token JWT令牌
-     * @param username 用户名
+     * @param nickname 昵称
      * @param secret 密钥
      * @return 如果令牌有效则返回true，否则返回false
      */
-    public static Boolean validateToken(String token, String username, String secret) {
-        final String tokenUsername = getUsernameFromToken(token, secret);
-        return (username.equals(tokenUsername) && !isTokenExpired(token, secret));
+    public static Boolean validateToken(String token, String nickname, String secret) {
+        final String tokenNickname = getNicknameFromToken(token, secret);
+        return (nickname.equals(tokenNickname) && !isTokenExpired(token, secret));
     }
 } 

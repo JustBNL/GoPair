@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { message } from 'ant-design-vue'
-import type { UserInfo, LoginRequest, RegisterRequest } from '@/types/api'
+import type { UserInfo, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse, CurrentUser } from '@/types/api'
 import type { FormMode } from '@/types/auth'
 import { AuthAPI } from '@/api/auth'
 import { Storage } from '@/utils/storage'
@@ -13,7 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   // ==================== 状态定义 ====================
   
   // 用户信息
-  const user = ref<UserInfo | null>(null)
+  const user = ref<CurrentUser | null>(null)
   const token = ref<string | null>(null)
   
   // 加载状态
@@ -36,7 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!(token.value && user.value))
   
   // 当前用户昵称
-  const currentUserName = computed(() => user.value?.nickname || '用户')
+  const currentNickname = computed(() => user.value?.nickname || '用户')
 
   // ==================== 操作方法 ====================
   
@@ -54,13 +54,20 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('登录响应数据不完整')
       }
       
+      // 创建当前用户对象
+      const currentUser: CurrentUser = {
+        userId: response.data.userId,
+        nickname: response.data.nickname,
+        token: response.data.token
+      }
+      
       // 先持久化存储，再更新内存状态
       Storage.setToken(response.data.token)
-      Storage.setUser(response.data)
+      Storage.setUser(currentUser)
       
       // 然后更新内存状态
       token.value = response.data.token
-      user.value = response.data
+      user.value = currentUser
       
       // 处理记住邮箱
       if (rememberEmail.value) {
@@ -88,7 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await AuthAPI.register(registerData)
       
-      message.success('注册成功，请使用新账号登录')
+      message.success('注册成功')
       
       // 注册成功后切换到登录模式，并填充邮箱
       currentMode.value = 'login'
@@ -195,8 +202,14 @@ export const useAuthStore = defineStore('auth', () => {
     if (user.value?.userId) {
       try {
         const response = await AuthAPI.getCurrentUser(user.value.userId)
-        user.value = response.data
-        Storage.setUser(response.data)
+        // 将完整的UserInfo转换为CurrentUser，保留当前token
+        const updatedUser: CurrentUser = {
+          userId: response.data.userId,
+          nickname: response.data.nickname,
+          token: user.value.token
+        }
+        user.value = updatedUser
+        Storage.setUser(updatedUser)
       } catch (error) {
         console.error('刷新用户信息失败:', error)
         // 如果刷新失败，可能是token过期，执行登出
@@ -220,7 +233,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     // 计算属性
     isLoggedIn,
-    currentUserName,
+    currentNickname,
     
     // 方法
     login,

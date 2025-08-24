@@ -2,7 +2,11 @@ package com.gopair.userservice.service;
 
 import com.gopair.common.core.PageResult;
 import com.gopair.userservice.domain.dto.UserDto;
+import com.gopair.userservice.domain.dto.auth.LoginRequest;
+import com.gopair.userservice.domain.dto.auth.RegisterRequest;
 import com.gopair.userservice.domain.vo.UserVO;
+import com.gopair.userservice.domain.vo.auth.LoginResponse;
+import com.gopair.userservice.domain.vo.auth.RegisterResponse;
 
 /**
  * 用户服务接口
@@ -14,18 +18,18 @@ public interface UserService {
     /**
      * 用户登录
      *
-     * @param userDto 登录请求（包含用户名和密码）
+     * @param loginRequest 登录请求（包含邮箱和密码）
      * @return 用户信息和令牌
      */
-    UserVO login(UserDto userDto);
+    LoginResponse login(LoginRequest loginRequest);
 
     /**
-     * 创建用户
+     * 用户注册
      *
-     * @param userDto 用户DTO
-     * @return 创建结果
+     * @param registerRequest 注册请求
+     * @return 注册结果
      */
-    boolean createUser(UserDto userDto);
+    RegisterResponse register(RegisterRequest registerRequest);
     
     /**
      * 更新用户信息

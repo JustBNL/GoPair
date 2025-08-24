@@ -40,6 +40,35 @@ export interface RegisterRequest {
 }
 
 /**
+ * 登录响应接口
+ */
+export interface LoginResponse {
+  userId: number
+  nickname: string
+  token: string
+}
+
+/**
+ * 注册响应接口
+ */
+export interface RegisterResponse {
+  userId: number
+  nickname: string
+  email: string
+  createTime: string
+  message: string
+}
+
+/**
+ * 当前用户状态接口（用于前端状态管理）
+ */
+export interface CurrentUser {
+  userId: number
+  nickname: string
+  token: string
+}
+
+/**
  * 分页查询基础参数
  */
 export interface BaseQuery {

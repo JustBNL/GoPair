@@ -66,8 +66,10 @@ public class Room extends BaseEntity {
     private LocalDateTime expireTime;
 
     /**
-     * 乐观锁版本
+     * 乐观锁版本（预留字段）
+     * 
+     * 当前未启用乐观锁机制，如需启用请添加@Version注解
+     * 配置的乐观锁拦截器已就绪，可随时激活使用
      */
-    @Version
     private Integer version;
 } 

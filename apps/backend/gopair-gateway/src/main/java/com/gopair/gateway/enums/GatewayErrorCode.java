@@ -1,5 +1,6 @@
 package com.gopair.gateway.enums;
 
+import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.enums.ErrorCode;
 
 /**
@@ -15,10 +16,10 @@ public enum GatewayErrorCode implements ErrorCode {
     /**
      * 认证相关错误码
      */
-    TOKEN_NOT_FOUND(8001, "未找到认证令牌"),
-    TOKEN_VALIDATION_FAILED(8002, "令牌验证失败"),
-    INVALID_USER_INFO(8003, "无效的用户信息"),
-    AUTH_PROCESSING_ERROR(8004, "认证处理异常");
+    TOKEN_NOT_FOUND(8001, MessageConstants.TOKEN_NOT_FOUND),
+    TOKEN_VALIDATION_FAILED(8002, MessageConstants.TOKEN_VALIDATION_FAILED),
+    INVALID_USER_INFO(8003, MessageConstants.INVALID_USER_INFO),
+    AUTH_PROCESSING_ERROR(8004, MessageConstants.AUTH_PROCESSING_ERROR);
 
     /**
      * 错误码

@@ -23,9 +23,9 @@ public class UserContext {
     private Long userId;
 
     /**
-     * 用户名
+     * 昵称
      */
-    private String username;
+    private String nickname;
 
     /**
      * 请求时间
@@ -41,13 +41,13 @@ public class UserContext {
      * 创建用户上下文对象
      * 
      * @param userId 用户ID
-     * @param username 用户名
+     * @param nickname 昵称
      * @return 用户上下文对象
      */
-    public static UserContext of(Long userId, String username) {
+    public static UserContext of(Long userId, String nickname) {
         return UserContext.builder()
                 .userId(userId)
-                .username(username)
+                .nickname(nickname)
                 .requestTime(LocalDateTime.now())
                 .requestId(UUID.randomUUID().toString().replace("-", ""))
                 .build();
