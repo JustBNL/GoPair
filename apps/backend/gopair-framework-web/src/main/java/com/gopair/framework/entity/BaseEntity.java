@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 /**
  * 实体类基类
  * 
- * 所有持久化对象的基类，包含通用的审计字段
+ * 所有持久化对象的基类，包含通用的时间审计字段
  * 
  * @author gopair
  */
@@ -21,23 +21,11 @@ public class BaseEntity implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 创建者
-     */
-    @TableField(fill = FieldFill.INSERT)
-    private String createBy;
-
-    /**
      * 创建时间
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
-
-    /**
-     * 更新者
-     */
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private String updateBy;
 
     /**
      * 更新时间
