@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.entity.BaseQuery;
-import com.gopair.common.enums.impl.CommonErrorCode;
+
 import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
@@ -54,7 +54,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         }
         
         if (userId == null) {
-            throw new RoomException(CommonErrorCode.NO_PERMISSION, MessageConstants.USER_NOT_LOGGED_IN);
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
 
         // 创建房间实体
@@ -81,7 +81,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 保存房间
         if (roomMapper.insert(room) <= 0) {
-            throw new RoomException(RoomErrorCode.ROOM_CODE_GENERATION_FAILED, MessageConstants.ROOM_CREATION_FAILED);
+            throw new RoomException(RoomErrorCode.ROOM_CREATION_FAILED);
         }
 
         // 创建者自动加入房间（房主角色）
@@ -103,11 +103,11 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         }
         
         if (userId == null) {
-            throw new RoomException(CommonErrorCode.NO_PERMISSION, MessageConstants.USER_NOT_LOGGED_IN);
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
         
         if (!StringUtils.hasText(joinRoomDto.getDisplayName())) {
-            throw new RoomException(RoomErrorCode.NICKNAME_EMPTY, MessageConstants.DISPLAY_NAME_EMPTY);
+            throw new RoomException(RoomErrorCode.NICKNAME_EMPTY);
         }
 
         // 查找房间
@@ -118,7 +118,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 检查房间状态
         if (room.getStatus() != 0) {
-            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND, MessageConstants.ROOM_CLOSED);
+            throw new RoomException(RoomErrorCode.ROOM_CLOSED);
         }
 
         // 检查房间是否过期
@@ -143,7 +143,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         int updateRows = roomMapper.updateCurrentMembers(room.getRoomId(), 
             room.getCurrentMembers() + 1, room.getVersion());
         if (updateRows == 0) {
-            throw new RoomException(RoomErrorCode.ROOM_FULL, MessageConstants.ROOM_STATE_CHANGED);
+            throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
         }
 
         // 重新查询房间信息
@@ -159,7 +159,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     @Transactional(rollbackFor = Exception.class)
     public boolean leaveRoom(Long roomId, Long userId) {
         if (userId == null) {
-            throw new RoomException(CommonErrorCode.NO_PERMISSION, MessageConstants.USER_NOT_LOGGED_IN);
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
         
         // 检查是否在房间中
@@ -208,7 +208,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     @Override
     public PageResult<RoomVO> getUserRooms(Long userId, BaseQuery query) {
         if (userId == null) {
-            throw new RoomException(CommonErrorCode.NO_PERMISSION, MessageConstants.USER_NOT_LOGGED_IN);
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
 
         // 查询用户创建的房间
@@ -228,7 +228,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     @Transactional(rollbackFor = Exception.class)
     public boolean closeRoom(Long roomId, Long userId) {
         if (userId == null) {
-            throw new RoomException(CommonErrorCode.NO_PERMISSION, MessageConstants.USER_NOT_LOGGED_IN);
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
         
         Room room = roomMapper.selectById(roomId);
@@ -238,7 +238,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 检查权限（只有房主可以关闭房间）
         if (!room.getOwnerId().equals(userId)) {
-            throw new RoomException(CommonErrorCode.NO_PERMISSION);
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
 
         // 关闭房间
@@ -256,7 +256,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     @Override
     public List<RoomMemberVO> getRoomMembers(Long roomId) {
         if (roomId == null) {
-            throw new RoomException(CommonErrorCode.NO_PERMISSION, MessageConstants.USER_NOT_LOGGED_IN);
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
         
         return roomMemberService.getRoomMembers(roomId);

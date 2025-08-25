@@ -1,17 +1,17 @@
 package com.gopair.common.enums.impl;
 
-import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.enums.ErrorCode;
 
 /**
  * 通用系统错误码枚举类
  *
  * 实现ErrorCode接口，定义系统通用的错误码和错误信息。
- * 错误码规则：
- * - 系统级错误：500-599
- * - 业务级错误：600-699
- * - 参数校验错误：700-799
- * - 授权认证错误：800-899
+ * 错误码规则：采用5位数字格式 A-BB-CCC
+ * - A: 错误级别 (1=系统级通用错误)
+ * - BB: 服务标识 (00=通用)
+ * - CCC: 具体错误序号，从000开始连续递增
+ * 
+ * 系统级通用错误范围：10000-10999
  *
  * @author gopair
  */
@@ -20,26 +20,25 @@ public enum CommonErrorCode implements ErrorCode {
     /**
      * 系统级错误
      */
-    SYSTEM_ERROR(500, MessageConstants.SYSTEM_ERROR),
-    SERVICE_UNAVAILABLE(503, MessageConstants.SERVICE_UNAVAILABLE),
-    
-    /**
-     * 业务级错误
-     */
-    BUSINESS_ERROR(600, MessageConstants.BUSINESS_ERROR),
-    RESOURCE_NOT_FOUND(601, MessageConstants.RESOURCE_NOT_FOUND),
+    SYSTEM_ERROR(10000, "系统内部错误"),
+    SERVICE_UNAVAILABLE(10001, "服务不可用"),
     
     /**
      * 参数校验错误
      */
-    PARAM_ERROR(700, MessageConstants.PARAM_ERROR),
-    PARAM_MISSING(701, MessageConstants.PARAM_MISSING),
+    PARAM_ERROR(10002, "参数错误"),
+    PARAM_MISSING(10003, "缺少必要参数"),
     
     /**
      * 授权认证错误
      */
-    UNAUTHORIZED(800, MessageConstants.UNAUTHORIZED),
-    NO_PERMISSION(803, MessageConstants.NO_PERMISSION);
+    UNAUTHORIZED(10004, "未授权访问"),
+    
+    /**
+     * 业务级错误
+     */
+    BUSINESS_ERROR(10005, "业务处理异常"),
+    RESOURCE_NOT_FOUND(10006, "请求资源不存在");
 
     /**
      * 错误码

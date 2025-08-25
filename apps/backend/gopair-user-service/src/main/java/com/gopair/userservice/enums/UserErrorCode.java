@@ -1,14 +1,17 @@
 package com.gopair.userservice.enums;
 
-import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.enums.ErrorCode;
 
 /**
  * 用户服务错误码枚举类
  *
  * 实现ErrorCode接口，定义用户服务特有的错误码和错误信息。
- * 用户服务错误码规则：
- * - 用户错误码: 1000-1099
+ * 错误码规则：采用5位数字格式 A-BB-CCC
+ * - A: 错误级别 (2=业务级错误)
+ * - BB: 服务标识 (01=用户服务)
+ * - CCC: 具体错误序号，从000开始连续递增
+ * 
+ * 用户服务错误码范围：20100-20199
  *
  * @author gopair
  */
@@ -17,22 +20,22 @@ public enum UserErrorCode implements ErrorCode {
     /**
      * 用户不存在
      */
-    USER_NOT_FOUND(1000, MessageConstants.USER_NOT_FOUND),
+    USER_NOT_FOUND(20100, "用户不存在"),
     
     /**
      * 邮箱已存在
      */
-    EMAIL_ALREADY_EXISTS(1003, MessageConstants.EMAIL_ALREADY_EXISTS),
+    EMAIL_ALREADY_EXISTS(20101, "邮箱已存在"),
 
-    /**
-     * 昵称已存在
-     */
-    NICKNAME_ALREADY_EXISTS(1006, MessageConstants.NICKNAME_ALREADY_EXISTS),
-    
     /**
      * 密码错误
      */
-    PASSWORD_ERROR(1005, MessageConstants.PASSWORD_ERROR);
+    PASSWORD_ERROR(20102, "密码错误"),
+    
+    /**
+     * 昵称已存在
+     */
+    NICKNAME_ALREADY_EXISTS(20103, "昵称已存在");
 
     /**
      * 错误码

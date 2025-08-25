@@ -24,6 +24,36 @@ spring:
             - Path=/room/**
           filters:
             - StripPrefix=0
+        - id: message-service
+          uri: lb://message-service
+          predicates:
+            - Path=/message/**
+          filters:
+            - StripPrefix=0
+        - id: message-websocket
+          uri: lb://message-service
+          predicates:
+            - Path=/ws/message/**
+          filters:
+            - StripPrefix=0
+        - id: file-relay-service
+          uri: lb://file-relay-service
+          predicates:
+            - Path=/file/**
+          filters:
+            - StripPrefix=0
+        - id: voice-service
+          uri: lb://voice-service
+          predicates:
+            - Path=/voice/**
+          filters:
+            - StripPrefix=0
+        - id: voice-websocket
+          uri: lb://voice-service
+          predicates:
+            - Path=/ws/voice/**
+          filters:
+            - StripPrefix=0
       globalcors:
         corsConfigurations:
           '[/**]':
