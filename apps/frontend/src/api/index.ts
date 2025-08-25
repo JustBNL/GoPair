@@ -24,7 +24,46 @@ export const API_ENDPOINTS = {
   ROOM_BY_CODE: (code: string) => `/room/code/${code}`,
   ROOM_MEMBERS: (roomId: number) => `/room/${roomId}/members`,
   ROOM_LEAVE: (roomId: number) => `/room/${roomId}/leave`,
-  ROOM_CLOSE: (roomId: number) => `/room/${roomId}/close`
+  ROOM_CLOSE: (roomId: number) => `/room/${roomId}/close`,
+  
+  // 消息管理
+  MESSAGE_SEND: '/message/send',
+  MESSAGE_ROOM_LIST: (roomId: number) => `/message/room/${roomId}`,
+  MESSAGE_LATEST: (roomId: number) => `/message/room/${roomId}/latest`,
+  MESSAGE_GET: (messageId: number) => `/message/${messageId}`,
+  MESSAGE_DELETE: (messageId: number) => `/message/${messageId}`,
+  MESSAGE_COUNT: (roomId: number) => `/message/room/${roomId}/count`,
+  
+  // 文件管理
+  FILE_UPLOAD: '/file/upload',
+  FILE_ROOM_LIST: (roomId: number) => `/file/room/${roomId}`,
+  FILE_INFO: (fileId: number) => `/file/${fileId}`,
+  FILE_DOWNLOAD: (fileId: number) => `/file/${fileId}/download`,
+  FILE_PREVIEW: (fileId: number) => `/file/${fileId}/preview`,
+  FILE_DELETE: (fileId: number) => `/file/${fileId}`,
+  FILE_STATS: (roomId: number) => `/file/room/${roomId}/stats`,
+  FILE_CLEANUP: (roomId: number) => `/file/room/${roomId}/cleanup`,
+  
+  // 语音通话
+  VOICE_INITIATE: '/voice/initiate',
+  VOICE_JOIN: (callId: number) => `/voice/join/${callId}`,
+  VOICE_LEAVE: (callId: number) => `/voice/leave/${callId}`,
+  VOICE_END: (callId: number) => `/voice/end/${callId}`,
+  VOICE_GET: (callId: number) => `/voice/${callId}`,
+  VOICE_ROOM_ACTIVE: (roomId: number) => `/voice/room/${roomId}/active`,
+  VOICE_ROOM_HISTORY: (roomId: number) => `/voice/room/${roomId}/history`,
+  VOICE_PARTICIPANTS: (callId: number) => `/voice/${callId}/participants`,
+  VOICE_PARTICIPANT_STATUS: (callId: number, userId: number) => `/voice/${callId}/participants/${userId}/status`,
+  VOICE_PERMISSION: (callId: number) => `/voice/permission/${callId}`,
+  VOICE_CLEANUP: '/voice/cleanup'
+} as const
+
+// WebSocket端点
+export const WS_ENDPOINTS = {
+  MESSAGE: '/ws/message',
+  MESSAGE_RAW: '/ws/message/raw',
+  SIGNALING: '/ws/signaling',
+  SIGNALING_RAW: '/ws/signaling/raw'
 } as const
 
 /**

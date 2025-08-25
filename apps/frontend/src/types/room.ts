@@ -48,6 +48,9 @@ export interface RoomMember {
   nickname: string
   joinTime: string
   isOwner: boolean
+  status?: 'online' | 'offline' | 'away'
+  role?: 'owner' | 'member'
+  lastActiveTime?: string
 }
 
 /**

@@ -40,7 +40,22 @@
             <h3>成员信息</h3>
           </div>
           <div class="card-content">
-            <div class="member-count">
+            <!-- 成员信息加载状态 -->
+            <div v-if="serviceStates.members.loading" class="card-loading">
+              <a-spin size="small" />
+              <span>加载中...</span>
+            </div>
+            
+            <!-- 成员信息加载失败 -->
+            <div v-else-if="serviceStates.members.error" class="card-error">
+              <span class="error-text">{{ serviceStates.members.error }}</span>
+              <a-button type="link" size="small" @click="retryService('members')">
+                重试
+              </a-button>
+            </div>
+            
+            <!-- 正常的成员信息 -->
+            <div v-else class="member-count">
               {{ currentRoom.currentMembers }} / {{ currentRoom.maxMembers }} 人
             </div>
           </div>
@@ -70,15 +85,263 @@
             </div>
           </div>
         </div>
+
+        <!-- 新增通话状态卡片 -->
+        <div class="info-card" :class="{ 'active-call': callState !== 'idle' }">
+          <div class="card-header">
+            <PhoneOutlined class="card-icon" />
+            <h3>语音状态</h3>
+          </div>
+          <div class="card-content">
+            <div class="call-status">
+              <span :class="['status-indicator', callState]"></span>
+              {{ callStateText }}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- 功能扩展区域 -->
-      <div class="feature-placeholder">
-        <div class="placeholder-content">
-          <div class="placeholder-icon">🚧</div>
-          <h3>功能开发中</h3>
-          <p>房间协作功能正在开发中，敬请期待...</p>
-        </div>
+      <!-- 通讯功能区域 -->
+      <div class="communication-section">
+        <a-tabs 
+          v-model:activeKey="activeTab" 
+          type="card" 
+          class="communication-tabs"
+          :tab-bar-style="{ background: '#fafafa', margin: 0 }"
+        >
+          <!-- 聊天标签页 -->
+          <a-tab-pane key="chat" class="tab-pane">
+            <template #tab>
+              <span class="tab-title">
+                <MessageOutlined />
+                聊天
+                <a-badge v-if="unreadCount > 0" :count="unreadCount" class="tab-badge" />
+              </span>
+            </template>
+            <div class="chat-container">
+              <div class="chat-content">
+                <!-- 消息加载状态 -->
+                <div v-if="serviceStates.messages.loading" class="service-loading">
+                  <a-spin size="large" />
+                  <p>加载消息中...</p>
+                </div>
+                
+                <!-- 消息加载失败 -->
+                <div v-else-if="serviceStates.messages.error" class="service-error">
+                  <a-result status="warning" :title="serviceStates.messages.error">
+                    <template #extra>
+                      <a-button type="primary" @click="retryService('messages')">
+                        重试
+                      </a-button>
+                    </template>
+                  </a-result>
+                </div>
+                
+                <!-- 正常的消息显示 -->
+                <div v-else class="message-list-container">
+                  <div v-if="!messages || messages.length === 0" class="empty-messages">
+                    <a-empty description="暂无消息，开始聊天吧！" />
+                  </div>
+                  <div v-else class="message-items">
+                    <div
+                      v-for="message in messages"
+                      :key="message.messageId"
+                      class="message-item"
+                    >
+                      <!-- 简化的消息显示 -->
+                      <div class="message-content">
+                        <div class="message-header">
+                          <span class="sender-name">{{ message.senderNickname || '用户' }}</span>
+                          <span class="message-time">{{ formatTime(message.createTime || Date.now().toString()) }}</span>
+                        </div>
+                        <div class="message-body">{{ message.content || '消息内容' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="message-input-container">
+                  <div class="simple-input">
+                    <a-input
+                      v-model:value="newMessage"
+                      placeholder="在此输入消息..."
+                      @keydown.enter="sendMessage"
+                      :disabled="serviceStates.messages.error !== null"
+                    />
+                    <a-button 
+                      type="primary" 
+                      @click="sendMessage"
+                      :disabled="serviceStates.messages.error !== null"
+                    >
+                      发送
+                    </a-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </a-tab-pane>
+
+          <!-- 文件标签页 -->
+          <a-tab-pane key="files" class="tab-pane">
+            <template #tab>
+              <span class="tab-title">
+                <FolderOutlined />
+                文件
+                <a-badge v-if="fileCount > 0 && serviceStates.files.available" :count="fileCount" class="tab-badge" />
+                <a-badge v-if="!serviceStates.files.available" status="error" class="tab-badge" />
+              </span>
+            </template>
+            <div class="files-container">
+              <!-- 文件服务加载状态 -->
+              <div v-if="serviceStates.files.loading" class="service-loading">
+                <a-spin size="large" />
+                <p>加载文件信息中...</p>
+              </div>
+              
+              <!-- 文件服务加载失败 -->
+              <div v-else-if="serviceStates.files.error" class="service-error">
+                <a-result status="warning" :title="serviceStates.files.error">
+                  <template #extra>
+                    <a-button type="primary" @click="retryService('files')">
+                      重试
+                    </a-button>
+                  </template>
+                </a-result>
+              </div>
+              
+              <!-- 正常的文件功能 -->
+              <div v-else>
+                <!-- 文件上传区域 -->
+                <div class="file-upload-section">
+                  <file-upload-area
+                    :room-id="currentRoom.roomId"
+                    @upload-success="handleFileUploadSuccess"
+                    @upload-error="handleFileUploadError"
+                    @upload-progress="handleFileUploadProgress"
+                  />
+                </div>
+                
+                <!-- 文件列表 -->
+                <div class="file-list-section">
+                  <file-list
+                    :room-id="currentRoom.roomId"
+                    :refresh="fileListRefresh"
+                    @file-selected="handleFileSelected"
+                    @file-deleted="handleFileDeleted"
+                  />
+                </div>
+              </div>
+            </div>
+          </a-tab-pane>
+
+          <!-- 语音通话标签页 -->
+          <a-tab-pane key="voice" class="tab-pane">
+            <template #tab>
+              <span class="tab-title">
+                <PhoneOutlined />
+                语音
+                <a-badge v-if="callState === 'in-call'" text="进行中" status="processing" class="tab-badge" />
+                <a-badge v-else-if="callState === 'calling'" text="通话中" status="warning" class="tab-badge" />
+              </span>
+            </template>
+            <div class="voice-container">
+              <voice-call-panel
+                :room-id="currentRoom.roomId"
+                :current-user-id="currentUser?.userId || 0"
+                @call-state-changed="handleCallStateChanged"
+              />
+            </div>
+          </a-tab-pane>
+
+          <!-- 成员标签页 -->
+          <a-tab-pane key="members" class="tab-pane">
+            <template #tab>
+              <span class="tab-title">
+                <TeamOutlined />
+                成员 ({{ !serviceStates.members.available ? '?' : currentRoom.currentMembers }})
+                <a-badge v-if="!serviceStates.members.available" status="error" class="tab-badge" />
+              </span>
+            </template>
+            <div class="members-container">
+              <!-- 成员加载状态 -->
+              <div v-if="serviceStates.members.loading" class="service-loading">
+                <a-spin size="large" />
+                <p>加载成员信息中...</p>
+              </div>
+              
+              <!-- 成员加载失败 -->
+              <div v-else-if="serviceStates.members.error" class="service-error">
+                <a-result status="warning" :title="serviceStates.members.error">
+                  <template #extra>
+                    <a-button type="primary" @click="retryService('members')">
+                      重试
+                    </a-button>
+                  </template>
+                </a-result>
+              </div>
+              
+              <!-- 正常的成员显示 -->
+              <div v-else>
+                <div class="members-header">
+                  <h4>房间成员</h4>
+                  <a-button type="text" size="small" @click="refreshMembers">
+                    <ReloadOutlined />
+                    刷新
+                  </a-button>
+                </div>
+                
+                <div class="members-list">
+                  <div
+                    v-for="member in roomMembers"
+                    :key="member.userId"
+                    class="member-item"
+                  >
+                    <div class="member-avatar">
+                      <a-avatar :size="40">
+                        {{ member.displayName?.charAt(0) || 'U' }}
+                      </a-avatar>
+                      <div v-if="member.status === 'online'" class="online-indicator"></div>
+                    </div>
+                    
+                    <div class="member-info">
+                      <div class="member-name">
+                        {{ member.displayName }}
+                        <a-tag v-if="member.isOwner" color="gold" size="small">
+                          房主
+                        </a-tag>
+                        <a-tag v-if="member.userId === currentUser?.userId" color="blue" size="small">
+                          我
+                        </a-tag>
+                      </div>
+                      <div class="member-meta">
+                        <span class="join-time">{{ formatTime(member.joinTime) }}</span>
+                        <span :class="['status', member.status || 'offline']">
+                          {{ getStatusText(member.status || 'offline') }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- 成员操作 -->
+                    <div class="member-actions">
+                      <a-dropdown v-if="isOwner && member.userId !== currentUser?.userId">
+                        <a-button type="text" size="small">
+                          <MoreOutlined />
+                        </a-button>
+                        <template #overlay>
+                          <a-menu>
+                            <a-menu-item key="kick" @click="kickMember(member)">
+                              <UserDeleteOutlined />
+                              移出房间
+                            </a-menu-item>
+                          </a-menu>
+                        </template>
+                      </a-dropdown>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </a-tab-pane>
+        </a-tabs>
       </div>
     </div>
 
@@ -93,76 +356,164 @@
         </a-button>
       </div>
     </div>
+
+    <!-- 全局加载提示 -->
+    <div v-if="globalLoading" class="global-loading">
+      <a-spin />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { message as antMessage, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
 import {
   ArrowLeftOutlined,
+  CopyOutlined,
   TeamOutlined,
   ClockCircleOutlined,
   KeyOutlined,
-  CopyOutlined
+  MessageOutlined,
+  FolderOutlined,
+  PhoneOutlined,
+  ReloadOutlined,
+  MoreOutlined,
+  UserDeleteOutlined
 } from '@ant-design/icons-vue'
+
+// API和工具导入
+import { getRoomByCode, getRoomMembers } from '@/api/room'
+import { MessageAPI } from '@/api/message'
+import { FileAPI } from '@/api/file'
+import { VoiceAPI } from '@/api/voice'
+import { wsManager } from '@/utils/websocket'
+import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
-import { ROOM_STATUS } from '@/types/room'
+import type { RoomInfo, RoomMember } from '@/types/room'
+import type { MessageVO, FileVO, MessageQueryDto } from '@/types/api'
 
-// 扩展dayjs
-dayjs.extend(relativeTime)
-
-// ==================== 组件状态 ====================
+// 组件导入
+import MessageBubble from '@/components/chat/MessageBubble.vue'
+import MessageInput from '@/components/chat/MessageInput.vue'
+import FileUploadArea from '@/components/file/FileUploadArea.vue'
+import FileList from '@/components/file/FileList.vue'
+import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
-const roomStore = useRoomStore()
+const authStore = useAuthStore()
 
+// 基础状态
 const loading = ref(true)
+const globalLoading = ref(false)
+const currentRoom = ref<RoomInfo | null>(null)
+const activeTab = ref('chat')
 
-// ==================== 计算属性 ====================
+// 用户信息
+const currentUser = computed(() => authStore.user)
+const isOwner = computed(() => 
+  currentRoom.value && currentUser.value && 
+  currentRoom.value.ownerId === currentUser.value.userId
+)
 
-const currentRoom = computed(() => roomStore.currentRoom)
+// 聊天相关状态
+const messages = ref<MessageVO[]>([])  // 确保永远是数组
+const unreadCount = ref(0)
+const replyMessage = ref<MessageVO | null>(null)
+const newMessage = ref('')
 
-// 房间状态
+// 文件相关状态
+const fileCount = ref(0)
+const fileListRefresh = ref(false)
+
+// 语音通话状态
+const callState = ref<'idle' | 'calling' | 'in-call'>('idle')
+
+// 成员相关状态
+const roomMembers = ref<RoomMember[]>([])
+
+// 微服务状态管理
+interface ServiceState {
+  loading: boolean
+  error: string | null
+  retryCount: number
+  available: boolean  // 服务可用性状态
+  lastChecked?: number  // 最后检查时间
+}
+
+const serviceStates = ref({
+  messages: { loading: false, error: null, retryCount: 0, available: true } as ServiceState,
+  files: { loading: false, error: null, retryCount: 0, available: true } as ServiceState,
+  members: { loading: false, error: null, retryCount: 0, available: true } as ServiceState
+})
+
+/**
+ * 安全的服务调用包装器
+ */
+const safeServiceCall = async <T>(
+  serviceName: keyof typeof serviceStates.value,
+  serviceCall: () => Promise<T>,
+  fallbackValue?: T
+): Promise<T> => {
+  const state = serviceStates.value[serviceName]
+  
+  try {
+    state.loading = true
+    state.error = null
+    
+    const result = await serviceCall()
+    
+    // 成功时更新状态
+    state.available = true
+    state.retryCount = 0
+    state.lastChecked = Date.now()
+    
+    return result
+  } catch (error: any) {
+    console.warn(`${serviceName}服务调用失败:`, error)
+    
+    // 失败时更新状态
+    state.available = false
+    state.retryCount++
+    state.lastChecked = Date.now()
+    
+    // 根据错误类型设置不同的错误消息
+    if (error.response?.status === 503) {
+      state.error = `${serviceName}服务暂时不可用`
+    } else if (error.response?.status === 404) {
+      state.error = `${serviceName}服务未找到`
+    } else {
+      state.error = `${serviceName}服务调用失败`
+    }
+    
+    // 返回默认值或重新抛出错误
+    if (fallbackValue !== undefined) {
+      return fallbackValue
+    }
+    
+    throw error
+  } finally {
+    state.loading = false
+  }
+}
+
+/**
+ * 计算属性
+ */
 const statusColor = computed(() => {
   if (!currentRoom.value) return 'default'
-  
-  if (currentRoom.value.status === ROOM_STATUS.CLOSED) return 'red'
-  if (isExpired.value) return 'red'
-  if (isExpiringSoon.value) return 'orange'
-  return 'green'
+  return currentRoom.value.status === 0 ? 'success' : 'default'
 })
 
 const statusText = computed(() => {
-  if (!currentRoom.value) return ''
-  
-  if (currentRoom.value.status === ROOM_STATUS.CLOSED) return '已关闭'
-  if (isExpired.value) return '已过期'
-  if (isExpiringSoon.value) return '即将过期'
-  return '活跃中'
+  if (!currentRoom.value) return '未知'
+  return currentRoom.value.status === 0 ? '活跃' : '已关闭'
 })
 
-// 是否已过期
-const isExpired = computed(() => {
-  if (!currentRoom.value) return false
-  return dayjs(currentRoom.value.expireTime).isBefore(dayjs())
-})
-
-// 是否即将过期（1小时内）
-const isExpiringSoon = computed(() => {
-  if (!currentRoom.value) return false
-  const expireTime = dayjs(currentRoom.value.expireTime)
-  const now = dayjs()
-  return expireTime.diff(now, 'hour') <= 1 && expireTime.isAfter(now)
-})
-
-// 过期时间文本
 const expireText = computed(() => {
-  if (!currentRoom.value) return ''
+  if (!currentRoom.value) return '未知'
   
   const expireTime = dayjs(currentRoom.value.expireTime)
   const now = dayjs()
@@ -171,376 +522,954 @@ const expireText = computed(() => {
     return '已过期'
   }
   
-  return expireTime.fromNow()
+  const diff = expireTime.diff(now, 'hour')
+  if (diff < 24) {
+    return `${diff} 小时后过期`
+  } else {
+    const days = Math.ceil(diff / 24)
+    return `${days} 天后过期`
+  }
 })
 
-// ==================== 事件处理 ====================
+const callStateText = computed(() => {
+  const stateMap = {
+    idle: '空闲',
+    calling: '通话中',
+    'in-call': '进行中'
+  }
+  return stateMap[callState.value]
+})
 
 /**
- * 返回上一页
+ * 加载房间信息
  */
-function goBack() {
-  router.push('/rooms')
+const loadRoomInfo = async () => {
+  try {
+    loading.value = true
+    const roomId = route.params.roomId as string
+    
+    if (!roomId) {
+      throw new Error('房间ID不能为空')
+    }
+
+    // 将字符串roomId转换为数字
+    const roomIdNum = parseInt(roomId, 10)
+    if (isNaN(roomIdNum)) {
+      throw new Error('无效的房间ID')
+    }
+
+    // 先尝试从store中获取房间信息
+    const roomStore = useRoomStore()
+    let roomInfo = roomStore.currentRoom
+    
+    // 如果store中没有房间信息或房间ID不匹配，则重新获取
+    if (!roomInfo || roomInfo.roomId !== roomIdNum) {
+      // 由于后端暂时只提供根据房间码查询的接口，
+      // 我们需要先从房间列表中找到对应的房间信息
+      if (roomStore.roomList.length === 0) {
+        // 如果房间列表为空，先加载房间列表
+        await roomStore.fetchUserRooms()
+      }
+      
+      // 从房间列表中查找对应的房间
+      roomInfo = roomStore.roomList.find(room => room.roomId === roomIdNum) || null
+      
+      if (!roomInfo) {
+        throw new Error('房间不存在或您没有权限访问')
+      }
+      
+      // 使用房间码重新获取最新的房间信息
+      const response = await getRoomByCode(roomInfo.roomCode)
+      roomInfo = response.data
+      roomStore.setCurrentRoom(roomInfo)
+    }
+    
+    currentRoom.value = roomInfo
+    
+    // 独立加载相关数据，实现故障隔离
+    // 每个服务调用都有独立的错误处理，确保单个服务故障不影响其他服务
+    loadMessages().catch(error => {
+      console.warn('消息服务不可用:', error)
+      serviceStates.value.messages.error = '消息服务暂时不可用'
+    })
+    
+    loadFileCount().catch(error => {
+      console.warn('文件服务不可用:', error)
+      serviceStates.value.files.error = '文件服务暂时不可用'
+    })
+    
+    loadRoomMembers().catch(error => {
+      console.warn('成员服务不可用:', error)
+      serviceStates.value.members.error = '成员服务暂时不可用'
+    })
+    
+  } catch (error: any) {
+    console.error('加载房间信息失败:', error)
+    antMessage.error(error.response?.data?.msg || error.message || '加载房间信息失败')
+    currentRoom.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * 加载消息列表
+ */
+const loadMessages = async () => {
+  if (!currentRoom.value) return
+  
+  serviceStates.value.messages.loading = true
+  serviceStates.value.messages.error = null
+  
+  try {
+    const response = await MessageAPI.getRoomMessages({
+      roomId: currentRoom.value.roomId,
+      pageNum: 1,
+      pageSize: 50
+    })
+    messages.value = response.data.records || []  // 确保始终是数组
+    serviceStates.value.messages.retryCount = 0
+  } catch (error: any) {
+    console.error('加载消息失败:', error)
+    // 确保消息状态重置为空数组而不是undefined
+    messages.value = []
+    serviceStates.value.messages.error = '消息服务暂时不可用，请稍后重试'
+    serviceStates.value.messages.retryCount++
+    throw error  // 重新抛出错误，用于上层catch处理
+  } finally {
+    serviceStates.value.messages.loading = false
+  }
+}
+
+/**
+ * 加载文件数量
+ */
+const loadFileCount = async () => {
+  if (!currentRoom.value) return
+  
+  serviceStates.value.files.loading = true
+  serviceStates.value.files.error = null
+  
+  try {
+    const response = await FileAPI.getRoomFileStats(currentRoom.value.roomId)
+    fileCount.value = response.data.fileCount || 0
+    serviceStates.value.files.retryCount = 0
+  } catch (error: any) {
+    console.error('加载文件统计失败:', error)
+    serviceStates.value.files.error = '文件服务暂时不可用，文件功能已禁用'
+    serviceStates.value.files.retryCount++
+    // 服务不可用时保持现有的fileCount值，避免显示错误数据
+    throw error  // 重新抛出错误，用于上层catch处理
+  } finally {
+    serviceStates.value.files.loading = false
+  }
+}
+
+/**
+ * 加载房间成员
+ */
+const loadRoomMembers = async () => {
+  if (!currentRoom.value) return
+  
+  serviceStates.value.members.loading = true
+  serviceStates.value.members.error = null
+  
+  try {
+    const response = await getRoomMembers(currentRoom.value.roomId)
+    roomMembers.value = response.data || []  // 确保始终是数组
+    serviceStates.value.members.retryCount = 0
+  } catch (error: any) {
+    console.error('加载房间成员失败:', error)
+    // 确保成员状态重置为空数组
+    roomMembers.value = []
+    serviceStates.value.members.error = '成员服务暂时不可用，成员信息无法显示'
+    serviceStates.value.members.retryCount++
+    throw error  // 重新抛出错误，用于上层catch处理
+  } finally {
+    serviceStates.value.members.loading = false
+  }
+}
+
+/**
+ * 刷新成员列表
+ */
+const refreshMembers = () => {
+  loadRoomMembers()
+}
+
+/**
+ * 重试加载指定服务
+ */
+const retryService = (serviceName: 'messages' | 'files' | 'members') => {
+  switch (serviceName) {
+    case 'messages':
+      loadMessages()
+      break
+    case 'files':
+      loadFileCount()
+      break
+    case 'members':
+      loadRoomMembers()
+      break
+  }
+}
+
+/**
+ * 初始化WebSocket连接
+ */
+const initWebSocketConnection = async () => {
+  if (!currentRoom.value || !currentUser.value) return
+  
+  try {
+    // 连接消息WebSocket
+    const messageClient = wsManager.getMessageClient()
+    await messageClient.connect()
+    messageClient.joinRoom(currentRoom.value.roomId)
+    
+    // 监听消息事件
+    messageClient.addMessageHandler('message-received', (data: any) => {
+      const message = data.data as MessageVO
+      messages.value.push(message)
+      if (activeTab.value !== 'chat') {
+        unreadCount.value++
+      }
+      scrollToBottom()
+    })
+    
+    messageClient.addMessageHandler('message-deleted', (data: any) => {
+      const messageId = data.messageId as number
+      const index = messages.value.findIndex(m => m.messageId === messageId)
+      if (index > -1) {
+        messages.value.splice(index, 1)
+      }
+    })
+    
+  } catch (error) {
+    console.error('WebSocket连接失败:', error)
+  }
+}
+
+/**
+ * 处理消息发送
+ */
+const handleSendMessage = async (messageData: any) => {
+  try {
+    await MessageAPI.sendMessage(messageData)
+    // 消息会通过WebSocket推送回来
+  } catch (error: any) {
+    antMessage.error(error.response?.data?.msg || '发送消息失败')
+  }
+}
+
+/**
+ * 简单的发送消息
+ */
+const sendMessage = async () => {
+  if (!newMessage.value.trim() || !currentRoom.value) {
+    console.warn('消息内容为空或房间信息不存在')
+    return
+  }
+  
+  const messageData = {
+    roomId: currentRoom.value.roomId,
+    messageType: 1, // TEXT
+    content: newMessage.value.trim()
+  }
+  
+  console.log('发送消息请求:', messageData)
+  
+  try {
+    const response = await MessageAPI.sendMessage(messageData)
+    console.log('消息发送成功:', response)
+    newMessage.value = ''
+  } catch (error: any) {
+    console.error('发送消息失败:', error)
+    console.error('错误详情:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      config: error.config
+    })
+    
+    // 提供更详细的错误信息
+    if (error.response?.status === 500) {
+      antMessage.error('服务器内部错误，请检查网络连接或稍后重试')
+    } else if (error.response?.status === 404) {
+      antMessage.error('消息服务不可用，请联系管理员')
+    } else if (error.response?.status === 401) {
+      antMessage.error('请重新登录后再试')
+    } else {
+      antMessage.error(error.response?.data?.msg || error.message || '发送消息失败')
+    }
+  }
+}
+
+/**
+ * 处理消息回复
+ */
+const handleReply = (message: MessageVO) => {
+  replyMessage.value = message
+  activeTab.value = 'chat'
+}
+
+/**
+ * 处理消息删除
+ */
+const handleDeleteMessage = async (message: MessageVO) => {
+  try {
+    await MessageAPI.deleteMessage(message.messageId)
+    // 删除事件会通过WebSocket推送
+  } catch (error: any) {
+    antMessage.error(error.response?.data?.msg || '删除消息失败')
+  }
+}
+
+/**
+ * 处理消息撤回
+ */
+const handleRecallMessage = async (message: MessageVO) => {
+  try {
+    await MessageAPI.recallMessage(message.messageId)
+    antMessage.success('消息已撤回')
+  } catch (error: any) {
+    antMessage.error(error.response?.data?.msg || '撤回消息失败')
+  }
+}
+
+/**
+ * 处理文件上传成功
+ */
+const handleFileUploadSuccess = (file: FileVO) => {
+  fileCount.value++
+  fileListRefresh.value = !fileListRefresh.value
+  antMessage.success(`${file.fileName} 上传成功`)
+}
+
+/**
+ * 处理文件上传失败
+ */
+const handleFileUploadError = (error: string) => {
+  antMessage.error(error)
+}
+
+/**
+ * 处理文件上传进度
+ */
+const handleFileUploadProgress = (progress: any) => {
+  // 可以在这里显示全局上传进度
+}
+
+/**
+ * 处理文件上传进度（消息输入）
+ */
+const handleUploadProgress = (progress: any) => {
+  globalLoading.value = progress.percent < 100
+}
+
+/**
+ * 处理文件选择
+ */
+const handleFileSelected = (file: FileVO) => {
+  // 可以在这里处理文件选择事件
+}
+
+/**
+ * 处理文件删除
+ */
+const handleFileDeleted = (fileId: number) => {
+  fileCount.value = Math.max(0, fileCount.value - 1)
+}
+
+/**
+ * 处理通话状态变化
+ */
+const handleCallStateChanged = (state: 'idle' | 'calling' | 'in-call') => {
+  callState.value = state
+}
+
+/**
+ * 踢出成员
+ */
+const kickMember = (member: RoomMember) => {
+  Modal.confirm({
+    title: '确认操作',
+    content: `确定要将 ${member.displayName} 移出房间吗？`,
+    onOk: async () => {
+      try {
+        // TODO: 实现踢出成员API
+        antMessage.success('成员已移出')
+        await loadRoomMembers()
+      } catch (error: any) {
+        antMessage.error(error.response?.data?.msg || '操作失败')
+      }
+    }
+  })
 }
 
 /**
  * 复制房间码
  */
-async function copyRoomCode() {
+const copyRoomCode = async () => {
   if (!currentRoom.value) return
   
   try {
     await navigator.clipboard.writeText(currentRoom.value.roomCode)
-    message.success('房间码已复制到剪贴板')
+    antMessage.success('房间码已复制到剪贴板')
   } catch (error) {
-    // 降级方案
-    const textArea = document.createElement('textarea')
-    textArea.value = currentRoom.value.roomCode
-    document.body.appendChild(textArea)
-    textArea.select()
-    
-    try {
-      document.execCommand('copy')
-      message.success('房间码已复制到剪贴板')
-    } catch (err) {
-      message.error('复制失败，请手动复制房间码')
-    }
-    
-    document.body.removeChild(textArea)
+    antMessage.error('复制失败')
   }
 }
 
-// ==================== 生命周期 ====================
+/**
+ * 返回上一页
+ */
+const goBack = () => {
+  router.push('/rooms')
+}
 
-onMounted(async () => {
-  const roomId = Number(route.params.roomId)
-  
-  if (!roomId) {
-    router.push('/rooms')
-    return
+/**
+ * 格式化时间
+ */
+const formatTime = (timeStr: string) => {
+  return dayjs(timeStr).format('MM-DD HH:mm')
+}
+
+/**
+ * 获取状态文本
+ */
+const getStatusText = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    online: '在线',
+    offline: '离线',
+    away: '离开'
   }
-  
+  return statusMap[status] || status
+}
+
+/**
+ * 滚动到底部
+ */
+const scrollToBottom = () => {
+  nextTick(() => {
+    const messageContainer = document.querySelector('.message-list-container')
+    if (messageContainer) {
+      messageContainer.scrollTop = messageContainer.scrollHeight
+    }
+  })
+}
+
+// 监听标签页切换，清除未读消息数
+const handleTabChange = (key: string) => {
+  if (key === 'chat') {
+    unreadCount.value = 0
+  }
+}
+
+// 生命周期
+onMounted(async () => {
+  await loadRoomInfo()
+  if (currentRoom.value) {
+    await initWebSocketConnection()
+  }
+})
+
+onUnmounted(() => {
+  // 清理WebSocket连接
   try {
-    // 如果当前没有房间信息或房间ID不匹配，尝试刷新
-    if (!currentRoom.value || currentRoom.value.roomId !== roomId) {
-      await roomStore.refreshRoom(roomId)
-    }
-    
-    // 如果仍然没有房间信息，说明房间不存在
-    if (!currentRoom.value) {
-      // 这里可以尝试从房间列表中查找
-      await roomStore.fetchUserRooms()
-      const room = roomStore.roomList.find(r => r.roomId === roomId)
-      if (room) {
-        roomStore.setCurrentRoom(room)
-      }
-    }
+    const messageClient = wsManager.getMessageClient()
+    messageClient.close()
   } catch (error) {
-    console.error('加载房间信息失败:', error)
-    message.error('加载房间信息失败')
-  } finally {
-    loading.value = false
+    console.error('清理WebSocket连接失败:', error)
   }
 })
 </script>
 
-<style scoped>
-/* ==================== 页面布局 ==================== */
-
+<style scoped lang="scss">
 .room-detail-view {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  background: #f5f5f5;
+  
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 50vh;
+    
+    p {
+      margin-top: 16px;
+      color: #8c8c8c;
+    }
+  }
+  
+  .room-detail-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+    
+    .room-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      padding: 24px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        
+        .back-btn {
+          border-radius: 8px;
+        }
+        
+        .room-title {
+          h1 {
+            margin: 0;
+            color: #262626;
+            font-size: 24px;
+            font-weight: 600;
+          }
+          
+          p {
+            margin: 4px 0 0 0;
+            color: #8c8c8c;
+            font-size: 14px;
+          }
+        }
+      }
+      
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        
+        .room-status {
+          font-weight: 500;
+        }
+      }
+    }
+    
+    .room-info-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+      
+      .info-card {
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+        
+        &.active-call {
+          border: 2px solid #52c41a;
+          background: linear-gradient(135deg, #f6ffed 0%, #fff 100%);
+        }
+        
+        .card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 12px;
+          
+          .card-icon {
+            font-size: 18px;
+            color: #1890ff;
+          }
+          
+          h3 {
+            margin: 0;
+            color: #262626;
+            font-size: 14px;
+            font-weight: 500;
+          }
+        }
+        
+        .card-content {
+          .member-count,
+          .expire-time,
+          .room-code,
+          .call-status {
+            font-size: 16px;
+            font-weight: 600;
+            color: #262626;
+          }
+          
+          .room-code {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: color 0.2s;
+            
+            &:hover {
+              color: #1890ff;
+            }
+            
+            .copy-icon {
+              font-size: 14px;
+            }
+          }
+          
+          .call-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            
+            .status-indicator {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              
+              &.idle {
+                background: #d9d9d9;
+              }
+              
+              &.calling {
+                background: #faad14;
+                animation: pulse 2s infinite;
+              }
+              
+              &.in-call {
+                background: #52c41a;
+                animation: pulse 2s infinite;
+              }
+            }
+          }
+        }
+        
+        // 卡片状态样式
+        .card-loading {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #8c8c8c;
+          font-size: 14px;
+        }
+        
+        .card-error {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          
+          .error-text {
+            color: #ff4d4f;
+            font-size: 12px;
+          }
+        }
+      }
+    }
+    
+    .communication-section {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      
+      .communication-tabs {
+        :deep(.ant-tabs-nav) {
+          margin: 0;
+          background: #fafafa;
+          
+          .ant-tabs-tab {
+            padding: 12px 16px;
+            border-radius: 0;
+            
+            .tab-title {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-weight: 500;
+              
+              .tab-badge {
+                :deep(.ant-badge-count) {
+                  font-size: 10px;
+                  min-width: 16px;
+                  height: 16px;
+                  line-height: 16px;
+                }
+              }
+            }
+          }
+          
+          .ant-tabs-tab-active {
+            background: white;
+            
+            .tab-title {
+              color: #1890ff;
+            }
+          }
+        }
+        
+        :deep(.ant-tabs-content-holder) {
+          .ant-tabs-content {
+            height: 600px;
+            
+            .tab-pane {
+              height: 100%;
+              padding: 0;
+            }
+          }
+        }
+      }
+      
+      // 聊天容器
+      .chat-container {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        
+        .chat-content {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          
+          .service-loading,
+          .service-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 20px;
+            
+            p {
+              margin-top: 16px;
+              color: #8c8c8c;
+            }
+          }
+
+          .message-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            
+            .message-item {
+              margin-bottom: 12px;
+              
+              &:last-child {
+                margin-bottom: 0;
+              }
+            }
+            
+            .empty-messages {
+              height: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+          }
+          
+          .message-input-container {
+            border-top: 1px solid #f0f0f0;
+            padding: 16px;
+          }
+        }
+      }
+      
+      // 文件容器
+      .files-container {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        
+        .file-upload-section {
+          border-bottom: 1px solid #f0f0f0;
+          padding: 16px;
+        }
+        
+        .file-list-section {
+          flex: 1;
+          overflow: hidden;
+          padding: 16px;
+        }
+      }
+      
+      // 语音容器
+      .voice-container {
+        height: 100%;
+        padding: 16px;
+        overflow-y: auto;
+      }
+      
+      // 成员容器
+      .members-container {
+        height: 100%;
+        padding: 16px;
+        
+        .members-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          
+          h4 {
+            margin: 0;
+            color: #262626;
+            font-size: 16px;
+            font-weight: 500;
+          }
+        }
+        
+        .members-list {
+          .member-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid #f0f0f0;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            
+            &:hover {
+              background: #fafafa;
+              border-color: #d9d9d9;
+            }
+            
+            .member-avatar {
+              position: relative;
+              
+              .online-indicator {
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 12px;
+                height: 12px;
+                background: #52c41a;
+                border: 2px solid white;
+                border-radius: 50%;
+              }
+            }
+            
+            .member-info {
+              flex: 1;
+              
+              .member-name {
+                font-weight: 500;
+                margin-bottom: 4px;
+              }
+              
+              .member-meta {
+                display: flex;
+                gap: 12px;
+                font-size: 12px;
+                color: #8c8c8c;
+                
+                .status {
+                  &.online {
+                    color: #52c41a;
+                  }
+                  
+                  &.offline {
+                    color: #8c8c8c;
+                  }
+                  
+                  &.away {
+                    color: #faad14;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .room-not-found {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    
+    .not-found-content {
+      text-align: center;
+      
+      .not-found-icon {
+        font-size: 64px;
+        margin-bottom: 16px;
+      }
+      
+      h3 {
+        color: #262626;
+        margin-bottom: 8px;
+      }
+      
+      p {
+        color: #8c8c8c;
+        margin-bottom: 24px;
+      }
+    }
+  }
+  
+  .global-loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
 }
 
-/* ==================== 加载状态 ==================== */
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 50vh;
-  color: white;
-  gap: 16px;
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
 }
-
-.loading-container p {
-  font-size: 16px;
-  margin: 0;
-}
-
-/* ==================== 房间详情内容 ==================== */
-
-.room-detail-content {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-/* ==================== 房间头部 ==================== */
-
-.room-header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.header-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  flex: 1;
-}
-
-.back-btn {
-  flex-shrink: 0;
-  border-radius: 8px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.room-title h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a202c;
-}
-
-.room-title p {
-  margin: 0;
-  font-size: 16px;
-  color: #6b7280;
-  line-height: 1.5;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.room-status {
-  font-size: 14px;
-  border-radius: 6px;
-  margin: 0;
-}
-
-/* ==================== 信息卡片 ==================== */
-
-.room-info-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-.info-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
-}
-
-.info-card:hover {
-  transform: translateY(-2px);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.card-icon {
-  font-size: 20px;
-  color: #667eea;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a202c;
-}
-
-.card-content {
-  padding-left: 32px;
-}
-
-.member-count,
-.expire-time {
-  font-size: 24px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.room-code {
-  font-family: 'Courier New', monospace;
-  font-size: 20px;
-  font-weight: 600;
-  color: #667eea;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #f3f4f6;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
-  width: fit-content;
-}
-
-.room-code:hover {
-  background: #e5e7eb;
-}
-
-.copy-icon {
-  font-size: 16px;
-  opacity: 0.7;
-}
-
-/* ==================== 功能占位区域 ==================== */
-
-.feature-placeholder {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 60px 24px;
-  text-align: center;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.placeholder-content {
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-.placeholder-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
-}
-
-.placeholder-content h3 {
-  margin: 0 0 12px;
-  font-size: 24px;
-  color: #374151;
-}
-
-.placeholder-content p {
-  margin: 0;
-  font-size: 16px;
-  color: #6b7280;
-  line-height: 1.5;
-}
-
-/* ==================== 房间不存在 ==================== */
-
-.room-not-found {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 50vh;
-}
-
-.not-found-content {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 60px 40px;
-  text-align: center;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  max-width: 400px;
-}
-
-.not-found-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
-}
-
-.not-found-content h3 {
-  margin: 0 0 12px;
-  font-size: 24px;
-  color: #374151;
-}
-
-.not-found-content p {
-  margin: 0 0 24px;
-  font-size: 16px;
-  color: #6b7280;
-  line-height: 1.5;
-}
-
-/* ==================== 响应式设计 ==================== */
 
 @media (max-width: 768px) {
   .room-detail-view {
-    padding: 16px;
-  }
-  
-  .room-header {
-    flex-direction: column;
-    gap: 16px;
-    padding: 20px;
-  }
-  
-  .header-left {
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
-  }
-  
-  .header-right {
-    justify-content: space-between;
-    width: 100%;
-  }
-  
-  .room-title h1 {
-    font-size: 24px;
-  }
-  
-  .room-info-cards {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
-  .info-card {
-    padding: 20px;
-  }
-  
-  .member-count,
-  .expire-time {
-    font-size: 20px;
-  }
-  
-  .room-code {
-    font-size: 16px;
-  }
-  
-  .feature-placeholder {
-    padding: 40px 20px;
-  }
-  
-  .placeholder-icon,
-  .not-found-icon {
-    font-size: 48px;
-  }
-  
-  .not-found-content {
-    padding: 40px 20px;
-    margin: 0 16px;
+    .room-detail-content {
+      padding: 16px;
+      
+      .room-header {
+        flex-direction: column;
+        gap: 16px;
+        
+        .header-left {
+          width: 100%;
+        }
+        
+        .header-right {
+          width: 100%;
+          justify-content: flex-start;
+        }
+      }
+      
+      .room-info-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .communication-section {
+        .communication-tabs {
+          :deep(.ant-tabs-content) {
+            height: 500px;
+          }
+        }
+      }
+    }
   }
 }
 </style> 

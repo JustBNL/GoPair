@@ -149,4 +149,194 @@ export const ERROR_MESSAGES: Record<number, string> = {
   [ERROR_CODES.ROOM_NAME_TOO_LONG]: '房间名称过长',
   [ERROR_CODES.ROOM_DESCRIPTION_TOO_LONG]: '房间描述过长',
   [ERROR_CODES.ROOM_MAX_MEMBERS_INVALID]: '房间最大成员数设置无效'
+}
+
+/**
+ * 消息类型枚举
+ */
+export enum MessageType {
+  TEXT = 1,
+  IMAGE = 2,
+  FILE = 3,
+  VOICE = 4
+}
+
+/**
+ * 消息VO接口
+ */
+export interface MessageVO {
+  messageId: number
+  roomId: number
+  senderId: number
+  senderNickname: string
+  senderAvatar?: string
+  messageType: MessageType
+  messageTypeDesc: string
+  content?: string
+  fileUrl?: string
+  fileName?: string
+  fileSize?: number
+  fileSizeFormatted?: string
+  replyToId?: number
+  replyToContent?: string
+  replyToSender?: string
+  createTime: string
+  isOwn: boolean
+}
+
+/**
+ * 发送消息DTO
+ */
+export interface SendMessageDto {
+  roomId: number
+  messageType: MessageType
+  content?: string
+  fileUrl?: string
+  fileName?: string
+  fileSize?: number
+  replyToId?: number
+}
+
+/**
+ * 消息查询DTO
+ */
+export interface MessageQueryDto extends BaseQuery {
+  roomId: number
+  messageType?: MessageType
+  senderId?: number
+  keyword?: string
+}
+
+/**
+ * 文件VO接口
+ */
+export interface FileVO {
+  fileId: number
+  roomId: number
+  uploaderId: number
+  uploaderNickname: string
+  fileName: string
+  fileSize: number
+  fileSizeFormatted: string
+  fileType: string
+  contentType: string
+  downloadCount: number
+  uploadTime: string
+  downloadUrl: string
+  previewUrl?: string
+  previewable: boolean
+  iconType: string
+}
+
+/**
+ * 文件上传DTO
+ */
+export interface FileUploadDto {
+  roomId: number
+  file: File
+  description?: string
+  overwrite?: boolean
+}
+
+/**
+ * 通话类型枚举
+ */
+export enum CallType {
+  ONE_TO_ONE = 1,
+  MULTI_USER = 2
+}
+
+/**
+ * 通话状态枚举
+ */
+export enum CallStatus {
+  IN_PROGRESS = 1,
+  ENDED = 2,
+  CANCELLED = 3
+}
+
+/**
+ * 连接状态枚举
+ */
+export enum ConnectionStatus {
+  CONNECTED = 1,
+  DISCONNECTED = 2
+}
+
+/**
+ * 通话参与者VO
+ */
+export interface CallParticipantVO {
+  userId: number
+  nickname: string
+  avatar?: string
+  joinTime: string
+  leaveTime?: string
+  connectionStatus: ConnectionStatus
+  connectionStatusDesc: string
+  isInitiator: boolean
+  muted: boolean
+  duration: number
+}
+
+/**
+ * 通话VO接口
+ */
+export interface CallVO {
+  callId: number
+  roomId: number
+  initiatorId: number
+  initiatorNickname: string
+  callType: CallType
+  callTypeDesc: string
+  startTime: string
+  endTime?: string
+  duration?: number
+  durationFormatted: string
+  status: CallStatus
+  statusDesc: string
+  participantCount: number
+  joinable: boolean
+  createTime: string
+  participants: CallParticipantVO[]
+}
+
+/**
+ * 发起通话DTO
+ */
+export interface CallInitiateDto {
+  roomId: number
+  callType: CallType
+  inviteUserIds?: number[]
+}
+
+/**
+ * WebRTC信令DTO
+ */
+export interface SignalingDto {
+  callId?: number
+  type: string
+  targetUserId?: number
+  data?: any
+  extra?: any
+}
+
+/**
+ * WebSocket消息接口
+ */
+export interface WebSocketMessage {
+  type: string
+  data: any
+  timestamp: number
+}
+
+/**
+ * 房间统计信息
+ */
+export interface RoomStats {
+  messageCount: number
+  fileCount: number
+  totalFileSize: number
+  callCount: number
+  activeUsers: number
 } 
