@@ -5,6 +5,7 @@ import com.gopair.common.util.JwtUtils;
 import com.gopair.gateway.config.GatewayAuthProperties;
 import com.gopair.gateway.config.JwtProperties;
 import com.gopair.gateway.enums.GatewayErrorCode;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -74,11 +75,11 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        log.debug("处理请求路径: {}", path);
+        log.info("[网关认证] 开始处理 - 路径: {}", path);
 
         // 检查是否为白名单路径
         if (isSkipAuthPath(path)) {
-            log.debug("跳过认证，路径: {}", path);
+            log.info("[网关认证] 跳过认证 - 路径: {}", path);
             return chain.filter(exchange);
         }
 
@@ -94,16 +95,16 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         
         // 两处都没有找到token
         if (!StringUtils.hasText(token)) {
-            log.warn("未找到JWT令牌，路径: {}", path);
+            log.warn("[网关认证] 认证失败 - 路径: {}, 原因: 未找到JWT令牌", path);
             return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.TOKEN_NOT_FOUND.getMessage());
         }
 
-        log.debug("从{}获取到令牌，路径: {}", tokenSource, path);
+        log.info("[网关认证] 获取令牌 - 来源: {}, 路径: {}", tokenSource, path);
 
         try {
             // 验证JWT令牌
             if (!JwtUtils.validateToken(token, jwtProperties.getSecret())) {
-                log.warn("JWT令牌验证失败，路径: {}", path);
+                log.warn("[网关认证] 认证失败 - 路径: {}, 原因: JWT令牌验证失败", path);
                 return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.TOKEN_VALIDATION_FAILED.getMessage());
             }
 
@@ -112,11 +113,11 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
             String nickname = JwtUtils.getNicknameFromToken(token, jwtProperties.getSecret());
 
             if (!StringUtils.hasText(userId) || !StringUtils.hasText(nickname)) {
-                log.warn("无法从令牌中提取用户信息，路径: {}", path);
+                log.warn("[网关认证] 认证失败 - 路径: {}, 原因: 无法从令牌中提取用户信息", path);
                 return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.INVALID_USER_INFO.getMessage());
             }
 
-            log.debug("认证成功，用户: {}, ID: {}, 路径: {}", nickname, userId, path);
+            log.info("[网关认证] 认证成功 - 用户: {}, ID: {}, 路径: {}", nickname, userId, path);
 
             // 将用户信息添加到请求头，传递给下游服务
             ServerHttpRequest modifiedRequest = request.mutate()
@@ -124,10 +125,15 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
                     .header(NICKNAME_HEADER, nickname)
                     .build();
 
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+            // 将用户信息添加到Reactor Context中，Brave会自动将其桥接到MDC
+            return chain.filter(exchange.mutate().request(modifiedRequest).build())
+                    .contextWrite(ctx -> ctx
+                            .put("userId", userId)
+                            .put("nickname", nickname)
+                    );
 
         } catch (Exception e) {
-            log.error("JWT令牌处理异常，路径: {}", path, e);
+            log.error("[网关认证] 认证异常 - 路径: {}, 异常: {}", path, e.getMessage(), e);
             return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.AUTH_PROCESSING_ERROR.getMessage());
         }
     }
@@ -205,6 +211,7 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Integer.MIN_VALUE;
+        // 设置为在RequestLoggingGlobalFilter之后执行，确保JWT解析在日志记录之后
+        return Ordered.HIGHEST_PRECEDENCE + 100;
     }
 } 
