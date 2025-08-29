@@ -23,11 +23,6 @@ public class UserContextProperties {
     private boolean enabled = true;
 
     /**
-     * 是否启用详细日志，默认启用
-     */
-    private boolean logEnabled = true;
-
-    /**
      * 排除的路径列表，这些路径不会进行用户上下文处理
      */
     private List<String> excludedPaths = Arrays.asList(
@@ -36,6 +31,8 @@ public class UserContextProperties {
             "/error",
             "/favicon.ico",
             "/static/**",
-            "/webjars/**"
+            "/webjars/**",
+            "/user/login",
+            "/user/register"
     );
 } 

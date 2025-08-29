@@ -16,8 +16,7 @@ import org.springframework.context.annotation.Configuration;
 @ComponentScan(basePackages = {
     "com.gopair.framework.config",      // 配置类
     "com.gopair.framework.exception",   // 异常处理器
-    "com.gopair.framework.validation",  // 验证组件
-    "com.gopair.framework.entity"       // 实体基础（如果有需要Bean化的）
+    "com.gopair.framework.entity"       // 实体基础
 })
 public class WebFrameworkAutoConfiguration {
     
