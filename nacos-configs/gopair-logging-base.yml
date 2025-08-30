@@ -1,0 +1,88 @@
+# GoPair基础日志配置
+# Data ID: gopair-logging-base.yml
+# Group: DEFAULT_GROUP
+# 说明: 所有服务共用的基础日志配置，包含日志格式、级别、链路追踪等
+
+# 统一日志配置
+logging:
+  # 日志格式配置
+  pattern:
+    # 控制台日志格式：包含traceId、spanId、userId、nickname
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [traceId=%X{traceId:-},spanId=%X{spanId:-}] [userId=%X{userId:-},nickname=%X{nickname:-}] %-40.40logger{39} : %m%n"
+    # 文件日志格式（如果需要）
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [traceId=%X{traceId:-},spanId=%X{spanId:-}] [userId=%X{userId:-},nickname=%X{nickname:-}] %-40.40logger{39} : %m%n"
+  
+  # 统一日志级别配置
+  level:
+    # 设置根日志级别
+    root: INFO
+    # GoPair相关包的日志级别
+    com.gopair: ${GOPAIR_LOG_LEVEL:DEBUG}
+    # Spring相关日志级别
+    org.springframework.web: ${SPRING_WEB_LOG_LEVEL:INFO}
+    org.springframework.security: ${SPRING_SECURITY_LOG_LEVEL:INFO}
+    org.springframework.cloud: ${SPRING_CLOUD_LOG_LEVEL:INFO}
+    org.springframework.cloud.gateway: ${GATEWAY_LOG_LEVEL:INFO}
+    # 数据库相关日志
+    org.springframework.jdbc: ${SPRING_JDBC_LOG_LEVEL:INFO}
+    com.baomidou.mybatisplus: ${MYBATIS_LOG_LEVEL:INFO}
+    com.zaxxer.hikari: ${HIKARI_LOG_LEVEL:INFO}
+    # SQL日志级别（如果使用MyBatis）
+    com.gopair.*.mapper: ${SQL_LOG_LEVEL:DEBUG}
+    # WebSocket调试
+    org.springframework.web.socket: ${WEBSOCKET_LOG_LEVEL:INFO}
+    # HTTP请求日志
+    org.springframework.web.servlet.DispatcherServlet: ${SPRING_DISPATCHER_LOG_LEVEL:INFO}
+    # 第三方组件日志级别
+    redis.clients.jedis: ${REDIS_LOG_LEVEL:INFO}
+    com.alibaba.nacos.client: ${NACOS_CLIENT_LOG_LEVEL:INFO}
+    # 网关特定日志
+    org.springframework.cloud.loadbalancer: ${LOADBALANCER_LOG_LEVEL:INFO}
+    reactor.netty: ${REACTOR_NETTY_LOG_LEVEL:WARN}
+
+  # 可选的文件配置
+  file:
+    name: ${LOG_FILE_PATH:./logs}/${spring.application.name}.log
+    max-size: ${LOG_FILE_MAX_SIZE:100MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:30}
+    total-size-cap: ${LOG_FILE_TOTAL_SIZE:1GB}
+
+# Spring Boot Actuator基础配置
+management:
+  # 端点配置
+  endpoints:
+    web:
+      exposure:
+        # 基础监控端点
+        include: ${ACTUATOR_ENDPOINTS:health,metrics,info,tracing}
+  endpoint:
+    health:
+      show-details: ${HEALTH_SHOW_DETAILS:when-authorized}
+  
+  # 链路追踪配置
+  tracing:
+    # 采样配置
+    sampling:
+      # 采样概率：1.0表示100%采样，生产环境建议0.1
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+    # Baggage配置（用于在span之间传播自定义数据）
+    baggage:
+      remote-fields: ${TRACING_BAGGAGE_FIELDS:userId,nickname}
+  
+  # Zipkin配置
+  zipkin:
+    tracing:
+      # Zipkin服务端点，如果不配置ZIPKIN_URL环境变量则留空
+      endpoint: "${ZIPKIN_URL:}"
+  
+  # OTLP配置 (OpenTelemetry Protocol)
+  otlp:
+    tracing:
+      # OTLP服务端点
+      endpoint: "${OTLP_URL:}"
+  
+  # Prometheus指标配置
+  metrics:
+    export:
+      prometheus:
+        enabled: ${PROMETHEUS_ENABLED:true} 

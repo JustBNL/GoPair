@@ -1,91 +1,72 @@
-# GoPair业务服务通用配置 - 在Nacos配置中心创建
+# GoPair业务服务专用配置
 # Data ID: gopair-business.yml
 # Group: DEFAULT_GROUP
+# 说明: 业务服务专用配置，包含数据库、AOP日志、用户上下文、API文档等业务功能
 
-# JWT完整配置（生成+验证）
-gopair:
-  jwt:
-    # JWT密钥，用于签名和验证令牌（环境变量优先）
-    secret: ${JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}
-    # JWT过期时间，单位：毫秒（24小时 = 24 * 60 * 60 * 1000）
-    expiration: 86400000
-
-# 数据库配置
+# Nacos连接和服务发现配置
 spring:
-  datasource:
-    # MySQL数据库连接URL，支持环境变量覆盖
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:gopair}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    # 数据库用户名
-    username: ${DB_USERNAME:root}
-    # 数据库密码
-    password: ${DB_PASSWORD:610692}
-    # JDBC驱动类名
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    # 数据库连接池配置
-    hikari:
-      # 连接池最大连接数
-      maximum-pool-size: 20
-      # 连接池最小空闲连接数
-      minimum-idle: 5
-      # 连接超时时间（毫秒）
-      connection-timeout: 30000
-      # 空闲连接生存时间（毫秒）
-      idle-timeout: 600000
-      # 连接最大生存时间（毫秒）
-      max-lifetime: 1800000
-      # 连接测试查询
-      connection-test-query: SELECT 1
   cloud:
     nacos:
+      # Nacos服务地址
+      server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+      # 配置中心
+      config:
+        file-extension: yml
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        namespace: ${NACOS_NAMESPACE:}
+      # 服务发现
       discovery:
-        # 是否启用服务发现
         enabled: true
-        # 是否注册到Nacos
         register-enabled: true
-        # 心跳间隔（秒）
         heart-beat-interval: 5
-        # 心跳超时时间（秒）
         heart-beat-timeout: 15
-        # 实例IP注册优先级
         ip-delete-timeout: 30
-        # 服务实例元数据
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        namespace: ${NACOS_NAMESPACE:}
         metadata:
           version: ${app.version:1.0.0}
           zone: ${app.zone:default}
           management.context-path: ${server.servlet.context-path:}/actuator
-        # 是否开启Nacos Watch
         watch:
           enabled: true
-        # 实例是否健康，不健康的实例不会被路由到
         instance-enabled: true
-        # 是否为临时实例
         ephemeral: true
 
-# MyBatis Plus通用配置
-mybatis-plus:
-  # XML映射文件路径，支持classpath*通配符搜索所有jar包
-  mapper-locations: classpath*:/mapper/**/*.xml
-  # MyBatis Plus全局配置
-  configuration:
-    # 开启驼峰命名转换，如：数据库字段user_name自动映射到实体类userName属性
-    map-underscore-to-camel-case: true
-    # SQL日志打印实现类，将SQL语句打印到控制台
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  # 全局策略配置
-  global-config:
-    db-config:
-      # ID生成类型，auto表示使用数据库的自增长
-      id-type: auto
+  # 数据库配置
+  datasource:
+    # MySQL数据库连接URL，支持环境变量覆盖
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:gopair}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:610692}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 数据库连接池配置
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME:1800000}
+      connection-test-query: SELECT 1
 
-# Web服务配置
+# 业务服务动态端口配置
 server:
   # 动态端口分配以支持水平扩展
   port: 0
 
+# MyBatis Plus通用配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: auto
+
 # Knife4j API文档配置
 knife4j:
   # 全局开关
-  enable: true
+  enable: ${KNIFE4J_ENABLE:true}
   # 是否为生产环境，支持环境变量覆盖
   production: ${KNIFE4J_PRODUCTION:false}
   # 基础UI设置
@@ -95,4 +76,43 @@ knife4j:
     # 是否在页面底部显示Models模块
     enable-swagger-models: true
     # 是否开启页面顶部的搜索框
-    enable-search: true 
+    enable-search: true
+
+
+# GoPair业务服务AOP日志配置
+gopair:
+  logging:
+    # 日志功能总开关
+    enabled: ${GOPAIR_LOGGING_ENABLED:true}
+    
+    # AOP日志配置（匹配LoggingProperties.Aop类）
+    aop:
+      enabled: ${AOP_LOGGING_ENABLED:true}
+      logArgs: ${BUSINESS_LOG_RECORD_PARAMS:true}
+      logResult: ${BUSINESS_LOG_RECORD_RESULT:true}
+      logExecutionTime: ${PERFORMANCE_LOG_ENABLED:true}
+    
+    # 运维日志配置（匹配LoggingProperties.Ops类）
+    ops:
+      enabled: ${LOGGING_OPS_ENABLED:false}
+      mvcEnabled: ${LOGGING_MVC_ENABLED:false}
+      actuatorEnabled: ${LOGGING_ACTUATOR_ENABLED:false}
+      healthEnabled: ${LOGGING_HEALTH_ENABLED:false}
+      metricsEnabled: ${LOGGING_METRICS_ENABLED:false}
+
+  # 用户上下文配置
+  context:
+    # 上下文功能总开关
+    enabled: ${GOPAIR_CONTEXT_ENABLED:true}
+    
+    # 用户上下文配置
+    user:
+      excludedPaths:
+        - /health
+        - /actuator/**
+        - /error
+        - /favicon.ico
+        - /static/**
+        - /webjars/**
+        - /user/login
+        - /user/register

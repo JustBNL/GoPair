@@ -8,8 +8,8 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import:
-      - optional:nacos:gopair-platform.yml?group=DEFAULT_GROUP&refresh=true
       - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
+      - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
 # 仅保留服务特定的MyBatis Plus配置
 mybatis-plus:
@@ -30,13 +30,3 @@ gopair:
   schedule:
     # 房间清理任务执行间隔（毫秒）
     room-cleanup-interval: 900000  # 15分钟
-
-# 日志配置
-logging:
-  level:
-    com.gopair.roomservice: DEBUG
-    org.springframework.web: INFO
-    com.baomidou.mybatisplus: DEBUG
-  pattern:
-    console: '%d{yyyy-MM-dd HH:mm:ss} - %msg%n'
-    file: '%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n' 

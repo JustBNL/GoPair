@@ -7,11 +7,8 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import:
-      - optional:nacos:gopair-platform.yml?group=DEFAULT_GROUP&refresh=true
       - optional:nacos:gopair-gateway.yml?group=DEFAULT_GROUP&refresh=true
-      - optional:nacos:gopair-logging-common.yml?group=DEFAULT_GROUP&refresh=true
-      - optional:nacos:gopair-logging-${spring.profiles.active}.yml?group=DEFAULT_GROUP&refresh=true
-      - optional:nacos:gopair-logging-gateway.yml?group=DEFAULT_GROUP&refresh=true
+      - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
   cloud:
     gateway:
       routes:
@@ -70,9 +67,6 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
             maxAge: 3600
-
-server:
-  port: 8081
 
 # 网关特定配置
 gopair:

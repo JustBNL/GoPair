@@ -1,66 +1,70 @@
-# GoPair网关服务配置 - 在Nacos配置中心创建
+# GoPair网关专用配置
 # Data ID: gopair-gateway.yml
 # Group: DEFAULT_GROUP
+# 说明: 网关服务专用配置，基于WebFlux架构，不包含AOP和数据库相关配置
 
-# JWT验证配置（网关层面）
-gopair:
-  jwt:
-    # JWT密钥，用于验证令牌（环境变量优先）
-    secret: ${JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}
-
-# 服务发现和负载均衡配置（网关专用）
+# Nacos连接和服务发现配置
 spring:
   cloud:
     nacos:
+      # Nacos服务地址
+      server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+      # 配置中心
+      config:
+        file-extension: yml
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        namespace: ${NACOS_NAMESPACE:}
+      # 服务发现
       discovery:
-        # 是否启用服务发现
         enabled: true
-        # 是否注册到Nacos
         register-enabled: true
-        # 心跳间隔（秒）
         heart-beat-interval: 5
-        # 心跳超时时间（秒）
         heart-beat-timeout: 15
-        # 实例IP注册优先级
         ip-delete-timeout: 30
-        # 服务实例元数据
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        namespace: ${NACOS_NAMESPACE:}
         metadata:
           version: ${app.version:1.0.0}
           zone: ${app.zone:default}
           management.context-path: ${server.servlet.context-path:}/actuator
-        # 是否开启Nacos Watch
         watch:
           enabled: true
-        # 实例是否健康，不健康的实例不会被路由到
         instance-enabled: true
-        # 是否为临时实例
         ephemeral: true
-    # Spring Cloud LoadBalancer配置（替代Ribbon）
+    
+    # Spring Cloud LoadBalancer配置
     loadbalancer:
-      # 负载均衡策略
       configurations: default
-      # 健康检查
       health-check:
         initial-delay: 0
-      # 重试配置
       retry:
         enabled: true
 
-# Feign客户端配置
-feign:
-  # 客户端配置
-  client:
-    config:
-      default:
-        # 连接超时时间
-        connectTimeout: 5000
-        # 读取超时时间
-        readTimeout: 10000
-        # 日志级别
-        loggerLevel: basic
+# 网关固定端口配置
+server:
+  port: 8081
 
-# 网关应用特定日志配置
-logging:
-  level:
-    com.gopair.gateway: DEBUG
-    org.springframework.cloud.gateway: DEBUG 
+# 网关特定Actuator配置（不包含链路追踪端点）
+management:
+  endpoints:
+    web:
+      exposure:
+        # 网关专用监控端点，包含gateway端点
+        include: "health,info,metrics,prometheus,gateway"
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# JWT验证配置（网关层面，仅验证功能，无过期时间）
+gopair:
+  jwt:
+    # JWT密钥，用于验证令牌
+    secret: ${JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}
+  
+  # 网关认证配置
+  gateway:
+    skipAuthPaths: ${GATEWAY_SKIP_AUTH_PATHS:/user/login,/user,/doc.html,/swagger-ui.html,/v3/api-docs} 
