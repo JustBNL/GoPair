@@ -1,4 +1,1 @@
-com.gopair.framework.config.WebFrameworkAutoConfiguration
-com.gopair.framework.web.context.ContextAutoConfiguration
-com.gopair.framework.web.config.LoggingAopAutoConfiguration
-com.gopair.framework.web.config.LoggingOpsAutoConfiguration
+com.gopair.framework.config.FrameworkAutoConfiguration

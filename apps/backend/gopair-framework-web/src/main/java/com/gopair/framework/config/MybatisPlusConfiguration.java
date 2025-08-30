@@ -9,11 +9,12 @@ import org.springframework.context.annotation.Configuration;
  * MyBatis-Plus配置类
  * 
  * 提供MyBatis-Plus相关的拦截器配置，包括乐观锁支持
+ * 从 MybatisPlusConfig 重命名而来
  * 
  * @author gopair
  */
 @Configuration
-public class MybatisPlusConfig {
+public class MybatisPlusConfiguration {
 
     /**
      * 配置MyBatis-Plus拦截器
