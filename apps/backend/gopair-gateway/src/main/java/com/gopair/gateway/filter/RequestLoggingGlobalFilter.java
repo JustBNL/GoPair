@@ -53,10 +53,7 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
                     int statusCode = response.getStatusCode() != null ? 
                         response.getStatusCode().value() : 0;
                     
-                    // 将traceId添加到响应头
-                    if (traceId != null) {
-                        response.getHeaders().add("X-Trace-Id", traceId);
-                    }
+                    // 移除手动TraceId响应头设置，依赖Brave自动处理
                     
                     // 记录请求完成日志
                     log.info("[网关请求] 处理完成 - 方法: {}, 路径: {}, 状态码: {}, 耗时: {}ms, traceId: {}", 
