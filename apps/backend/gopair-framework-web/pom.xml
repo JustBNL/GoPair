@@ -66,11 +66,10 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- 可选：AOP/Actuator/Cloud Context 由业务侧按需引入-->
+        <!-- AOP/Actuator/Cloud Context 由业务侧按需引入-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
-            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

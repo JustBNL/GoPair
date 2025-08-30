@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,7 @@ public class ExceptionLogAspect {
     private final ApplicationEventPublisher eventPublisher;
 
     public ExceptionLogAspect(LoggingProperties loggingProperties,
-                              LogMetricsCollector logMetricsCollector,
+                              @Autowired(required = false) LogMetricsCollector logMetricsCollector,
                               ApplicationEventPublisher eventPublisher) {
         this.loggingProperties = loggingProperties;
         this.logMetricsCollector = logMetricsCollector;
@@ -84,9 +85,11 @@ public class ExceptionLogAspect {
     }
     
     private void safeRecordExceptionLog() {
-        try {
-            logMetricsCollector.recordExceptionLog();
-        } catch (Throwable ignore) {}
+        if (logMetricsCollector != null) {
+            try {
+                logMetricsCollector.recordExceptionLog();
+            } catch (Throwable ignore) {}
+        }
     }
 
     private void safePublishEvent(Object event) {

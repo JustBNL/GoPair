@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +34,7 @@ public class LogRecordAspect {
     private final ApplicationEventPublisher eventPublisher;
 
     public LogRecordAspect(LoggingProperties loggingProperties,
-                           LogMetricsCollector logMetricsCollector,
+                           @Autowired(required = false) LogMetricsCollector logMetricsCollector,
                            ApplicationEventPublisher eventPublisher) {
         this.loggingProperties = loggingProperties;
         this.logMetricsCollector = logMetricsCollector;
@@ -114,11 +115,13 @@ public class LogRecordAspect {
     }
 
     private void safeRecordLog() {
-        try {
-            // 这里可以根据需要决定是记录业务日志还是性能日志，或两者都记录
-            // 暂时保留业务日志的记录
-            logMetricsCollector.recordLog();
-        } catch (Throwable ignore) {}
+        if (logMetricsCollector != null) {
+            try {
+                // 这里可以根据需要决定是记录业务日志还是性能日志，或两者都记录
+                // 暂时保留业务日志的记录
+                logMetricsCollector.recordLog();
+            } catch (Throwable ignore) {}
+        }
     }
 
     private void safePublishEvent(Object event) {
