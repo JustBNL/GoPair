@@ -14,7 +14,7 @@ import org.springframework.context.annotation.ComponentScan;
 @AutoConfiguration
 @ComponentScan(basePackages = {
     "com.gopair.common.config",      // 配置类
-    "com.gopair.common.util"         // 工具类（如果有需要Bean化的）
+    "com.gopair.common.util"         // 工具类
 })
 public class GopairAutoConfiguration {
     

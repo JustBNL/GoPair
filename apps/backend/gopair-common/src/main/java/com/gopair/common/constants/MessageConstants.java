@@ -30,6 +30,13 @@ public class MessageConstants {
     public static final String USER_PREFIX = "用户";
 
     /**
+     * 请求头常量
+     */
+    public static final String HEADER_TRACE_ID = "X-Trace-Id";
+    public static final String HEADER_USER_ID = "X-User-Id";
+    public static final String HEADER_NICKNAME = "X-Nickname";
+
+    /**
      * 私有构造函数，防止实例化
      */
     private MessageConstants() {
