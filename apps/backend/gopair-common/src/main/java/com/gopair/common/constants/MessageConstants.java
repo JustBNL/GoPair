@@ -35,6 +35,20 @@ public class MessageConstants {
     public static final String HEADER_TRACE_ID = "X-Trace-Id";
     public static final String HEADER_USER_ID = "X-User-Id";
     public static final String HEADER_NICKNAME = "X-Nickname";
+    
+    /**
+     * JWT相关常量
+     */
+    public static final String JWT_COOKIE_NAME = "token";
+    public static final String AUTHORIZATION_HEADER = "Authorization";
+    public static final String BEARER_PREFIX = "Bearer ";
+
+    /**
+     * MDC (Mapped Diagnostic Context) 键常量
+     */
+    public static final String MDC_TRACE_ID = "traceId";
+    public static final String MDC_USER_ID = "userId";
+    public static final String MDC_NICKNAME = "nickname";
 
     /**
      * 私有构造函数，防止实例化
@@ -42,4 +56,4 @@ public class MessageConstants {
     private MessageConstants() {
         throw new IllegalStateException("常量类不允许实例化");
     }
-} 
+}
