@@ -2,6 +2,7 @@ package com.gopair.gateway.filter;
 
 import com.gopair.common.enums.impl.CommonErrorCode;
 import com.gopair.common.util.JwtUtils;
+import com.gopair.common.constants.MessageConstants;
 import com.gopair.gateway.config.GatewayAuthProperties;
 import com.gopair.gateway.config.JwtProperties;
 import com.gopair.gateway.enums.GatewayErrorCode;
@@ -48,27 +49,27 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     /**
      * JWT令牌在Cookie中的名称
      */
-    private static final String JWT_COOKIE_NAME = "token";
+    private static final String JWT_COOKIE_NAME = MessageConstants.JWT_COOKIE_NAME;
     
     /**
      * Authorization请求头名称
      */
-    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String AUTHORIZATION_HEADER = MessageConstants.AUTHORIZATION_HEADER;
     
     /**
      * Bearer令牌前缀
      */
-    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String BEARER_PREFIX = MessageConstants.BEARER_PREFIX;
 
     /**
      * 传递给下游服务的用户ID头名称
      */
-    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String USER_ID_HEADER = MessageConstants.HEADER_USER_ID;
 
     /**
      * 传递给下游服务的昵称头名称
      */
-    private static final String NICKNAME_HEADER = "X-Nickname";
+    private static final String NICKNAME_HEADER = MessageConstants.HEADER_NICKNAME;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -214,4 +215,4 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         // 设置为在RequestLoggingGlobalFilter之后执行，确保JWT解析在日志记录之后
         return Ordered.HIGHEST_PRECEDENCE + 100;
     }
-} 
+}

@@ -78,9 +78,3 @@ server:
 gopair:
   gateway:
     skip-auth-paths: "/user/login,/user,/doc.html,/swagger-ui.html,/v3/api-docs"
-
-# 网关服务本地日志配置（如需覆盖Nacos配置）
-# 大部分日志配置已迁移到Nacos配置中心
-# logging:
-#   level:
-#     com.gopair.gateway: ${GATEWAY_LOG_LEVEL:INFO} 
