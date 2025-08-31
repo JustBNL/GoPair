@@ -16,8 +16,6 @@ import jakarta.servlet.Filter;
 /**
  * 上下文功能配置类
  *
- * 通过过滤器统一管理 traceId 与用户上下文（MDC + ThreadLocal）
- * 从 ContextAutoConfiguration 迁移而来
  */
 @Slf4j
 @Configuration
@@ -40,7 +38,7 @@ public class ContextConfiguration {
         registration.setName("contextInitFilter");
         // 与类上 @Order(Integer.MIN_VALUE + 100) 对齐
         registration.setOrder(Integer.MIN_VALUE + 100);
-        log.info("已注册 ContextInitFilter (统一上下文管理)");
+        log.info("[框架配置] 已注册 ContextInitFilter (统一上下文管理)");
         return registration;
     }
 } 

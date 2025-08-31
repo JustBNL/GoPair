@@ -6,9 +6,12 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * 用户服务Knife4j配置类
@@ -17,8 +20,14 @@ import org.springframework.context.annotation.Configuration;
  * 
  * @author gopair
  */
+@Slf4j
 @Configuration
 public class Knife4jConfig {
+
+    @PostConstruct
+    public void init() {
+        log.info("[用户服务] Knife4j API文档配置初始化完成");
+    }
 
     /**
      * 创建API分组 - 用户服务

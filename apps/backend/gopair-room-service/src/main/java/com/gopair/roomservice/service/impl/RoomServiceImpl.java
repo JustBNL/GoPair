@@ -20,6 +20,7 @@ import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.roomservice.service.RoomService;
 import com.gopair.roomservice.util.RoomCodeUtils;
+import com.gopair.framework.logging.annotation.LogRecord;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +48,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "创建房间", module = "房间管理", includeResult = true)
     public RoomVO createRoom(RoomDto roomDto, Long userId) {
         // 参数验证
         if (!StringUtils.hasText(roomDto.getRoomName())) {
@@ -75,10 +77,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         String roomCode = RoomCodeUtils.generateWithRetry(this::isRoomCodeUnique);
         room.setRoomCode(roomCode);
 
-        // 设置审计字段
-        room.setCreateBy(MessageConstants.USER_PREFIX + userId);
-        room.setCreateTime(LocalDateTime.now());
-
         // 保存房间
         if (roomMapper.insert(room) <= 0) {
             throw new RoomException(RoomErrorCode.ROOM_CREATION_FAILED);
@@ -96,6 +94,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "加入房间", module = "房间管理", includeResult = true)
     public RoomVO joinRoom(JoinRoomDto joinRoomDto, Long userId) {
         // 参数验证
         if (!StringUtils.hasText(joinRoomDto.getRoomCode())) {

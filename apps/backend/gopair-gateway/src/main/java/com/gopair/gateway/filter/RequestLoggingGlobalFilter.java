@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import jakarta.annotation.PostConstruct;
+
 /**
  * 请求日志全局过滤器
  * 
@@ -27,6 +29,11 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
     
     public RequestLoggingGlobalFilter(Tracer tracer) {
         this.tracer = tracer;
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("[网关服务] 请求日志过滤器初始化完成");
     }
 
     @Override
@@ -52,8 +59,6 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
                     ServerHttpResponse response = exchange.getResponse();
                     int statusCode = response.getStatusCode() != null ? 
                         response.getStatusCode().value() : 0;
-                    
-                    // 移除手动TraceId响应头设置，依赖Brave自动处理
                     
                     // 记录请求完成日志
                     log.info("[网关请求] 处理完成 - 方法: {}, 路径: {}, 状态码: {}, 耗时: {}ms, traceId: {}", 

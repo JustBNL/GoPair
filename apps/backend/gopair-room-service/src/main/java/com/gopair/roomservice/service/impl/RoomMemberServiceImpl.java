@@ -56,10 +56,6 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         roomMember.setStatus(0); // 在线状态
         roomMember.setJoinTime(LocalDateTime.now());
         roomMember.setLastActiveTime(LocalDateTime.now());
-        
-        // 设置审计字段
-        roomMember.setCreateBy("用户" + userId);
-        roomMember.setCreateTime(LocalDateTime.now());
 
         int insertRows = roomMemberMapper.insert(roomMember);
         

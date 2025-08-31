@@ -8,9 +8,6 @@ import org.springframework.context.annotation.Import;
 /**
  * GoPair框架主自动配置类
  * 
- * 作为框架的统一入口，通过@Import组织其他功能配置类
- * 业务模块只需引入framework-web依赖即可，无需手动配置
- * 
  * @author gopair
  */
 @Slf4j
@@ -27,6 +24,6 @@ import org.springframework.context.annotation.Import;
 public class FrameworkAutoConfiguration {
     
     public FrameworkAutoConfiguration() {
-        log.info("GoPair Framework Web 自动配置已启动");
+        log.info("[框架配置] Framework Web 模块自动配置已启动");
     }
 } 

@@ -1,13 +1,17 @@
 package com.gopair.userservice.util;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * 密码工具类，用于密码加密和验证
  * 
  * @author gopair
  */
+@Slf4j
 @Component
 public class PasswordUtils {
     
@@ -15,6 +19,11 @@ public class PasswordUtils {
     
     public PasswordUtils() {
         this.passwordEncoder = new BCryptPasswordEncoder();
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("[用户服务] 密码工具类初始化完成");
     }
     
     /**

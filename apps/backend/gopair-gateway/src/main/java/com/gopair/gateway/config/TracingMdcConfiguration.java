@@ -4,8 +4,11 @@ import brave.baggage.BaggageField;
 import brave.baggage.CorrelationScopeConfig;
 import brave.context.slf4j.MDCScopeDecorator;
 import brave.propagation.CurrentTraceContext;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * Tracing MDC配置
@@ -15,8 +18,14 @@ import org.springframework.context.annotation.Configuration;
  * 
  * @author gopair
  */
+@Slf4j
 @Configuration
 public class TracingMdcConfiguration {
+
+    @PostConstruct
+    public void init() {
+        log.info("[网关服务] 链路追踪MDC配置初始化完成");
+    }
 
     /**
      * 配置MDC scope decorator

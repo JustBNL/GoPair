@@ -25,9 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 日志功能配置类
  * 
- * 合并原 LoggingOpsAutoConfiguration 和 LoggingAopAutoConfiguration 功能
- * 统一管理所有日志相关的配置
- * 
  * @author gopair
  */
 @Slf4j
@@ -44,7 +41,7 @@ public class LoggingConfiguration {
     // === AOP日志配置部分 ===
     
     public LoggingConfiguration() {
-        log.info("日志功能配置已启动 (AOP + 运维功能)");
+        log.info("[框架配置] 日志功能配置已启动 (AOP + 运维功能)");
     }
 
     // === 运维功能配置部分 ===

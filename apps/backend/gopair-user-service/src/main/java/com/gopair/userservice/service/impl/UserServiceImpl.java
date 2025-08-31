@@ -22,6 +22,7 @@ import com.gopair.userservice.domain.vo.auth.LoginResponse;
 import com.gopair.userservice.domain.vo.auth.RegisterResponse;
 import com.gopair.userservice.mapper.UserMapper;
 import com.gopair.userservice.service.UserService;
+import com.gopair.framework.logging.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -69,6 +70,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "用户注册", module = "用户管理")
     public RegisterResponse register(RegisterRequest registerRequest) {
         // 检查昵称是否已存在
         if (StringUtils.hasText(registerRequest.getNickname()) && getUserByNickname(registerRequest.getNickname()) != null) {
@@ -105,6 +107,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "用户信息更新", module = "用户管理")
     public boolean updateUser(UserDto userDto) {
         // 存在性
         if (userDto.getUserId() == null || userMapper.selectById(userDto.getUserId()) == null) {
@@ -137,6 +140,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "用户删除", module = "用户管理", includeResult = true)
     public boolean deleteUser(Long userId) {
         if (userMapper.selectById(userId) == null) {
             throw new UserException(UserErrorCode.USER_NOT_FOUND);
@@ -180,6 +184,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     @Override
+    @LogRecord(operation = "用户登录", module = "用户认证")
     public LoginResponse login(LoginRequest loginRequest) {
         // 登录：邮箱 + 密码
         if (!StringUtils.hasText(loginRequest.getEmail()) || !StringUtils.hasText(loginRequest.getPassword())) {

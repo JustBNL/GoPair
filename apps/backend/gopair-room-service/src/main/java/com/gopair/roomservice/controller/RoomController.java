@@ -1,6 +1,6 @@
 package com.gopair.roomservice.controller;
 
-import com.gopair.common.context.UserContextHolder;
+import com.gopair.framework.context.UserContextHolder;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
 import com.gopair.common.entity.BaseQuery;

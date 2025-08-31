@@ -1,11 +1,14 @@
 package com.gopair.gateway.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import reactor.core.publisher.Mono;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * Spring Security WebFlux 配置类
@@ -14,9 +17,15 @@ import reactor.core.publisher.Mono;
  * 
  * @author gopair
  */
+@Slf4j
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
+
+    @PostConstruct
+    public void init() {
+        log.info("[网关服务] Spring Security WebFlux配置初始化完成");
+    }
 
     /**
      * 配置安全过滤器链

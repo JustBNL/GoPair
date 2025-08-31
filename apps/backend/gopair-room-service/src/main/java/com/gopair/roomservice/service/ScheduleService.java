@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import java.util.List;
 
 /**
@@ -21,6 +22,11 @@ public class ScheduleService {
 
     public ScheduleService(RoomService roomService) {
         this.roomService = roomService;
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("[房间服务] 定时任务服务初始化完成");
     }
 
     /**

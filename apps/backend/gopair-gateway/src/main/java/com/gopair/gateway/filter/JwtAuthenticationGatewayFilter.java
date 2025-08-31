@@ -27,6 +27,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
+import jakarta.annotation.PostConstruct;
+
 /**
  * JWT认证网关过滤器
  *
@@ -44,6 +46,11 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     public JwtAuthenticationGatewayFilter(JwtProperties jwtProperties, GatewayAuthProperties gatewayAuthProperties) {
         this.jwtProperties = jwtProperties;
         this.gatewayAuthProperties = gatewayAuthProperties;
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("[网关服务] JWT认证过滤器初始化完成");
     }
 
     /**

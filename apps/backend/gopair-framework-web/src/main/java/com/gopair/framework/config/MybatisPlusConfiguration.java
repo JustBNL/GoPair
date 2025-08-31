@@ -2,19 +2,25 @@ package com.gopair.framework.config;
 
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * MyBatis-Plus配置类
  * 
- * 提供MyBatis-Plus相关的拦截器配置，包括乐观锁支持
- * 从 MybatisPlusConfig 重命名而来
- * 
  * @author gopair
  */
+@Slf4j
 @Configuration
 public class MybatisPlusConfiguration {
+
+    @PostConstruct
+    public void init() {
+        log.info("[框架配置] MyBatis Plus配置初始化完成");
+    }
 
     /**
      * 配置MyBatis-Plus拦截器

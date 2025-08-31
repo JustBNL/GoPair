@@ -1,8 +1,10 @@
 package com.gopair.roomservice.util;
 
-import com.gopair.common.context.UserContextHolder;
+import com.gopair.framework.context.UserContextHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * 用户信息提取工具类
@@ -14,6 +16,11 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class UserInfoExtractor {
+
+    @PostConstruct
+    public void init() {
+        log.info("[房间服务] 用户信息提取器初始化完成");
+    }
 
     /**
      * 获取当前用户ID
@@ -45,7 +52,7 @@ public class UserInfoExtractor {
      * @return 是否已登录
      */
     public static boolean isUserLoggedIn() {
-        return UserContextHolder.hasValidContext() && UserContextHolder.getCurrentUserId() != null;
+        return UserContextHolder.hasContext() && UserContextHolder.getCurrentUserId() != null;
     }
 
     /**
