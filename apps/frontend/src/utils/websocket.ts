@@ -234,9 +234,20 @@ export abstract class BaseWebSocketClient {
 export class MessageWebSocketClient extends BaseWebSocketClient {
   private messageHandlers: Map<string, Function> = new Map()
   private roomId: number | null = null
+  private userId: number | null = null
 
   constructor(options: WebSocketOptions = {}) {
     super(WS_ENDPOINTS.MESSAGE, options)
+  }
+
+  /**
+   * 设置用户ID和房间ID（必须在连接前调用）
+   */
+  setUserAndRoom(userId: number, roomId: number): void {
+    this.userId = userId
+    this.roomId = roomId
+    // 重新构建URL
+    this.url = this.buildWebSocketUrl(`${WS_ENDPOINTS.MESSAGE}?userId=${userId}&roomId=${roomId}`)
   }
 
   /**

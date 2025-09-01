@@ -1,7 +1,9 @@
 package com.gopair.framework.config;
 
+import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
+import com.gopair.framework.mybatis.AutoFillMetaObjectHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,5 +41,19 @@ public class MybatisPlusConfiguration {
         interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
         
         return interceptor;
+    }
+
+    /**
+     * 配置MyBatis-Plus自动填充处理器
+     * 
+     * 自动填充BaseEntity中的时间审计字段：
+     * - INSERT操作：填充createTime和updateTime
+     * - UPDATE操作：填充updateTime
+     * 
+     * @return 自动填充处理器实例
+     */
+    @Bean
+    public MetaObjectHandler metaObjectHandler() {
+        return new AutoFillMetaObjectHandler();
     }
 } 

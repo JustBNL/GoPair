@@ -627,7 +627,17 @@ const loadMessages = async () => {
       pageNum: 1,
       pageSize: 50
     })
-    messages.value = response.data.records || []  // 确保始终是数组
+    
+    // 现在使用正确的数据路径: response.data.records
+    const messagesData = response.data.records || []
+    
+    // 为消息数据添加isOwn字段
+    const messagesWithOwnership = messagesData.map((message: any) => ({
+      ...message,
+      isOwn: message.senderId === currentUser.value?.userId
+    }))
+    
+    messages.value = messagesWithOwnership
     serviceStates.value.messages.retryCount = 0
   } catch (error: any) {
     console.error('加载消息失败:', error)
@@ -723,8 +733,9 @@ const initWebSocketConnection = async () => {
   try {
     // 连接消息WebSocket
     const messageClient = wsManager.getMessageClient()
+    // 设置用户ID和房间ID（必须在连接前调用）
+    messageClient.setUserAndRoom(currentUser.value.userId, currentRoom.value.roomId)
     await messageClient.connect()
-    messageClient.joinRoom(currentRoom.value.roomId)
     
     // 监听消息事件
     messageClient.addMessageHandler('message-received', (data: any) => {

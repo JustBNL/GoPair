@@ -19,7 +19,7 @@
         <dependency>
             <groupId>com.gopair</groupId>
             <artifactId>gopair-common</artifactId>
-            <version>${project.version}</version>
+            <version>${gopair.version}</version>
         </dependency>
         
         <!-- Spring Boot Web Starter -->
