@@ -4,9 +4,8 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 日志功能属性配置
  * 
- * 统一管理所有日志相关的配置参数，合并原 LoggingOpsProperties 和 LoggingAopProperties
+ * 日志功能属性配置
  * 
  * @author gopair
  */

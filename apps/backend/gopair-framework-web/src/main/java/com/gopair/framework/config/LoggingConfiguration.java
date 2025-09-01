@@ -41,7 +41,7 @@ public class LoggingConfiguration {
     // === AOP日志配置部分 ===
     
     public LoggingConfiguration() {
-        log.info("[框架配置] 日志功能配置已启动 (AOP + 运维功能)");
+        log.info("[框架配置] 日志功能配置已启动");
     }
 
     // === 运维功能配置部分 ===

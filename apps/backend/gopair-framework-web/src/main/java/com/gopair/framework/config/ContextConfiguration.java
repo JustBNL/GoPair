@@ -38,7 +38,7 @@ public class ContextConfiguration {
         registration.setName("contextInitFilter");
         // 与类上 @Order(Integer.MIN_VALUE + 100) 对齐
         registration.setOrder(Integer.MIN_VALUE + 100);
-        log.info("[框架配置] 已注册 ContextInitFilter (统一上下文管理)");
+        log.info("[框架配置] 已注册 ContextInitFilter");
         return registration;
     }
 } 

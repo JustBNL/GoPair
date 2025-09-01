@@ -39,3 +39,5 @@ build/
 
 ### temporary files ###
 # /apps/backend/gopair-room-service/
+
+/logs/
