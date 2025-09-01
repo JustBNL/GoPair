@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * 动态日志管理器
  * 
  * 监听配置变更事件，动态调整Logger级别
- * 注意：通过 LoggingConfiguration 的 @Bean 方式创建，不使用 @Component
  * 
  * @author gopair
  */
@@ -29,7 +28,7 @@ public class DynamicLoggerManager {
     
     public DynamicLoggerManager(LoggingSystem loggingSystem) {
         this.loggingSystem = loggingSystem;
-        log.info("动态日志管理器初始化完成");
+        log.info("[日志管理] 动态日志管理器初始化完成");
     }
     
     /**
@@ -37,7 +36,7 @@ public class DynamicLoggerManager {
      */
     @EventListener
     public void handleRefreshScopeRefresh(RefreshScopeRefreshedEvent event) {
-        log.info("检测到RefreshScope刷新事件，开始刷新日志配置");
+        log.info("[日志管理] 检测到RefreshScope刷新事件，开始刷新日志配置");
         refreshLoggerLevels();
     }
     
@@ -46,7 +45,7 @@ public class DynamicLoggerManager {
      */
     @EventListener
     public void handleEnvironmentChange(EnvironmentChangeEvent event) {
-        log.info("检测到环境变量变更事件，变更的键: {}", event.getKeys());
+        log.info("[日志管理] 检测到环境变量变更事件，变更的键: {}", event.getKeys());
         
         // 检查是否有日志相关的配置变更
         boolean hasLoggingChange = event.getKeys().stream()
@@ -54,7 +53,7 @@ public class DynamicLoggerManager {
                                 key.startsWith("gopair.logging."));
         
         if (hasLoggingChange) {
-            log.info("检测到日志相关配置变更，开始刷新日志配置");
+            log.info("[日志管理] 检测到日志相关配置变更，开始刷新日志配置");
             refreshLoggerLevels();
         }
     }
@@ -68,13 +67,13 @@ public class DynamicLoggerManager {
             // 由于我们使用的是Spring Boot的标准日志配置机制
             // LoggingSystem会自动处理大部分变更
             
-            log.info("日志配置刷新完成");
+            log.info("[日志管理] 日志配置刷新完成");
             
             // 记录刷新事件用于监控
             recordRefreshEvent();
             
         } catch (Exception e) {
-            log.error("刷新日志配置失败", e);
+            log.error("[日志管理] 刷新日志配置失败", e);
         }
     }
     
@@ -89,16 +88,16 @@ public class DynamicLoggerManager {
             LogLevel logLevel = LogLevel.valueOf(level.toUpperCase());
             loggingSystem.setLogLevel(loggerName, logLevel);
             
-            log.info("动态设置Logger级别成功 - Logger: {}, Level: {}", loggerName, level);
+            log.info("[日志管理] 动态设置Logger级别成功 - Logger: {}, Level: {}", loggerName, level);
             
             // 记录变更
             lastLoggerLevels.put(loggerName, level);
             
         } catch (IllegalArgumentException e) {
-            log.error("无效的日志级别: {}", level, e);
+            log.error("[日志管理] 无效的日志级别: {}", level, e);
             throw new IllegalArgumentException("无效的日志级别: " + level);
         } catch (Exception e) {
-            log.error("设置Logger级别失败 - Logger: {}, Level: {}", loggerName, level, e);
+            log.error("[日志管理] 设置Logger级别失败 - Logger: {}, Level: {}", loggerName, level, e);
             throw new RuntimeException("设置Logger级别失败", e);
         }
     }
@@ -114,7 +113,7 @@ public class DynamicLoggerManager {
             LogLevel logLevel = loggingSystem.getLoggerConfiguration(loggerName).getEffectiveLevel();
             return logLevel != null ? logLevel.name() : "INHERITED";
         } catch (Exception e) {
-            log.warn("获取Logger级别失败 - Logger: {}", loggerName, e);
+            log.warn("[日志管理] 获取Logger级别失败 - Logger: {}", loggerName, e);
             return "UNKNOWN";
         }
     }
@@ -150,7 +149,7 @@ public class DynamicLoggerManager {
             }
             
         } catch (Exception e) {
-            log.error("获取Logger级别列表失败", e);
+            log.error("[日志管理] 获取Logger级别列表失败", e);
         }
         
         return loggerLevels;
@@ -164,12 +163,12 @@ public class DynamicLoggerManager {
     public void resetLogLevel(String loggerName) {
         try {
             loggingSystem.setLogLevel(loggerName, null);
-            log.info("重置Logger级别成功 - Logger: {}", loggerName);
+            log.info("[日志管理] 重置Logger级别成功 - Logger: {}", loggerName);
             
             lastLoggerLevels.remove(loggerName);
             
         } catch (Exception e) {
-            log.error("重置Logger级别失败 - Logger: {}", loggerName, e);
+            log.error("[日志管理] 重置Logger级别失败 - Logger: {}", loggerName, e);
             throw new RuntimeException("重置Logger级别失败", e);
         }
     }
@@ -179,7 +178,7 @@ public class DynamicLoggerManager {
      */
     private void recordRefreshEvent() {
         // 这里可以发送指标到监控系统
-        log.debug("记录日志配置刷新事件");
+        log.debug("[日志管理] 记录日志配置刷新事件");
     }
     
     /**

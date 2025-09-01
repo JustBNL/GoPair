@@ -18,14 +18,12 @@
         <dependency>
             <groupId>com.gopair</groupId>
             <artifactId>gopair-common</artifactId>
-            <version>${project.version}</version>
         </dependency>
         
         <!-- 依赖Web框架模块 -->
         <dependency>
             <groupId>com.gopair</groupId>
             <artifactId>gopair-framework-web</artifactId>
-            <version>${project.version}</version>
         </dependency>
         
         <!-- Nacos Discovery -->
@@ -54,6 +52,24 @@
             <optional>true</optional>
         </dependency>
         
+        <!-- Spring Boot Actuator -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        
+        <!-- Micrometer Tracing -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+        
+        <!-- Zipkin Reporter -->
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
+        </dependency>
+        
         <!-- 测试依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -74,14 +90,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
             </plugin>
         </plugins>
     </build>

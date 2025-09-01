@@ -32,12 +32,6 @@
 			<groupId>com.alibaba.cloud</groupId>
 			<artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
 		</dependency>
-
-		<!-- Spring Cloud LoadBalancer -->
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-loadbalancer</artifactId>
-		</dependency>
 		
 		<!-- Nacos Config -->
 		<dependency>
@@ -62,7 +56,6 @@
 		<dependency>
 			<groupId>com.gopair</groupId>
 			<artifactId>gopair-common</artifactId>
-			<version>${project.version}</version>
 		</dependency>
 		
 		<!-- Spring Boot Actuator -->
@@ -96,14 +89,6 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
 			</plugin>
 		</plugins>
 	</build>

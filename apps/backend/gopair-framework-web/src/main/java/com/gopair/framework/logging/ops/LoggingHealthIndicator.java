@@ -12,7 +12,6 @@ import java.util.Map;
  * 日志健康检查器
  * 
  * 检查日志系统的健康状态
- * 注意：通过 LoggingConfiguration 的 @Bean 方式创建，不使用 @Component
  * 
  * @author gopair
  */
@@ -45,7 +44,7 @@ public class LoggingHealthIndicator implements HealthIndicator {
             return builder.build();
             
         } catch (Exception e) {
-            log.error("日志健康检查失败", e);
+            log.error("[日志健康检查] 日志健康检查失败", e);
             return Health.down()
                     .withDetail("error", e.getMessage())
                     .build();

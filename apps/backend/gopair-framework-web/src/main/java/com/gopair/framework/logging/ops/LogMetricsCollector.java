@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * 日志指标收集器
  * 
  * 收集日志相关的指标数据，为监控系统提供数据
- * 注意：通过 LoggingConfiguration 的 @Bean 方式创建，不使用 @Component
  * 
  * @author gopair
  */
@@ -41,7 +40,7 @@ public class LogMetricsCollector {
      */
     public void recordConfigRefresh() {
         configRefreshCount.incrementAndGet();
-        log.debug("记录配置刷新指标，当前计数: {}", configRefreshCount.get());
+        log.debug("[日志指标] 记录配置刷新指标，当前计数: {}", configRefreshCount.get());
     }
     
     // 事件监听（解耦）
@@ -84,6 +83,6 @@ public class LogMetricsCollector {
         logRecordCount.set(0);
         exceptionLogCount.set(0);
         configRefreshCount.set(0);
-        log.info("所有日志指标计数器已重置");
+        log.info("[日志指标] 所有日志指标计数器已重置");
     }
 } 
