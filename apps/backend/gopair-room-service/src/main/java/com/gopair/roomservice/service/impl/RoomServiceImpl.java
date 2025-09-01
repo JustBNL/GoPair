@@ -12,11 +12,13 @@ import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
 import com.gopair.roomservice.domain.po.Room;
+import com.gopair.roomservice.domain.po.RoomMember;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.enums.RoomErrorCode;
 import com.gopair.roomservice.exception.RoomException;
 import com.gopair.roomservice.mapper.RoomMapper;
+import com.gopair.roomservice.mapper.RoomMemberMapper;
 import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.roomservice.service.RoomService;
 import com.gopair.roomservice.util.RoomCodeUtils;
@@ -39,10 +41,12 @@ import java.util.List;
 public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements RoomService {
 
     private final RoomMapper roomMapper;
+    private final RoomMemberMapper roomMemberMapper;
     private final RoomMemberService roomMemberService;
 
-    public RoomServiceImpl(RoomMapper roomMapper, RoomMemberService roomMemberService) {
+    public RoomServiceImpl(RoomMapper roomMapper, RoomMemberMapper roomMemberMapper, RoomMemberService roomMemberService) {
         this.roomMapper = roomMapper;
+        this.roomMemberMapper = roomMemberMapper;
         this.roomMemberService = roomMemberService;
     }
 
@@ -210,17 +214,15 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
 
-        // 查询用户创建的房间
-        Page<Room> page = new Page<>(query.getPageNum(), query.getPageSize());
-        LambdaQueryWrapper<Room> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Room::getOwnerId, userId)
-                   .eq(Room::getStatus, 0)
-                   .orderByDesc(Room::getCreateTime);
+        // 调用RoomMemberService的正确实现获取用户的所有相关房间
+        PageResult<RoomVO> memberRooms = roomMemberService.getUserRooms(userId, query);
+        
+        // 为房间列表增强用户关系信息
+        enhanceRoomsWithUserRelationship(memberRooms.getRecords(), userId);
+        
+        log.info("用户{}获取房间列表成功，共{}个房间", userId, memberRooms.getTotal());
 
-        IPage<Room> roomPage = roomMapper.selectPage(page, queryWrapper);
-        List<RoomVO> roomVOList = BeanCopyUtils.copyBeanList(roomPage.getRecords(), RoomVO.class);
-
-        return new PageResult<RoomVO>(roomVOList, roomPage.getTotal(), roomPage.getCurrent(), roomPage.getSize());
+        return memberRooms;
     }
 
     @Override
@@ -288,5 +290,79 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     public boolean isRoomCodeUnique(String roomCode) {
         Room room = roomMapper.selectByRoomCode(roomCode);
         return room == null;
+    }
+
+    /**
+     * 为房间列表增强用户关系信息
+     * 
+     * @param rooms 房间列表
+     * @param userId 用户ID
+     */
+    private void enhanceRoomsWithUserRelationship(List<RoomVO> rooms, Long userId) {
+        if (rooms == null || rooms.isEmpty() || userId == null) {
+            return;
+        }
+
+        for (RoomVO room : rooms) {
+            try {
+                // 获取用户在房间中的成员信息
+                RoomMember membership = getUserRoomMembership(room.getRoomId(), userId);
+                
+                if (membership != null) {
+                    // 设置用户角色
+                    room.setUserRole(membership.getRole());
+                    room.setJoinTime(membership.getJoinTime());
+                    
+                    // 根据角色和房主信息确定关系类型
+                    if (room.getOwnerId().equals(userId) || (membership.getRole() != null && membership.getRole() == 2)) {
+                        room.setRelationshipType("created");
+                    } else {
+                        room.setRelationshipType("joined");
+                    }
+                } else {
+                    // 降级处理：通过房主ID判断
+                    if (room.getOwnerId().equals(userId)) {
+                        room.setUserRole(2); // 房主角色
+                        room.setRelationshipType("created");
+                        room.setJoinTime(room.getCreateTime());
+                    } else {
+                        room.setUserRole(0); // 普通成员
+                        room.setRelationshipType("joined");
+                        log.warn("用户{}在房间{}中的成员信息缺失，使用降级处理", userId, room.getRoomId());
+                    }
+                }
+            } catch (Exception e) {
+                log.error("增强房间{}的用户关系信息失败", room.getRoomId(), e);
+                // 设置默认值，不影响主流程
+                room.setUserRole(0);
+                room.setRelationshipType("joined");
+            }
+        }
+        
+        log.info("为用户{}增强了{}个房间的关系信息", userId, rooms.size());
+    }
+
+    /**
+     * 获取用户在房间中的成员信息
+     * 
+     * @param roomId 房间ID
+     * @param userId 用户ID
+     * @return 房间成员信息，如果不存在返回null
+     */
+    private RoomMember getUserRoomMembership(Long roomId, Long userId) {
+        if (roomId == null || userId == null) {
+            return null;
+        }
+
+        try {
+            LambdaQueryWrapper<RoomMember> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(RoomMember::getRoomId, roomId)
+                       .eq(RoomMember::getUserId, userId);
+            
+            return roomMemberMapper.selectOne(queryWrapper);
+        } catch (Exception e) {
+            log.error("查询用户{}在房间{}中的成员信息失败", userId, roomId, e);
+            return null;
+        }
     }
 } 

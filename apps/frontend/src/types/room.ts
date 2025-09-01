@@ -18,6 +18,9 @@ export interface RoomInfo {
   expireTime: string
   createTime: string
   updateTime: string
+  userRole?: number // 用户角色 0-成员 1-管理员 2-房主
+  relationshipType?: 'created' | 'joined' // 关系类型：创建的房间或加入的房间
+  joinTime?: string // 用户加入房间的时间
 }
 
 /**

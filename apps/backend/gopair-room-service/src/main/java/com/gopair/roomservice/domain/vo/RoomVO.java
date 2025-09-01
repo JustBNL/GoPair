@@ -66,4 +66,19 @@ public class RoomVO {
      * 更新时间
      */
     private LocalDateTime updateTime;
+
+    /**
+     * 用户在房间中的角色（0-普通成员 1-管理员 2-房主）
+     */
+    private Integer userRole;
+
+    /**
+     * 用户与房间的关系类型（created-创建的房间 joined-加入的房间）
+     */
+    private String relationshipType;
+
+    /**
+     * 用户加入房间的时间
+     */
+    private LocalDateTime joinTime;
 } 

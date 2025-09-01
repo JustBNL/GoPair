@@ -39,6 +39,9 @@
         <UserOutlined class="owner-icon" />
         <span>房主：{{ room.ownerNickname }}</span>
         <a-tag v-if="isOwner" color="gold" size="small">我的房间</a-tag>
+        <a-tag v-else-if="room.relationshipType" :color="relationshipColor" size="small">
+          {{ relationshipText }}
+        </a-tag>
       </div>
     </div>
     
@@ -140,6 +143,19 @@ const authStore = useAuthStore()
 // 是否为房主
 const isOwner = computed(() => {
   return props.room.ownerId === authStore.user?.userId
+})
+
+// 关系类型显示文本
+const relationshipText = computed(() => {
+  if (props.room.relationshipType === 'created') return '我的房间'
+  if (props.room.relationshipType === 'joined') return '已加入'
+  return '房间成员'
+})
+
+// 关系类型徽章颜色
+const relationshipColor = computed(() => {
+  if (props.room.relationshipType === 'created') return 'gold'
+  return 'blue'
 })
 
 // 房间状态
