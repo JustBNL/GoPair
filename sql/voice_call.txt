@@ -1,0 +1,1 @@
+"call_id"	"room_id"	"initiator_id"	"call_type"	"start_time"	"end_time"	"duration"	"status"	"participant_count"

@@ -1,0 +1,8 @@
+"user_id"	"nickname"	"password"	"email"	"avatar"	"status"	"create_time"	"update_time"	"remark"
+"1"	"gopair-admin"	"$2a$10$7JB720yubVSZvUI0rJb3q.xG0vGDdJoLCz1K5FlLzWa3v/xV9wZGC"	"admin@gopair.com"	"https://example.com/avatar/admin.png"	"0"	"7/8/2025 17:53:03"	"7/8/2025 17:53:03"	"管理员"
+"2"	"testuser"	"$2a$10$7JB720yubVSZvUI0rJb3q.xG0vGDdJoLCz1K5FlLzWa3v/xV9wZGC"	"test@gopair.com"	"https://example.com/avatar/test.png"	"0"	"7/8/2025 17:53:03"	"7/8/2025 17:53:03"	"测试用户"
+"3"	"test1"	"$2a$10$2bpjZByyLo4Dv6/dluyKGOfEiGvgzB2JabS2UR11Y/ITx15zU/FU6"	"test@qq.com"	""	"0"	"11/8/2025 16:51:47"		
+"5"	"123456"	"$2a$10$6ll5x1BqMUhJ0fjJL1bmhe65uXHK7iqOwnoqaerEyx.8H8BuLNuwi"	"811790017@qq.com"	""	"0"	"22/8/2025 17:07:11"		
+"6"	"test"	"$2a$10$i6Sv1YySj2/8Jo0bOkNR1e1nLy.009i6JhcKfF1r4rLEjGsAkcCeG"	"test@example.com"	""	"0"	"22/8/2025 18:39:42"		
+"7"	"frontend-test"	"$2a$10$U4CZqnKWtswQIgPQEJAeReYVD3m2RwOmxvM/XTpzXLLnYpGQS2672"	"frontend@test.com"	""	"0"	"22/8/2025 18:39:54"		
+"8"	"test2"	"$2a$10$GQbUML8gq7C.j0nJFVR7nuvycLnR37yLX.SlDVO2bABkh0ntfYvC6"	"1586262633@qq.com"	""	"0"	"25/8/2025 18:10:48"		
