@@ -183,4 +183,68 @@ public class JwtUtils {
         final String tokenNickname = getNicknameFromToken(token, secret);
         return (nickname.equals(tokenNickname) && !isTokenExpired(token, secret));
     }
+    
+    /**
+     * 从Cookie中验证JWT令牌
+     * 
+     * @param cookieValue Cookie值
+     * @param secret 密钥
+     * @return 如果令牌有效则返回true，否则返回false
+     */
+    public static Boolean validateTokenFromCookie(String cookieValue, String secret) {
+        try {
+            return validateToken(cookieValue, secret);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * 从查询参数中验证JWT令牌
+     * 
+     * @param token 查询参数中的token
+     * @param secret 密钥
+     * @return 如果令牌有效则返回true，否则返回false
+     */
+    public static Boolean validateTokenFromQueryParam(String token, String secret) {
+        try {
+            return validateToken(token, secret);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * 从WebSocket请求头中提取用户信息
+     * 
+     * @param headers WebSocket请求头
+     * @param secret JWT密钥
+     * @return 包含用户信息的Map，包含userId和nickname
+     */
+    public static Map<String, Object> extractUserInfoFromWebSocketHeaders(Map<String, java.util.List<String>> headers, String secret) {
+        Map<String, Object> userInfo = new HashMap<>();
+        
+        // 尝试从Cookie中获取JWT
+        java.util.List<String> cookieHeaders = headers.get("cookie");
+        if (cookieHeaders != null && !cookieHeaders.isEmpty()) {
+            for (String cookieHeader : cookieHeaders) {
+                String[] cookies = cookieHeader.split(";");
+                for (String cookie : cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith("token=")) {
+                        String token = cookie.substring(6);
+                        if (validateToken(token, secret)) {
+                            userInfo.put("userId", getUserIdFromToken(token, secret));
+                            userInfo.put("nickname", getNicknameFromToken(token, secret));
+                            userInfo.put("valid", true);
+                            return userInfo;
+                        }
+                    }
+                }
+            }
+        }
+        
+        userInfo.put("valid", false);
+        return userInfo;
+    }
 } 

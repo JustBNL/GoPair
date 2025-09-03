@@ -1,0 +1,22 @@
+# WebSocket服务配置
+spring:
+  application:
+    name: websocket-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import:
+      - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
+      - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
+
+server:
+  port: 8085
+
+# GoPair WebSocket配置
+gopair:
+  websocket:
+    max-connections: 10000
+    connection-timeout: 60
+    heartbeat-interval: 30
+    exchange-name: "websocket.topic"
+    session-ttl: 3600 

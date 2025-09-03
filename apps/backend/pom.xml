@@ -25,6 +25,7 @@
 		<module>gopair-message-service</module>
 		<module>gopair-file-relay-service</module>
 		<module>gopair-voice-service</module>
+		<module>gopair-websocket-service</module>
 	</modules>
 
 	<properties>
@@ -39,6 +40,7 @@
 		<micrometer-tracing.version>1.2.5</micrometer-tracing.version>
 		<commons-fileupload.version>1.5</commons-fileupload.version>
 		<commons-io.version>2.15.1</commons-io.version>
+		<spring-boot-starter-amqp.version>3.2.5</spring-boot-starter-amqp.version>
 	</properties>
 
 	<dependencyManagement>
@@ -138,6 +140,13 @@
 				<groupId>commons-io</groupId>
 				<artifactId>commons-io</artifactId>
 				<version>${commons-io.version}</version>
+			</dependency>
+			
+			<!-- RabbitMQ 依赖 -->
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-amqp</artifactId>
+				<version>${spring-boot-starter-amqp.version}</version>
 			</dependency>
 			
 		</dependencies>

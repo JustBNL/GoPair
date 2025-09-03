@@ -30,12 +30,12 @@ spring:
             - Path=/message/**
           filters:
             - StripPrefix=0
-        - id: message-websocket
-          uri: lb://message-service
+        - id: websocket-api-service
+          uri: lb://websocket-service
           predicates:
-            - Path=/ws/message/**
+            - Path=/api/ws/**
           filters:
-            - StripPrefix=0
+            - StripPrefix=1
         - id: file-relay-service
           uri: lb://file-relay-service
           predicates:
@@ -46,12 +46,6 @@ spring:
           uri: lb://voice-service
           predicates:
             - Path=/voice/**
-          filters:
-            - StripPrefix=0
-        - id: voice-websocket
-          uri: lb://voice-service
-          predicates:
-            - Path=/ws/voice/**
           filters:
             - StripPrefix=0
       globalcors:

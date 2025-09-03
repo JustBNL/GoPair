@@ -388,7 +388,8 @@ import { getRoomByCode, getRoomMembers } from '@/api/room'
 import { MessageAPI } from '@/api/message'
 import { FileAPI } from '@/api/file'
 import { VoiceAPI } from '@/api/voice'
-import { wsManager } from '@/utils/websocket'
+import { useRoomWebSocket } from '@/composables/useRoomWebSocket'
+import { useWebSocketStore } from '@/stores/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import type { RoomInfo, RoomMember } from '@/types/room'
@@ -404,12 +405,56 @@ import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const wsStore = useWebSocketStore()
 
 // 基础状态
 const loading = ref(true)
 const globalLoading = ref(false)
 const currentRoom = ref<RoomInfo | null>(null)
 const activeTab = ref('chat')
+
+// WebSocket状态 - 使用新的Composable架构
+const roomId = computed(() => currentRoom.value?.roomId || 0)
+const { 
+  roomState,
+  isRoomConnected,
+  connectToRoom,
+  sendRoomMessage 
+} = useRoomWebSocket(roomId, {
+  onMessage: (message: any) => {
+    console.log('📨 收到聊天消息:', message)
+    messages.value.push(message)
+    if (activeTab.value !== 'chat') {
+      unreadCount.value++
+    }
+    scrollToBottom()
+  },
+  onMessageDelete: (messageId: number) => {
+    console.log('🗑️ 收到消息删除事件:', messageId)
+    const index = messages.value.findIndex(m => m.messageId === messageId)
+    if (index > -1) {
+      messages.value.splice(index, 1)
+    }
+  },
+  onFileUpload: () => {
+    console.log('📁 收到文件上传事件')
+    fileCount.value++
+    fileListRefresh.value = !fileListRefresh.value
+  },
+  onFileDelete: () => {
+    console.log('🗑️ 收到文件删除事件')
+    fileCount.value = Math.max(0, fileCount.value - 1)
+    fileListRefresh.value = !fileListRefresh.value
+  },
+  onMemberJoin: () => {
+    console.log('👋 收到成员加入事件')
+    loadRoomMembers()
+  },
+  onMemberLeave: () => {
+    console.log('👋 收到成员离开事件')
+    loadRoomMembers()
+  }
+})
 
 // 用户信息
 const currentUser = computed(() => authStore.user)
@@ -725,48 +770,32 @@ const retryService = (serviceName: 'messages' | 'files' | 'members') => {
 }
 
 /**
- * 初始化WebSocket连接
+ * 初始化房间订阅（新架构 - 已通过Composable自动处理）
  */
-const initWebSocketConnection = async () => {
+const initRoomSubscription = async () => {
   if (!currentRoom.value || !currentUser.value) return
   
   try {
-    // 连接消息WebSocket
-    const messageClient = wsManager.getMessageClient()
-    // 设置用户ID和房间ID（必须在连接前调用）
-    messageClient.setUserAndRoom(currentUser.value.userId, currentRoom.value.roomId)
-    await messageClient.connect()
-    
-    // 监听消息事件
-    messageClient.addMessageHandler('message-received', (data: any) => {
-      const message = data.data as MessageVO
-      messages.value.push(message)
-      if (activeTab.value !== 'chat') {
-        unreadCount.value++
-      }
-      scrollToBottom()
-    })
-    
-    messageClient.addMessageHandler('message-deleted', (data: any) => {
-      const messageId = data.messageId as number
-      const index = messages.value.findIndex(m => m.messageId === messageId)
-      if (index > -1) {
-        messages.value.splice(index, 1)
-      }
-    })
-    
+    console.log('🎯 新架构：房间WebSocket自动管理:', currentRoom.value.roomId)
+    // 所有订阅逻辑已通过useRoomWebSocket composable自动处理
+    // 无需手动管理事件处理器和清理逻辑
+    console.log('✅ 房间订阅初始化完成（自动管理）')
   } catch (error) {
-    console.error('WebSocket连接失败:', error)
+    console.error('❌ 房间订阅初始化失败:', error)
   }
 }
 
 /**
- * 处理消息发送
+ * 处理消息发送（新架构）
  */
 const handleSendMessage = async (messageData: any) => {
   try {
-    await MessageAPI.sendMessage(messageData)
-    // 消息会通过WebSocket推送回来
+    // 使用新的WebSocket发送机制
+    const success = sendRoomMessage(messageData)
+    if (!success) {
+      // 如果WebSocket发送失败，回退到HTTP API
+      await MessageAPI.sendMessage(messageData)
+    }
   } catch (error: any) {
     antMessage.error(error.response?.data?.msg || '发送消息失败')
   }
@@ -980,18 +1009,13 @@ const handleTabChange = (key: string) => {
 onMounted(async () => {
   await loadRoomInfo()
   if (currentRoom.value) {
-    await initWebSocketConnection()
+    await initRoomSubscription() // 改为房间订阅
   }
 })
 
 onUnmounted(() => {
-  // 清理WebSocket连接
-  try {
-    const messageClient = wsManager.getMessageClient()
-    messageClient.close()
-  } catch (error) {
-    console.error('清理WebSocket连接失败:', error)
-  }
+  // 新架构：自动清理已通过useRoomWebSocket composable处理
+  console.log('🧹 房间组件卸载（自动清理）')
 })
 </script>
 

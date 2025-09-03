@@ -58,13 +58,9 @@ export const API_ENDPOINTS = {
   VOICE_CLEANUP: '/voice/cleanup'
 } as const
 
-// WebSocket端点
-export const WS_ENDPOINTS = {
-  MESSAGE: '/ws/message',
-  MESSAGE_RAW: '/ws/message/raw',
-  SIGNALING: '/ws/signaling',
-  SIGNALING_RAW: '/ws/signaling/raw'
-} as const
+// 注意：WebSocket端点配置已迁移到 @/config/websocket.ts
+// 此处保留为空对象，避免破坏现有导入
+export const WS_ENDPOINTS = {} as const
 
 /**
  * 请求配置常量

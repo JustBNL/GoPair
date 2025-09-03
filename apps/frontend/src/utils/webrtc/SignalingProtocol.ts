@@ -2,7 +2,8 @@
  * WebRTC信令协议处理器
  */
 
-import type { VoiceSignalingClient } from '@/utils/websocket'
+// 注意: VoiceSignalingClient已迁移到新的Composable架构  
+// import type { VoiceSignalingClient } from '@/composables/useVoiceWebSocket'
 
 export interface SignalingMessage {
   type: 'offer' | 'answer' | 'ice-candidate' | 'call-invite' | 'call-accept' | 'call-reject' | 'call-end' | 'participant-join' | 'participant-leave' | 'mute-status' | 'speaking-status'
@@ -61,7 +62,7 @@ export interface SignalingCallbacks {
 }
 
 export class SignalingProtocol {
-  private signalingClient: VoiceSignalingClient | null = null
+  private signalingClient: any | null = null
   private callbacks: Partial<SignalingCallbacks>
   private currentUserId: number = 0
   private currentRoomId: number = 0
@@ -75,7 +76,7 @@ export class SignalingProtocol {
   /**
    * 初始化信令协议
    */
-  async initialize(signalingClient: VoiceSignalingClient, userId: number, roomId: number): Promise<void> {
+  async initialize(signalingClient: any, userId: number, roomId: number): Promise<void> {
     this.signalingClient = signalingClient
     this.currentUserId = userId
     this.currentRoomId = roomId

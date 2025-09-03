@@ -5,6 +5,7 @@ import type { UserInfo, LoginRequest, RegisterRequest, LoginResponse, RegisterRe
 import type { FormMode } from '@/types/auth'
 import { AuthAPI } from '@/api/auth'
 import { Storage } from '@/utils/storage'
+import { useWebSocketStore } from './websocket'
 
 /**
  * 认证状态管理Store
@@ -65,6 +66,9 @@ export const useAuthStore = defineStore('auth', () => {
       Storage.setToken(response.data.token)
       Storage.setUser(currentUser)
       
+      // 为WebSocket认证设置Cookie（网关需要从Cookie中读取JWT）
+      document.cookie = `token=${response.data.token}; path=/; SameSite=Strict`
+      
       // 然后更新内存状态
       token.value = response.data.token
       user.value = currentUser
@@ -76,6 +80,16 @@ export const useAuthStore = defineStore('auth', () => {
       } else {
         Storage.removeSavedEmail()
         Storage.setRememberEmail(false)
+      }
+      
+      // 登录成功后立即建立全局WebSocket连接（新架构）
+      try {
+        const wsStore = useWebSocketStore()
+        await wsStore.connectGlobal(currentUser.userId)
+        console.log('✅ WebSocket全局连接建立成功（新架构）')
+      } catch (error) {
+        console.error('❌ WebSocket全局连接建立失败:', error)
+        // WebSocket连接失败不影响登录成功，只记录错误
       }
       
       message.success('登录成功')
@@ -112,9 +126,21 @@ export const useAuthStore = defineStore('auth', () => {
    * 用户退出登录
    */
   function logout(): void {
+    // 断开WebSocket连接（新架构）
+    try {
+      const wsStore = useWebSocketStore()
+      wsStore.disconnectGlobal()
+      console.log('🔌 WebSocket全局连接已断开（新架构）')
+    } catch (error) {
+      console.error('❌ 断开WebSocket连接失败:', error)
+    }
+    
     // 清除状态
     user.value = null
     token.value = null
+    
+    // 清除Cookie（设置过期时间为过去的时间）
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
     
     // 重置初始化状态锁
     isInitialized.value = false
@@ -160,7 +186,22 @@ export const useAuthStore = defineStore('auth', () => {
     if (storedToken && storedUser) {
       token.value = storedToken
       user.value = storedUser
+      
+      // 恢复Cookie，确保WebSocket认证正常
+      document.cookie = `token=${storedToken}; path=/; SameSite=Strict`
+      
       console.log('✅ Auth state restored from storage')
+      
+      // 如果从存储恢复了用户状态，也要建立WebSocket连接（新架构）
+      setTimeout(async () => {
+        try {
+          const wsStore = useWebSocketStore()
+          await wsStore.connectGlobal(storedUser.userId)
+          console.log('✅ WebSocket全局连接建立成功（从存储恢复，新架构）')
+        } catch (error) {
+          console.error('❌ WebSocket全局连接建立失败（从存储恢复）:', error)
+        }
+      }, 100) // 稍微延迟以确保认证状态完全初始化
     } else {
       console.log('ℹ️ No valid auth data in storage')
     }
