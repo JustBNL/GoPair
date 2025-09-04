@@ -18,12 +18,19 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      // HTTP API代理（保持现有行为）
       '/api': {
         target: 'http://localhost:8081',
         changeOrigin: true,
         secure: false,
-        ws: true,
         rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      // WebSocket专用代理（新增，不重写路径）
+      '/ws': {
+        target: 'http://localhost:8081/api/ws',
+        changeOrigin: true,
+        secure: false,
+        ws: true
       }
     }
   },
