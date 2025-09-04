@@ -27,10 +27,11 @@ export default defineConfig({
       },
       // WebSocket专用代理（新增，不重写路径）
       '/ws': {
-        target: 'http://localhost:8081/api/ws',
+        target: 'http://localhost:8081',
         changeOrigin: true,
         secure: false,
-        ws: true
+        ws: true,
+        rewrite: (path) => path.replace(/^\/ws/, '/api/ws')
       }
     }
   },
