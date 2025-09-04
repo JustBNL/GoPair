@@ -67,7 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
       Storage.setUser(currentUser)
       
       // 为WebSocket认证设置Cookie（网关需要从Cookie中读取JWT）
-      document.cookie = `token=${response.data.token}; path=/; SameSite=Strict`
+      Storage.setCookieToken(response.data.token)
       
       // 然后更新内存状态
       token.value = response.data.token
@@ -139,8 +139,8 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     token.value = null
     
-    // 清除Cookie（设置过期时间为过去的时间）
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    // 清除Cookie
+    Storage.removeCookieToken()
     
     // 重置初始化状态锁
     isInitialized.value = false
@@ -188,7 +188,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = storedUser
       
       // 恢复Cookie，确保WebSocket认证正常
-      document.cookie = `token=${storedToken}; path=/; SameSite=Strict`
+      Storage.setCookieToken(storedToken)
       
       console.log('✅ Auth state restored from storage')
       

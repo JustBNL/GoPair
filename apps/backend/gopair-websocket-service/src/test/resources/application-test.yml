@@ -1,0 +1,102 @@
+spring:
+  application:
+    name: gopair-websocket-service-test
+  
+  # 启用bean定义覆盖（用于测试环境）
+  main:
+    allow-bean-definition-overriding: true
+  
+  # 测试环境排除自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration  # 排除RabbitMQ自动配置
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration  # 排除Redis自动配置
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration  # 排除Redis Repositories
+  
+  # Java 23兼容性配置
+  test:
+    jvm:
+      arguments:
+        - "-Dnet.bytebuddy.experimental=true"
+  
+  # 测试环境Redis配置（使用内存模式或测试专用实例）
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 15  # 使用专用测试数据库
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+  
+  # 日志配置
+  logging:
+    level:
+      com.gopair.websocketservice: DEBUG
+      org.springframework.web.socket: DEBUG
+      redis.clients.jedis: WARN
+    pattern:
+      console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# 测试专用配置
+websocket:
+  test:
+    # 降低限制以便快速测试
+    max-connections-per-room: 100
+    max-subscriptions-per-user: 20
+    max-messages-per-second: 10
+    
+    # 缩短过期时间以便测试
+    subscription-expire-hours: 1
+    recent-rooms-expire-hours: 2
+    
+    # 测试模式开关
+    mock-mode: true
+    fast-cleanup: true
+
+# 性能监控测试配置
+monitoring:
+  test:
+    alert-thresholds:
+      active-connections: 50
+      error-rate: 10.0
+      message-latency: 1000
+      memory-usage: 90
+    
+    collection-interval: 1000  # 1秒收集一次（仅用于测试）
+    cleanup-interval: 5000     # 5秒清理一次（仅用于测试）
+
+# JUnit测试配置
+junit:
+  jupiter:
+    execution:
+      parallel:
+        enabled: true
+        mode:
+          default: concurrent
+          classes: concurrent
+          methods: concurrent
+    timeout:
+      default: 30s
+      method: 60s
+      class: 120s
+
+# 禁用不必要的自动配置以加快测试启动
+management:
+  endpoints:
+    enabled-by-default: false
+  endpoint:
+    health:
+      enabled: true
+  health:
+    redis:
+      enabled: false  # 测试环境不检查Redis健康状态
+
+server:
+  port: 0  # 随机端口避免冲突 
