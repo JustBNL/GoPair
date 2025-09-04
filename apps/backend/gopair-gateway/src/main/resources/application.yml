@@ -35,7 +35,7 @@ spring:
           predicates:
             - Path=/api/ws/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=0
         - id: file-relay-service
           uri: lb://file-relay-service
           predicates:
