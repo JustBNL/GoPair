@@ -1,5 +1,7 @@
 package com.gopair.websocketservice.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
@@ -19,7 +21,10 @@ import jakarta.annotation.PostConstruct;
  */
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class RabbitMQConfig {
+
+    private final ObjectMapper objectMapper;
 
     public static final String WEBSOCKET_EXCHANGE = "websocket.topic";
     public static final String CHAT_QUEUE = "websocket.chat";
@@ -51,7 +56,7 @@ public class RabbitMQConfig {
         return QueueBuilder
                 .durable(CHAT_QUEUE)
                 .ttl(300000) // 5分钟TTL
-                .maxLength(100000L) // 使用long类型避免deprecation警告
+                .maxLength(100000L) 
                 .build();
     }
 
@@ -63,7 +68,7 @@ public class RabbitMQConfig {
         return QueueBuilder
                 .durable(SIGNALING_QUEUE)
                 .ttl(60000) // 1分钟TTL（信令消息时效性要求高）
-                .maxLength(50000L) // 使用long类型避免deprecation警告
+                .maxLength(50000L) 
                 .build();
     }
 
@@ -75,7 +80,7 @@ public class RabbitMQConfig {
         return QueueBuilder
                 .durable(FILE_QUEUE)
                 .ttl(600000) // 10分钟TTL
-                .maxLength(10000L) // 使用long类型避免deprecation警告
+                .maxLength(10000L) 
                 .build();
     }
 
@@ -87,7 +92,7 @@ public class RabbitMQConfig {
         return QueueBuilder
                 .durable(SYSTEM_QUEUE)
                 .ttl(300000) // 5分钟TTL
-                .maxLength(20000L) // 使用long类型避免deprecation警告
+                .maxLength(20000L)
                 .build();
     }
 
@@ -141,7 +146,9 @@ public class RabbitMQConfig {
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(new Jackson2JsonMessageConverter());
+        // 使用自定义的ObjectMapper来解决序列化/反序列化问题
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter(objectMapper);
+        template.setMessageConverter(converter);
         return template;
     }
 
@@ -152,7 +159,9 @@ public class RabbitMQConfig {
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(new Jackson2JsonMessageConverter());
+        // 使用自定义的ObjectMapper来解决序列化/反序列化问题
+        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter(objectMapper);
+        factory.setMessageConverter(converter);
         factory.setConcurrentConsumers(3);
         factory.setMaxConcurrentConsumers(10);
         return factory;

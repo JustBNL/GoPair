@@ -1,0 +1,29 @@
+# 应用基本配置
+spring:
+  application:
+    # 应用名称，用于服务注册与发现
+    name: message-service
+  profiles:
+    # 当前环境配置
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import:
+      - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
+      - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
+
+# 仅保留服务特定的MyBatis Plus配置
+mybatis-plus:
+  # 实体类包路径，用于类型别名
+  type-aliases-package: com.gopair.messageservice.domain.po
+
+# GoPair自定义配置
+gopair:
+  message:
+    # 消息最大长度
+    max-content-length: 2000
+    # WebSocket最大连接数
+    max-websocket-connections: 1000
+    # 消息历史保留天数
+    history-retention-days: 30
+    # Redis消息频道前缀
+    redis-channel-prefix: "message"

@@ -14,7 +14,8 @@ import org.springframework.context.annotation.ComponentScan;
 @AutoConfiguration
 @ComponentScan(basePackages = {
     "com.gopair.common.config",      // 配置类
-    "com.gopair.common.util"         // 工具类
+    "com.gopair.common.util",        // 工具类
+    "com.gopair.common.service"      // 服务类（包含WebSocketMessageProducer）
 })
 public class GopairAutoConfiguration {
     

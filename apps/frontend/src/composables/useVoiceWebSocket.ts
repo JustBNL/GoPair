@@ -1,5 +1,5 @@
 import { ref, computed, readonly, watch, onBeforeUnmount, type Ref } from 'vue'
-import { useWebSocket } from './useWebSocket'
+import { useWebSocket, buildSubscribeMessage, buildUnsubscribeMessage } from './useWebSocket'
 import { WS_ENDPOINTS } from '@/config/websocket'
 import { 
   WsMessageType, 
@@ -105,13 +105,7 @@ export function useVoiceWebSocket(callId: Ref<number | null>, handlers: VoiceEve
       WsEventType.PARTICIPANT_LEAVE
     ]
 
-    const subscribeMessage = {
-      type: WsMessageType.SUBSCRIBE,
-      data: {
-        callId: targetCallId,
-        events: events
-      }
-    }
+    const subscribeMessage = buildSubscribeMessage(`voice:${targetCallId}`, events)
 
     const success = send(subscribeMessage)
     if (success) {
@@ -125,10 +119,8 @@ export function useVoiceWebSocket(callId: Ref<number | null>, handlers: VoiceEve
    */
   const unsubscribeFromVoice = (): void => {
     if (subscribed.value && callId.value) {
-      send({
-        type: WsMessageType.UNSUBSCRIBE,
-        data: { callId: callId.value }
-      })
+      const msg = buildUnsubscribeMessage(`voice:${callId.value}`)
+      send(msg)
       subscribed.value = false
       console.log(`📤 取消语音订阅: ${callId.value}`)
     }

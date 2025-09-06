@@ -60,6 +60,16 @@ export const WS_CONFIG: WebSocketConfig = {
   }
 }
 
+// 特性开关（可根据环境变量覆盖）
+export const WS_FEATURES = {
+  // 调试日志开关
+  debug: import.meta.env.VITE_WS_DEBUG === 'true' || getCurrentEnv() === 'development',
+  // 是否在登录/恢复时建立全局WS连接
+  enableGlobal: import.meta.env.VITE_WS_ENABLE_GLOBAL === 'true' || false
+} as const
+
+export const isDebug = (): boolean => WS_FEATURES.debug
+
 /**
  * 构建WebSocket URL
  */

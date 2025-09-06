@@ -198,86 +198,6 @@ public class GlobalWebSocketHandler implements WebSocketHandler {
     }
 
     /**
-     * 发送订阅响应
-     */
-    private void sendSubscribeResponse(WebSocketSession session, boolean success, String message, 
-                                     String channel, Set<String> eventTypes) {
-        UnifiedWebSocketMessage response = new UnifiedWebSocketMessage()
-                .setMessageId(UUID.randomUUID().toString())
-                .setTimestamp(LocalDateTime.now())
-                .setType(MessageType.SUBSCRIBE_RESPONSE)
-                .setEventType(success ? "success" : "error")
-                .setChannel(channel)
-                .setPayload(Map.of(
-                        "success", success,
-                        "message", message,
-                        "channel", channel != null ? channel : "",
-                        "eventTypes", eventTypes != null ? eventTypes : Collections.emptySet()
-                ));
-
-        sendMessage(session, response);
-    }
-
-    /**
-     * @deprecated 已被ErrorHandler处理，不再使用
-     */
-    @Deprecated
-    @SuppressWarnings("unused")
-    private void sendErrorMessage(WebSocketSession session, WebSocketErrorCode errorCode, String details) {
-        UnifiedWebSocketMessage errorMessage = new UnifiedWebSocketMessage()
-                .setMessageId(UUID.randomUUID().toString())
-                .setTimestamp(LocalDateTime.now())
-                .setType(MessageType.ERROR)
-                .setEventType("error")
-                .setPayload(Map.of(
-                        "code", errorCode.getCode(),
-                        "message", errorCode.getMessage(),
-                        "details", details,
-                        "timestamp", System.currentTimeMillis()
-                ));
-
-        sendMessage(session, errorMessage);
-    }
-
-    /**
-     * @deprecated 已被ErrorHandler处理，不再使用
-     */
-    @Deprecated
-    @SuppressWarnings("unused")
-    private void sendErrorAndClose(WebSocketSession session, WebSocketErrorCode errorCode, String details) {
-        try {
-            sendErrorMessage(session, errorCode, details);
-            // 给客户端一点时间接收错误消息
-            Thread.sleep(100);
-        } catch (Exception e) {
-            log.error("[全局处理器] 发送错误消息失败: sessionId={}", session.getId(), e);
-        } finally {
-            try {
-                session.close(CloseStatus.NOT_ACCEPTABLE.withReason(errorCode.getMessage()));
-            } catch (Exception e) {
-                log.error("[全局处理器] 关闭WebSocket连接失败: sessionId={}", session.getId(), e);
-            }
-        }
-    }
-
-    /**
-     * @deprecated 已被ErrorHandler处理，不再使用
-     */
-    @Deprecated
-    @SuppressWarnings("unused")
-    private void sendMessage(WebSocketSession session, UnifiedWebSocketMessage message) {
-        try {
-            if (session.isOpen()) {
-                String jsonMessage = objectMapper.writeValueAsString(message);
-                session.sendMessage(new TextMessage(jsonMessage));
-            }
-        } catch (Exception e) {
-            log.error("[全局处理器] 发送WebSocket消息失败: sessionId={}, messageId={}", 
-                    session.getId(), message.getMessageId(), e);
-        }
-    }
-
-    /**
      * 检查用户消息发送频率限制
      */
     private boolean checkRateLimit(Long userId) {
@@ -287,27 +207,6 @@ public class GlobalWebSocketHandler implements WebSocketHandler {
         }
 
         return rateLimit.tryAcquire();
-    }
-
-    /**
-     * 获取频道的默认事件类型
-     */
-    private Set<String> getDefaultEventTypes(String channel) {
-        if (channel.startsWith("user:")) {
-            return Set.of("mention", "system", "call", "notification");
-        } else if (channel.contains(":chat:")) {
-            return Set.of("message", "typing", "reaction", "mention");
-        } else if (channel.contains(":file:")) {
-            return Set.of("upload", "download", "delete", "share");
-        } else if (channel.contains(":voice:")) {
-            return Set.of("call-start", "call-end", "participant-join", "participant-leave");
-        } else if (channel.contains(":system:")) {
-            return Set.of("member-join", "member-leave", "settings-change");
-        } else if (channel.startsWith("system:")) {
-            return Set.of("announcement", "maintenance", "update");
-        }
-        
-        return Set.of("default");
     }
 
     /**

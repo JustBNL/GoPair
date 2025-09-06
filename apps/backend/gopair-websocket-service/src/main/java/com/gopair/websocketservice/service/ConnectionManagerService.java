@@ -42,12 +42,6 @@ public class ConnectionManagerService {
     private final Map<Long, CopyOnWriteArraySet<String>> userSessions = new ConcurrentHashMap<>();
 
     /**
-     * 房间会话映射
-     * Key: roomId, Value: sessionId集合
-     */
-    private final Map<Long, CopyOnWriteArraySet<String>> roomSessions = new ConcurrentHashMap<>();
-
-    /**
      * 会话元数据映射
      * Key: sessionId, Value: SessionInfo
      */
@@ -112,18 +106,6 @@ public class ConnectionManagerService {
                     }
                 }
             }
-            
-            // 清理房间会话映射
-            Long roomId = sessionInfo.getRoomId();
-            if (roomId != null) {
-                CopyOnWriteArraySet<String> roomSessionSet = roomSessions.get(roomId);
-                if (roomSessionSet != null) {
-                    roomSessionSet.remove(sessionId);
-                    if (roomSessionSet.isEmpty()) {
-                        roomSessions.remove(roomId);
-                    }
-                }
-            }
         }
         
         // 清理Redis存储
@@ -137,13 +119,6 @@ public class ConnectionManagerService {
      */
     public CopyOnWriteArraySet<String> getUserSessions(Long userId) {
         return userSessions.getOrDefault(userId, new CopyOnWriteArraySet<>());
-    }
-
-    /**
-     * 获取房间的所有会话
-     */
-    public CopyOnWriteArraySet<String> getRoomSessions(Long roomId) {
-        return roomSessions.getOrDefault(roomId, new CopyOnWriteArraySet<>());
     }
 
     /**
@@ -183,8 +158,7 @@ public class ConnectionManagerService {
     public Map<String, Integer> getConnectionStats() {
         return Map.of(
                 "totalSessions", sessions.size(),
-                "totalUsers", userSessions.size(),
-                "totalRooms", roomSessions.size()
+                "totalUsers", userSessions.size()
         );
     }
 
@@ -261,8 +235,12 @@ public class ConnectionManagerService {
             // 1. 获取频道的所有订阅者
             Set<String> subscriberSessions = subscriptionManager.getChannelSubscribers(channel, eventType);
             
+            log.info("[消息代理] 开始路由消息到频道: channel={}, eventType={}, subscriberCount={}", 
+                    channel, eventType, subscriberSessions.size());
+            
             if (subscriberSessions.isEmpty()) {
-                log.debug("[消息代理] 频道无订阅者: channel={}, eventType={}", channel, eventType);
+                log.warn("[消息代理] 频道无订阅者: channel={}, eventType={}, messageId={}", 
+                        channel, eventType, message.getMessageId());
                 return;
             }
 
@@ -276,19 +254,17 @@ public class ConnectionManagerService {
             for (String sessionId : subscriberSessions) {
                 WebSocketSession session = getSession(sessionId);
                 if (session != null && session.isOpen()) {
-                    // 3. 消息过滤：检查会话是否真正订阅了该事件类型
-                    if (isSessionSubscribedToChannelEvent(sessionId, channel, eventType)) {
-                        sendMessageToSession(session, message);
-                        successCount++;
-                        
-                        // 记录消息送达
-                        // basicMonitor.recordMessageReceived(); // Removed BasicMonitorService dependency
+                    // 订阅者集合已按事件类型过滤，这里直接发送
+                    sendMessageToSession(session, message);
+                    successCount++;
 
-                        // 4. 更新订阅活跃时间
-                        SessionInfo sessionInfo = getSessionInfo(sessionId);
-                        if (sessionInfo != null) {
-                            subscriptionManager.updateSubscriptionActivity(sessionInfo.getUserId(), channel);
-                        }
+                    // 记录消息送达（保留注释）
+                    // basicMonitor.recordMessageReceived();
+
+                    // 更新订阅活跃时间
+                    SessionInfo sessionInfo = getSessionInfo(sessionId);
+                    if (sessionInfo != null) {
+                        subscriptionManager.updateSubscriptionActivity(sessionInfo.getUserId(), channel);
                     }
                 } else {
                     failCount++;

@@ -143,38 +143,27 @@
                     <a-empty description="暂无消息，开始聊天吧！" />
                   </div>
                   <div v-else class="message-items">
-                    <div
+                    <message-bubble
                       v-for="message in messages"
                       :key="message.messageId"
-                      class="message-item"
-                    >
-                      <!-- 简化的消息显示 -->
-                      <div class="message-content">
-                        <div class="message-header">
-                          <span class="sender-name">{{ message.senderNickname || '用户' }}</span>
-                          <span class="message-time">{{ formatTime(message.createTime || Date.now().toString()) }}</span>
-                        </div>
-                        <div class="message-body">{{ message.content || '消息内容' }}</div>
-                      </div>
-                    </div>
+                      :message="message"
+                      :show-sender-info="true"
+                      @reply="handleReply"
+                      @delete="(id) => handleDeleteMessage(messages.find(m => m.messageId === id)!)"
+                      @recall="(id) => handleRecallMessage(messages.find(m => m.messageId === id)!)"
+                    />
                   </div>
                 </div>
                 <div class="message-input-container">
-                  <div class="simple-input">
-                    <a-input
-                      v-model:value="newMessage"
-                      placeholder="在此输入消息..."
-                      @keydown.enter="sendMessage"
-                      :disabled="serviceStates.messages.error !== null"
-                    />
-                    <a-button 
-                      type="primary" 
-                      @click="sendMessage"
-                      :disabled="serviceStates.messages.error !== null"
-                    >
-                      发送
-                    </a-button>
-                  </div>
+                  <message-input
+                    v-if="currentRoom"
+                    :room-id="currentRoom.roomId"
+                    :reply-message="replyMessage"
+                    :disabled="serviceStates.messages.error !== null"
+                    @send-message="handleSendMessage"
+                    @cancel-reply="() => (replyMessage = null)"
+                    @upload-progress="handleUploadProgress"
+                  />
                 </div>
               </div>
             </div>
@@ -389,7 +378,6 @@ import { MessageAPI } from '@/api/message'
 import { FileAPI } from '@/api/file'
 import { VoiceAPI } from '@/api/voice'
 import { useRoomWebSocket } from '@/composables/useRoomWebSocket'
-import { useWebSocketStore } from '@/stores/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import type { RoomInfo, RoomMember } from '@/types/room'
@@ -405,7 +393,6 @@ import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const wsStore = useWebSocketStore()
 
 // 基础状态
 const loading = ref(true)
@@ -419,11 +406,16 @@ const {
   roomState,
   isRoomConnected,
   connectToRoom,
-  sendRoomMessage 
+  sendRoomMessage,
+  replaceMessages 
 } = useRoomWebSocket(roomId, {
   onMessage: (message: any) => {
     console.log('📨 收到聊天消息:', message)
-    messages.value.push(message)
+    const normalized = { ...message }
+    if (!normalized.createTime) {
+      normalized.createTime = message.timestamp || new Date().toISOString()
+    }
+    // 页面不再push，由房间层维护messages
     if (activeTab.value !== 'chat') {
       unreadCount.value++
     }
@@ -431,10 +423,7 @@ const {
   },
   onMessageDelete: (messageId: number) => {
     console.log('🗑️ 收到消息删除事件:', messageId)
-    const index = messages.value.findIndex(m => m.messageId === messageId)
-    if (index > -1) {
-      messages.value.splice(index, 1)
-    }
+    // 房间层已处理删除，这里无需重复修改数据
   },
   onFileUpload: () => {
     console.log('📁 收到文件上传事件')
@@ -464,7 +453,7 @@ const isOwner = computed(() =>
 )
 
 // 聊天相关状态
-const messages = ref<MessageVO[]>([])  // 确保永远是数组
+const messages = computed(() => roomState.value.messages as MessageVO[])  // 单一数据源
 const unreadCount = ref(0)
 const replyMessage = ref<MessageVO | null>(null)
 const newMessage = ref('')
@@ -667,27 +656,33 @@ const loadMessages = async () => {
   serviceStates.value.messages.error = null
   
   try {
-    const response = await MessageAPI.getRoomMessages({
-      roomId: currentRoom.value.roomId,
-      pageNum: 1,
-      pageSize: 50
+    // 使用“最新N条后再升序”的接口，后端已保证顺序；前端仍做兜底排序
+    const response = await MessageAPI.getLatestMessages(currentRoom.value.roomId, 50)
+    const messagesData = response.data || []
+
+    // 兜底：按 createTime 升序
+    const sorted = [...messagesData].sort((a: any, b: any) => {
+      const ta = new Date(a.createTime as any).getTime()
+      const tb = new Date(b.createTime as any).getTime()
+      return ta - tb
     })
-    
-    // 现在使用正确的数据路径: response.data.records
-    const messagesData = response.data.records || []
-    
-    // 为消息数据添加isOwn字段
-    const messagesWithOwnership = messagesData.map((message: any) => ({
+
+    // 为消息数据添加 isOwn 字段
+    const messagesWithOwnership = sorted.map((message: any) => ({
       ...message,
       isOwn: message.senderId === currentUser.value?.userId
     }))
-    
-    messages.value = messagesWithOwnership
+
+    // 以房间层为单一数据源
+    replaceMessages(messagesWithOwnership)
     serviceStates.value.messages.retryCount = 0
+
+    // 初次加载滚动到底部
+    scrollToBottom()
   } catch (error: any) {
     console.error('加载消息失败:', error)
     // 确保消息状态重置为空数组而不是undefined
-    messages.value = []
+    replaceMessages([])
     serviceStates.value.messages.error = '消息服务暂时不可用，请稍后重试'
     serviceStates.value.messages.retryCount++
     throw error  // 重新抛出错误，用于上层catch处理
@@ -970,8 +965,18 @@ const goBack = () => {
 /**
  * 格式化时间
  */
-const formatTime = (timeStr: string) => {
-  return dayjs(timeStr).format('MM-DD HH:mm')
+const formatTime = (timeInput: any) => {
+  if (!timeInput) return ''
+  let d
+  if (typeof timeInput === 'number') {
+    d = dayjs(timeInput)
+  } else if (typeof timeInput === 'string' && /^\d+$/.test(timeInput)) {
+    d = dayjs(Number(timeInput))
+  } else {
+    d = dayjs(timeInput)
+  }
+  if (!d.isValid()) return ''
+  return d.format('MM-DD HH:mm')
 }
 
 /**
@@ -1506,5 +1511,9 @@ onUnmounted(() => {
       }
     }
   }
+}
+
+.message-header {
+  .message-time { margin-left: 8px; }
 }
 </style> 

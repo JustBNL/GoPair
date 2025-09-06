@@ -1,5 +1,8 @@
 package com.gopair.websocketservice.protocol;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 /**
  * WebSocket消息类型枚举
  * 
@@ -83,10 +86,12 @@ public enum MessageType {
         this.value = value;
     }
 
+    @JsonValue
     public String getValue() {
         return value;
     }
 
+    @JsonCreator
     public static MessageType fromValue(String value) {
         for (MessageType type : values()) {
             if (type.value.equals(value)) {

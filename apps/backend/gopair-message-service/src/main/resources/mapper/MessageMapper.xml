@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gopair.messageservice.mapper.MessageMapper">
+
+    <!-- 通用的消息VO结果映射 -->
+    <resultMap id="MessageVOMap" type="com.gopair.messageservice.domain.vo.MessageVO">
+        <id column="message_id" property="messageId"/>
+        <result column="room_id" property="roomId"/>
+        <result column="sender_id" property="senderId"/>
+        <result column="sender_nickname" property="senderNickname"/>
+        <result column="sender_avatar" property="senderAvatar"/>
+        <result column="message_type" property="messageType"/>
+        <result column="message_type_desc" property="messageTypeDesc"/>
+        <result column="content" property="content"/>
+        <result column="file_url" property="fileUrl"/>
+        <result column="file_name" property="fileName"/>
+        <result column="file_size" property="fileSize"/>
+        <result column="reply_to_id" property="replyToId"/>
+        <result column="reply_to_content" property="replyToContent"/>
+        <result column="reply_to_sender_nickname" property="replyToSenderNickname"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 通用的消息查询SQL片段 -->
+    <sql id="MessageVOColumns">
+        m.message_id,
+        m.room_id,
+        m.sender_id,
+        u.nickname as sender_nickname,
+        u.avatar as sender_avatar,
+        m.message_type,
+        CASE m.message_type
+            WHEN 1 THEN '文本消息'
+            WHEN 2 THEN '图片消息'
+            WHEN 3 THEN '文件消息'
+            WHEN 4 THEN '语音消息'
+            ELSE '未知类型'
+        END as message_type_desc,
+        m.content,
+        m.file_url,
+        m.file_name,
+        m.file_size,
+        m.reply_to_id,
+        rm.content as reply_to_content,
+        ru.nickname as reply_to_sender_nickname,
+        m.create_time,
+        m.update_time
+    </sql>
+
+    <!-- 通用的消息表连接SQL片段 -->
+    <sql id="MessageTableJoins">
+        FROM message m
+        LEFT JOIN user u ON m.sender_id = u.user_id
+        LEFT JOIN message rm ON m.reply_to_id = rm.message_id
+        LEFT JOIN user ru ON rm.sender_id = ru.user_id
+    </sql>
+
+    <!-- 分页查询房间消息列表 -->
+    <select id="selectMessageVOPage" resultMap="MessageVOMap">
+        SELECT
+        <include refid="MessageVOColumns"/>
+        <include refid="MessageTableJoins"/>
+        <where>
+            m.room_id = #{roomId}
+            <if test="messageType != null">
+                AND m.message_type = #{messageType}
+            </if>
+            <if test="senderId != null">
+                AND m.sender_id = #{senderId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (m.content LIKE CONCAT('%', #{keyword}, '%') 
+                     OR m.file_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY m.create_time ASC
+    </select>
+
+    <!-- 根据消息ID查询消息详情 -->
+    <select id="selectMessageVOById" resultMap="MessageVOMap">
+        SELECT
+        <include refid="MessageVOColumns"/>
+        <include refid="MessageTableJoins"/>
+        WHERE m.message_id = #{messageId}
+    </select>
+
+    <!-- 查询房间最新的N条消息 -->
+    <select id="selectLatestMessages" resultMap="MessageVOMap">
+        SELECT * FROM (
+            SELECT
+            <include refid="MessageVOColumns"/>
+            <include refid="MessageTableJoins"/>
+            WHERE m.room_id = #{roomId}
+            ORDER BY m.create_time DESC
+            LIMIT #{limit}
+        ) t
+        ORDER BY t.create_time ASC
+    </select>
+
+    <!-- 统计房间消息数量 -->
+    <select id="countRoomMessages" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM message m
+        WHERE m.room_id = #{roomId}
+        <if test="messageType != null">
+            AND m.message_type = #{messageType}
+        </if>
+    </select>
+
+</mapper> 

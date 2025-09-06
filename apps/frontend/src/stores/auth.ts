@@ -6,6 +6,7 @@ import type { FormMode } from '@/types/auth'
 import { AuthAPI } from '@/api/auth'
 import { Storage } from '@/utils/storage'
 import { useWebSocketStore } from './websocket'
+import { WS_FEATURES } from '@/config/websocket'
 
 /**
  * 认证状态管理Store
@@ -82,14 +83,16 @@ export const useAuthStore = defineStore('auth', () => {
         Storage.setRememberEmail(false)
       }
       
-      // 登录成功后立即建立全局WebSocket连接（新架构）
-      try {
-        const wsStore = useWebSocketStore()
-        await wsStore.connectGlobal(currentUser.userId)
-        console.log('✅ WebSocket全局连接建立成功（新架构）')
-      } catch (error) {
-        console.error('❌ WebSocket全局连接建立失败:', error)
-        // WebSocket连接失败不影响登录成功，只记录错误
+      // 登录成功后是否建立全局WebSocket连接（由开关控制）
+      if (WS_FEATURES.enableGlobal) {
+        try {
+          const wsStore = useWebSocketStore()
+          await wsStore.connectGlobal(currentUser.userId)
+          if (WS_FEATURES.debug) console.log('✅ WebSocket全局连接建立成功')
+        } catch (error) {
+          if (WS_FEATURES.debug) console.error('❌ WebSocket全局连接建立失败:', error)
+          // WebSocket连接失败不影响登录成功，只记录错误
+        }
       }
       
       message.success('登录成功')
@@ -126,13 +129,13 @@ export const useAuthStore = defineStore('auth', () => {
    * 用户退出登录
    */
   function logout(): void {
-    // 断开WebSocket连接（新架构）
+    // 断开WebSocket连接
     try {
       const wsStore = useWebSocketStore()
       wsStore.disconnectGlobal()
-      console.log('🔌 WebSocket全局连接已断开（新架构）')
+      if (WS_FEATURES.debug) console.log('🔌 WebSocket全局连接已断开')
     } catch (error) {
-      console.error('❌ 断开WebSocket连接失败:', error)
+      if (WS_FEATURES.debug) console.error('❌ 断开WebSocket连接失败:', error)
     }
     
     // 清除状态
@@ -164,11 +167,11 @@ export const useAuthStore = defineStore('auth', () => {
   function initAuth(): void {
     // 防止重复初始化
     if (isInitialized.value) {
-      console.log('🔒 Auth already initialized, skipping')
+      if (WS_FEATURES.debug) console.log('🔒 Auth already initialized, skipping')
       return
     }
     
-    console.log('🔄 Starting auth initialization...')
+    if (WS_FEATURES.debug) console.log('🔄 Starting auth initialization...')
     
     // 从本地存储恢复状态
     const storedToken = Storage.getToken()
@@ -176,7 +179,7 @@ export const useAuthStore = defineStore('auth', () => {
     const storedRemember = Storage.getRememberEmail()
     const storedEmail = Storage.getSavedEmail()
     
-    console.log('📦 Storage data:', {
+    if (WS_FEATURES.debug) console.log('📦 Storage data:', {
       hasToken: !!storedToken,
       hasUser: !!storedUser,
       remember: storedRemember,
@@ -190,20 +193,22 @@ export const useAuthStore = defineStore('auth', () => {
       // 恢复Cookie，确保WebSocket认证正常
       Storage.setCookieToken(storedToken)
       
-      console.log('✅ Auth state restored from storage')
+      if (WS_FEATURES.debug) console.log('✅ Auth state restored from storage')
       
-      // 如果从存储恢复了用户状态，也要建立WebSocket连接（新架构）
-      setTimeout(async () => {
-        try {
-          const wsStore = useWebSocketStore()
-          await wsStore.connectGlobal(storedUser.userId)
-          console.log('✅ WebSocket全局连接建立成功（从存储恢复，新架构）')
-        } catch (error) {
-          console.error('❌ WebSocket全局连接建立失败（从存储恢复）:', error)
-        }
-      }, 100) // 稍微延迟以确保认证状态完全初始化
+      // 根据开关决定是否建立全局WebSocket连接
+      if (WS_FEATURES.enableGlobal) {
+        setTimeout(async () => {
+          try {
+            const wsStore = useWebSocketStore()
+            await wsStore.connectGlobal(storedUser.userId)
+            if (WS_FEATURES.debug) console.log('✅ WebSocket全局连接建立成功（从存储恢复）')
+          } catch (error) {
+            if (WS_FEATURES.debug) console.error('❌ WebSocket全局连接建立失败（从存储恢复）:', error)
+          }
+        }, 100)
+      }
     } else {
-      console.log('ℹ️ No valid auth data in storage')
+      if (WS_FEATURES.debug) console.log('ℹ️ No valid auth data in storage')
     }
     
     rememberEmail.value = storedRemember
@@ -211,7 +216,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     // 标记为已初始化
     isInitialized.value = true
-    console.log('🏁 Auth initialization complete')
+    if (WS_FEATURES.debug) console.log('🏁 Auth initialization complete')
   }
 
   /**

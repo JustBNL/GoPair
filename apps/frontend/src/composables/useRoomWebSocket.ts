@@ -1,6 +1,7 @@
 import { ref, computed, readonly, watch, onBeforeUnmount, type Ref } from 'vue'
-import { useWebSocket } from './useWebSocket'
-import { WS_ENDPOINTS } from '@/config/websocket'
+import { useWebSocket, buildSubscribeMessage, buildUnsubscribeMessage } from './useWebSocket'
+import { WS_ENDPOINTS, WS_FEATURES } from '@/config/websocket'
+import { useAuthStore } from '@/stores/auth'
 import { 
   WsMessageType, 
   WsEventType,
@@ -31,6 +32,8 @@ interface RoomEventHandlers {
  * 自动管理房间相关的WebSocket订阅和状态同步
  */
 export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandlers = {}) {
+  // 获取用户信息
+  const authStore = useAuthStore()
   // 房间状态
   const roomState = ref<RoomWsState>({
     messages: [],
@@ -78,16 +81,16 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       const roomUrl = WS_ENDPOINTS.room(roomId.value)
       await connect(roomUrl, {
         onConnected: () => {
-          console.log(`📡 房间WebSocket连接成功: ${roomId.value}`)
+          if (WS_FEATURES.debug) console.log(`📡 房间WebSocket连接成功: ${roomId.value}`)
           subscribeToRoomEvents()
         },
         onDisconnected: () => {
           subscribed.value = false
-          console.log(`📡 房间WebSocket连接断开: ${roomId.value}`)
+          if (WS_FEATURES.debug) console.log(`📡 房间WebSocket连接断开: ${roomId.value}`)
         },
         onError: (error) => {
           subscriptionError.value = error
-          console.error(`❌ 房间WebSocket连接失败: ${roomId.value}`, error)
+          if (WS_FEATURES.debug) console.error(`❌ 房间WebSocket连接失败: ${roomId.value}`, error)
         },
         onMessage: handleRoomMessage
       })
@@ -102,28 +105,32 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
    * 订阅房间事件
    */
   const subscribeToRoomEvents = (): void => {
-    const events = [
-      WsEventType.MESSAGE_SEND,
-      WsEventType.MESSAGE_DELETE,
-      WsEventType.FILE_UPLOAD,
-      WsEventType.FILE_DELETE,
-      WsEventType.MEMBER_JOIN,
-      WsEventType.MEMBER_LEAVE,
-      WsEventType.MEMBER_TYPING
-    ]
-
-    const subscribeMessage = {
-      type: WsMessageType.SUBSCRIBE,
-      data: {
-        roomId: roomId.value,
-        events: events
-      }
+    const currentUser = authStore.user
+    if (!currentUser) {
+      console.error('❌ 用户信息不存在，无法订阅房间事件')
+      return
     }
+
+    const subscribeMessage = buildSubscribeMessage(
+      `room:${roomId.value}`,
+      [
+        WsEventType.MESSAGE_SEND,
+        WsEventType.MESSAGE_DELETE,
+        WsEventType.FILE_UPLOAD,
+        WsEventType.FILE_DELETE,
+        WsEventType.MEMBER_JOIN,
+        WsEventType.MEMBER_LEAVE,
+        WsEventType.MEMBER_TYPING
+      ],
+      currentUser.userId
+    )
 
     const success = send(subscribeMessage)
     if (success) {
       subscribed.value = true
-      console.log(`✅ 房间事件订阅成功: ${roomId.value}`)
+      console.log(`✅ 房间事件订阅成功: ${roomId.value}, 频道: room:${roomId.value}`)
+    } else {
+      console.error(`❌ 房间事件订阅失败: ${roomId.value}`)
     }
   }
 
@@ -132,10 +139,9 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
    */
   const unsubscribeFromRoom = (): void => {
     if (subscribed.value) {
-      send({
-        type: WsMessageType.UNSUBSCRIBE,
-        data: { roomId: roomId.value }
-      })
+      const currentUser = authStore.user
+      const msg = buildUnsubscribeMessage(`room:${roomId.value}`, currentUser?.userId)
+      send(msg)
       subscribed.value = false
       console.log(`📤 取消房间订阅: ${roomId.value}`)
     }
@@ -146,11 +152,23 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
    */
   const handleRoomMessage = (message: any): void => {
     const { eventType, data } = message
+    if (WS_FEATURES.debug) console.log('🎯 [房间WebSocket] 收到消息:', { eventType, messageId: message.messageId, data })
 
     switch (eventType) {
       case WsEventType.MESSAGE_SEND:
-        roomState.value.messages.push(data)
-        handlers.onMessage?.(data)
+        if (WS_FEATURES.debug) console.log('✅ [房间WebSocket] 处理消息发送事件:', data)
+        // 补齐时间字段与归属字段
+        const enriched: any = { ...data }
+        if (!enriched.createTime) {
+          enriched.createTime = message.timestamp || new Date().toISOString()
+        }
+        const uid = authStore.user?.userId
+        if (typeof enriched.isOwn === 'undefined') {
+          enriched.isOwn = (uid != null) && (enriched.senderId === uid)
+        }
+        roomState.value.messages.push(enriched)
+        // 页面层不再push，仅用于副作用（未读数等）
+        handlers.onMessage?.(enriched)
         break
 
       case WsEventType.MESSAGE_DELETE:
@@ -256,16 +274,25 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
     }
   }
 
+  // 供页面初始化/替换消息列表使用
+  const replaceMessages = (list: any[]): void => {
+    roomState.value.messages = Array.isArray(list) ? list : []
+  }
+
   // 监听房间ID变化，自动重新连接
   watch(roomId, (newRoomId, oldRoomId) => {
     if (oldRoomId && newRoomId !== oldRoomId) {
       disconnectFromRoom()
     }
     
-    if (newRoomId) {
+    // 只有当roomId是有效值（大于0）时才连接
+    if (newRoomId && newRoomId > 0) {
+      console.log(`🔄 房间ID变化，准备连接WebSocket: ${newRoomId}`)
       connectToRoom().catch(error => {
-        console.error('房间WebSocket重连失败:', error)
+        console.error('房间WebSocket连接失败:', error)
       })
+    } else if (newRoomId === 0 || !newRoomId) {
+      console.log('⏳ 等待有效的房间ID...')
     }
   }, { immediate: true })
 
@@ -290,6 +317,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
     connectToRoom,
     disconnectFromRoom,
     sendRoomMessage,
-    sendTypingStatus
+    sendTypingStatus,
+    replaceMessages
   }
 } 

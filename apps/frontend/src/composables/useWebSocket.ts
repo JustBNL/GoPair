@@ -1,5 +1,5 @@
 import { ref, computed, readonly, onBeforeUnmount } from 'vue'
-import { WS_CONFIG, buildWebSocketUrl } from '@/config/websocket'
+import { WS_CONFIG, buildWebSocketUrl, WS_FEATURES } from '@/config/websocket'
 import { Storage } from '@/utils/storage'
 import { 
   ConnectionState, 
@@ -10,6 +10,24 @@ import type {
   WsEventCallbacks,
   WsMessage
 } from '@/types/websocket'
+
+/**
+ * 生成兼容的UUID
+ * 兼容不支持crypto.randomUUID()的浏览器环境
+ */
+function generateUUID(): string {
+  // 优先使用原生API
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  
+  // 兼容方案：使用Math.random生成UUID v4
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
 
 /**
  * 基础WebSocket连接管理Composable
@@ -85,7 +103,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
         ws = new WebSocket(wsUrl)
 
         ws.onopen = (event) => {
-          console.log(`✅ WebSocket连接成功: ${wsUrl}`)
+          if (WS_FEATURES.debug) console.log(`✅ WebSocket连接成功: ${wsUrl}`)
           connectionState.value = ConnectionState.CONNECTED
           reconnectAttempts.value = 0
           startHeartbeat()
@@ -97,9 +115,14 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
           try {
             const message: WsMessage = JSON.parse(event.data)
             handleMessage(message)
+            // 拦截心跳消息，不向上层透传
+            if (message.type === WsMessageType.HEARTBEAT) {
+              return
+            }
+            if (WS_FEATURES.debug) console.log('[WS] message', message)
             callbacks.onMessage?.(message)
           } catch (error) {
-            console.error('WebSocket消息解析失败:', error)
+            if (WS_FEATURES.debug) console.error('WebSocket消息解析失败:', error)
           }
         }
 
@@ -112,7 +135,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
         }
 
         ws.onclose = (event) => {
-          console.log(`🔌 WebSocket连接关闭: ${wsUrl}`, event.code)
+          if (WS_FEATURES.debug) console.log(`🔌 WebSocket连接关闭: ${wsUrl}`, event.code)
           connectionState.value = ConnectionState.DISCONNECTED
           stopHeartbeat()
           callbacks.onDisconnected?.(event)
@@ -141,13 +164,12 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
     }
 
     try {
-      const wsMessage: WsMessage = {
-        id: crypto.randomUUID(),
-        type: message.type || WsMessageType.ROOM_MESSAGE,
-        timestamp: Date.now(),
+      // 通用包头 + 透传调用方字段
+      const wsMessage = {
+        messageId: generateUUID(),
+        timestamp: new Date().toISOString(),
         ...message
       }
-      
       ws.send(JSON.stringify(wsMessage))
       return true
     } catch (error) {
@@ -182,7 +204,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
     
     // 处理错误消息
     if (message.type === WsMessageType.ERROR) {
-      const error = new Error(message.data?.message || 'WebSocket服务器错误')
+      const error = new Error(message.data?.errorMessage || message.data?.message || 'WebSocket服务器错误')
       lastError.value = error
       callbacks.onError?.(error)
     }
@@ -194,7 +216,10 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
   const startHeartbeat = (): void => {
     if (config.heartbeatInterval > 0) {
       heartbeatTimer = window.setInterval(() => {
-        send({ type: WsMessageType.HEARTBEAT })
+        send({ 
+          type: WsMessageType.HEARTBEAT,
+          eventType: "heartbeat" as any
+        })
       }, config.heartbeatInterval)
     }
   }
@@ -218,12 +243,12 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
     reconnectAttempts.value++
     connectionState.value = ConnectionState.RECONNECTING
     
-    console.log(`🔄 安排第${reconnectAttempts.value}次重连...`)
+    if (WS_FEATURES.debug) console.log(`🔄 安排第${reconnectAttempts.value}次重连...`)
     
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null
       connect(url, callbacks).catch((error) => {
-        console.error('重连失败:', error)
+        if (WS_FEATURES.debug) console.error('重连失败:', error)
       })
     }, config.reconnectInterval)
   }
@@ -256,5 +281,35 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
     connect,
     disconnect,
     send
+  }
+}
+
+/**
+ * 订阅/退订消息构造器
+ */
+export function buildSubscribeMessage(channel: string, eventTypes: string[], userId?: number) {
+  return {
+    type: WsMessageType.SUBSCRIBE,
+    eventType: 'subscribe' as any,
+    data: {
+      payload: {
+        channel,
+        userId,
+        eventTypes
+      }
+    }
+  }
+}
+
+export function buildUnsubscribeMessage(channel: string, userId?: number) {
+  return {
+    type: WsMessageType.UNSUBSCRIBE,
+    eventType: 'unsubscribe' as any,
+    data: {
+      payload: {
+        channel,
+        userId
+      }
+    }
   }
 } 

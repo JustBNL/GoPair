@@ -252,19 +252,31 @@ public class SubscriptionManagerService {
         // 房间频道：需要验证房间成员权限
         if (channel.startsWith("room:")) {
             String[] parts = channel.split(":");
-            if (parts.length >= 3) {
-                try {
-                    Long roomId = Long.valueOf(parts[2]);
-                        boolean hasPermission = validateRoomPermission(userId, roomId);
-                        log.debug("[订阅管理] 房间频道权限验证: userId={}, roomId={}, allowed={}", 
-                                userId, roomId, hasPermission);
-                        return hasPermission;
-                } catch (NumberFormatException e) {
-                        log.warn("[订阅管理] 房间频道ID格式错误: channel={}", channel);
+            Long roomId = null;
+            
+            try {
+                if (parts.length == 2) {
+                    // 2段式格式: room:roomId
+                    roomId = Long.valueOf(parts[1]);
+                    log.debug("[订阅管理] 解析2段式房间频道: channel={}, roomId={}", channel, roomId);
+                } else if (parts.length >= 3) {
+                    // 3段式格式: room:type:roomId
+                    roomId = Long.valueOf(parts[2]);
+                    log.debug("[订阅管理] 解析3段式房间频道: channel={}, roomId={}", channel, roomId);
+                } else {
+                    log.warn("[订阅管理] 房间频道格式不正确: channel={}, parts={}", channel, parts.length);
                     return false;
                 }
+                
+                boolean hasPermission = validateRoomPermission(userId, roomId);
+                log.debug("[订阅管理] 房间频道权限验证: userId={}, roomId={}, allowed={}", 
+                        userId, roomId, hasPermission);
+                return hasPermission;
+                
+            } catch (NumberFormatException e) {
+                log.warn("[订阅管理] 房间频道ID格式错误: channel={}, error={}", channel, e.getMessage());
+                return false;
             }
-            return false;
         }
 
         // 系统频道：所有用户都可以订阅
@@ -357,16 +369,35 @@ public class SubscriptionManagerService {
      * 检查会话是否订阅了特定事件
      */
     private boolean isSessionSubscribedToEvent(String sessionId, String channel, String eventType) {
-        // 从用户订阅中查找对应的订阅信息
-        // 这里需要通过sessionId反向查找userId，暂时简化处理
-        for (Set<ChannelSubscription> subscriptions : userSubscriptions.values()) {
-            for (ChannelSubscription sub : subscriptions) {
-                if (channel.equals(sub.getChannel()) && 
-                    (sub.getEventTypes() == null || sub.getEventTypes().contains(eventType))) {
-                    return true;
+        // 先检查会话是否订阅了该频道
+        Set<String> sessionChannels = sessionSubscriptions.get(sessionId);
+        if (sessionChannels == null || !sessionChannels.contains(channel)) {
+            return false;
+        }
+        
+        // 获取频道的会话映射
+        Set<String> channelSessions = this.channelSessions.get(channel);
+        if (channelSessions == null || !channelSessions.contains(sessionId)) {
+            return false;
+        }
+        
+        // 通过sessionId查找对应的用户订阅
+        for (Map.Entry<Long, Set<ChannelSubscription>> entry : userSubscriptions.entrySet()) {
+            for (ChannelSubscription sub : entry.getValue()) {
+                if (channel.equals(sub.getChannel())) {
+                    // 检查事件类型匹配
+                    if (sub.getEventTypes() == null || sub.getEventTypes().isEmpty()) {
+                        // 如果没有指定事件类型，允许所有事件
+                        return true;
+                    }
+                    // 检查是否包含目标事件类型
+                    if (sub.getEventTypes().contains(eventType)) {
+                        return true;
+                    }
                 }
             }
         }
+        
         return false;
     }
 

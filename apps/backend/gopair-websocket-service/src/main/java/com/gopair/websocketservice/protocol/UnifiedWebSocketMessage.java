@@ -24,7 +24,6 @@ public class UnifiedWebSocketMessage {
     /**
      * 消息时间戳
      */
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
 
     /**
@@ -59,23 +58,14 @@ public class UnifiedWebSocketMessage {
      */
     private String source;
 
-    /**
-     * 路由键（用于RabbitMQ）
-     */
-    private String routingKey;
+    // 提供对外输出的简化别名，兼容前端现有读取逻辑
+    @com.fasterxml.jackson.annotation.JsonGetter("id")
+    public String getJsonId() {
+        return this.messageId;
+    }
 
-    /**
-     * 消息优先级（0-255，数字越大优先级越高）
-     */
-    private Integer priority;
-
-    /**
-     * 是否需要确认收到
-     */
-    private Boolean requireAck;
-
-    /**
-     * 消息超时时间（毫秒）
-     */
-    private Long ttl;
+    @com.fasterxml.jackson.annotation.JsonGetter("data")
+    public java.util.Map<String, Object> getJsonData() {
+        return this.payload != null ? this.payload : java.util.Map.of();
+    }
 } 
