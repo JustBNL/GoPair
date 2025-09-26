@@ -49,4 +49,10 @@ public interface RoomMapper extends BaseMapper<Room> {
     int updateCurrentMembers(@Param("roomId") Long roomId, 
                            @Param("currentMembers") Integer currentMembers,
                            @Param("version") Integer version);
+
+    // 原子加一（仅在未满时）
+    int incrementMembersIfNotFull(@Param("roomId") Long roomId);
+
+    // 原子减一（仅在大于0时）
+    int decrementMembersIfPositive(@Param("roomId") Long roomId);
 } 

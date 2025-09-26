@@ -11,25 +11,36 @@ import com.gopair.common.entity.BaseQuery;
 import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
+import com.gopair.roomservice.domain.event.LeaveRoomRequestedEvent;
 import com.gopair.roomservice.domain.po.Room;
 import com.gopair.roomservice.domain.po.RoomMember;
+import com.gopair.roomservice.domain.vo.JoinAcceptedVO;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.enums.RoomErrorCode;
 import com.gopair.roomservice.exception.RoomException;
 import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;
+import com.gopair.roomservice.messaging.LeaveRoomProducer;
+import com.gopair.roomservice.service.JoinReservationService;
+import com.gopair.roomservice.service.JoinResultQueryService;
+import com.gopair.roomservice.service.RoomCacheSyncService;
 import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.roomservice.service.RoomService;
 import com.gopair.roomservice.util.RoomCodeUtils;
 import com.gopair.framework.logging.annotation.LogRecord;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
+
 
 /**
  * 房间服务实现类
@@ -43,11 +54,24 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     private final RoomMapper roomMapper;
     private final RoomMemberMapper roomMemberMapper;
     private final RoomMemberService roomMemberService;
+    private final JoinReservationService joinReservationService;
+    private final JoinResultQueryService joinResultQueryService;
+    private final RoomCacheSyncService roomCacheSyncService;
+    private final LeaveRoomProducer leaveRoomProducer;
+    private final StringRedisTemplate stringRedisTemplate;
 
-    public RoomServiceImpl(RoomMapper roomMapper, RoomMemberMapper roomMemberMapper, RoomMemberService roomMemberService) {
+    public RoomServiceImpl(RoomMapper roomMapper, RoomMemberMapper roomMemberMapper, RoomMemberService roomMemberService,
+                           JoinReservationService joinReservationService, JoinResultQueryService joinResultQueryService,
+                           RoomCacheSyncService roomCacheSyncService, LeaveRoomProducer leaveRoomProducer,
+                           StringRedisTemplate stringRedisTemplate) {
         this.roomMapper = roomMapper;
         this.roomMemberMapper = roomMemberMapper;
         this.roomMemberService = roomMemberService;
+        this.joinReservationService = joinReservationService;
+        this.joinResultQueryService = joinResultQueryService;
+        this.roomCacheSyncService = roomCacheSyncService;
+        this.leaveRoomProducer = leaveRoomProducer;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 
     @Override
@@ -91,7 +115,15 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 转换为VO返回
         RoomVO roomVO = BeanCopyUtils.copyBean(room, RoomVO.class);
-        log.info("用户{}创建房间成功，房间ID：{}，房间码：{}", userId, room.getRoomId(), room.getRoomCode());
+        log.info("[房间服务] 用户{}创建房间成功，房间ID：{}，房间码：{}", userId, room.getRoomId(), room.getRoomCode());
+        
+        // 事务提交后初始化 Redis（含房主与 confirmed=1）
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try { roomCacheSyncService.initializeRoomInCache(room, userId); } catch (Exception ignore) {}
+            }
+        });
         
         return roomVO;
     }
@@ -153,9 +185,66 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         room = roomMapper.selectById(room.getRoomId());
         RoomVO roomVO = BeanCopyUtils.copyBean(room, RoomVO.class);
         
-        log.info("用户{}加入房间成功，房间ID：{}，房间码：{}", userId, room.getRoomId(), room.getRoomCode());
+        log.info("[房间服务] 用户{}加入房间成功，房间ID：{}，房间码：{}", userId, room.getRoomId(), room.getRoomCode());
         
         return roomVO;
+    }
+
+    @Override
+    public JoinAcceptedVO joinRoomAsync(JoinRoomDto joinRoomDto, Long userId) {
+        if (!StringUtils.hasText(joinRoomDto.getRoomCode())) {
+            throw new RoomException(RoomErrorCode.ROOM_CODE_INVALID);
+        }
+        if (userId == null) {
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
+        }
+        if (!StringUtils.hasText(joinRoomDto.getDisplayName())) {
+            throw new RoomException(RoomErrorCode.NICKNAME_EMPTY);
+        }
+        Room room = roomMapper.selectByRoomCode(joinRoomDto.getRoomCode());
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        if (log.isDebugEnabled()) {
+            // 记录异步入口，便于排查是否真正触发预占
+            log.debug("[房间服务][join-async] 异步加入入口 房间码={} 房间ID={} 用户={}", joinRoomDto.getRoomCode(), room.getRoomId(), userId);
+        }
+        JoinReservationService.PreReserveResult result = joinReservationService.preReserve(room.getRoomId(), userId, joinRoomDto.getDisplayName());
+        if (log.isDebugEnabled()) {
+            if (joinReservationService instanceof JoinReservationServiceImpl reservationService) {
+                // 预占后再次记录 Redis 快照，监控 reserved/pending 变化
+                JoinReservationServiceImpl.RoomRedisDiagnostics snapshot = reservationService.snapshotRoomState(room.getRoomId());
+                log.debug("[房间服务][join-async] 预占结果 房间={} 用户={} 状态={} meta={} pending={} members={} ",
+                        room.getRoomId(), userId, result.status, snapshot.getMeta(), snapshot.getPending(), snapshot.getMembers());
+            }
+        }
+        switch (result.status) {
+            case ACCEPTED:
+                return new JoinAcceptedVO(result.joinToken, "已受理");
+            case ALREADY_JOINED:
+                return new JoinAcceptedVO(null, "已在房间");
+            case FULL:
+                throw new RoomException(RoomErrorCode.ROOM_FULL);
+            case CLOSED:
+                throw new RoomException(RoomErrorCode.ROOM_CLOSED);
+            case EXPIRED:
+                throw new RoomException(RoomErrorCode.ROOM_EXPIRED);
+            case PROCESSING:
+            default:
+                if (joinReservationService instanceof JoinReservationServiceImpl reservationService) {
+                    // 若状态为 PROCESSING 再次抓取 Redis 现场，以便识别挂起问题
+                    JoinReservationServiceImpl.RoomRedisDiagnostics snapshot = reservationService.snapshotRoomState(room.getRoomId());
+                    log.warn("[房间服务][join-async] 队列处理中 房间={} 用户={} meta={} pending={} members={} redisReserved={}",
+                            room.getRoomId(), userId, snapshot.getMeta(), snapshot.getPending(), snapshot.getMembers(),
+                            snapshot.getMeta().getOrDefault("reserved", ""));
+                }
+                throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
+        }
+    }
+
+    @Override
+    public JoinResultQueryService.JoinStatusVO queryJoinResult(String token) {
+        return joinResultQueryService.queryByToken(token);
     }
 
     @Override
@@ -164,33 +253,43 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
-        
-        // 检查是否在房间中
         if (!roomMemberService.isMemberInRoom(roomId, userId)) {
             throw new RoomException(RoomErrorCode.NOT_IN_ROOM);
         }
-
-        // 移除成员
-        boolean removed = roomMemberService.removeMember(roomId, userId);
-        if (!removed) {
-            return false;
-        }
-
-        // 更新房间成员数
-        Room room = roomMapper.selectById(roomId);
-        if (room != null && room.getCurrentMembers() > 0) {
-            roomMapper.updateCurrentMembers(roomId, room.getCurrentMembers() - 1, room.getVersion());
-            
-            // 如果房间没有成员了，关闭房间
-            if (room.getCurrentMembers() - 1 == 0) {
-                room.setStatus(1);
-                room.setUpdateTime(LocalDateTime.now());
-                roomMapper.updateById(room);
-                log.info("房间{}因无成员自动关闭", roomId);
+        // 事件化：事务提交后投递 leave 事件
+        String correlationId = UUID.randomUUID().toString();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    LeaveRoomRequestedEvent evt = new LeaveRoomRequestedEvent(roomId, userId, correlationId, System.currentTimeMillis());
+                    boolean sent = leaveRoomProducer.sendRequested(evt);
+                    if (!sent) {
+                        // 降级：同步处理一次，保证用户体验
+                try {
+                    // 发布离开事件失败时采取降级处理，确保数据最终一致
+                            LambdaQueryWrapper<RoomMember> q = new LambdaQueryWrapper<>();
+                            q.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
+                            roomMemberMapper.delete(q);
+                            int dec = roomMapper.decrementMembersIfPositive(roomId);
+                            if (dec == 1) {
+                                roomCacheSyncService.incrementConfirmed(roomId, -1);
+                            }
+                            roomCacheSyncService.removeMemberFromCache(roomId, userId);
+                            Room room = roomMapper.selectById(roomId);
+                            if (room != null && room.getCurrentMembers() != null && room.getCurrentMembers() == 0 && (room.getStatus() == null || room.getStatus() == 0)) {
+                                room.setStatus(1);
+                                roomMapper.updateById(room);
+                                roomCacheSyncService.setStatus(roomId, 1);
+                            }
+                        } catch (Exception ignore) {}
+                    }
+                } catch (Exception e) {
+                    log.error("[房间服务] 发送离开事件失败，房间={}, 用户={}", roomId, userId, e);
+                }
             }
-        }
-
-        log.info("用户{}离开房间{}成功", userId, roomId);
+        });
+        log.info("[房间服务] 用户{}离开房间{}已受理(异步)", userId, roomId);
         return true;
     }
 
@@ -220,7 +319,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         // 为房间列表增强用户关系信息
         enhanceRoomsWithUserRelationship(memberRooms.getRecords(), userId);
         
-        log.info("用户{}获取房间列表成功，共{}个房间", userId, memberRooms.getTotal());
+        log.info("[房间服务] 用户{}获取房间列表成功，共{}个房间", userId, memberRooms.getTotal());
 
         return memberRooms;
     }
@@ -248,7 +347,13 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         int updateRows = roomMapper.updateById(room);
 
         if (updateRows > 0) {
-            log.info("房间{}已被房主{}关闭", roomId, userId);
+            log.info("[房间服务] 房间{}已被房主{}关闭", roomId, userId);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try { roomCacheSyncService.setStatus(roomId, 1); } catch (Exception ignore) {}
+                }
+            });
         }
 
         return updateRows > 0;
@@ -278,10 +383,10 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             // 删除房间
             int deleteRows = roomMapper.deleteById(roomId);
             
-            log.info("房间{}已完全删除", roomId);
+            log.info("[房间服务] 房间{}已完全删除", roomId);
             return deleteRows > 0;
         } catch (Exception e) {
-            log.error("删除房间{}失败", roomId, e);
+            log.error("[房间服务] 删除房间{}失败", roomId, e);
             return false;
         }
     }
@@ -328,18 +433,18 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                     } else {
                         room.setUserRole(0); // 普通成员
                         room.setRelationshipType("joined");
-                        log.warn("用户{}在房间{}中的成员信息缺失，使用降级处理", userId, room.getRoomId());
+                        log.warn("[房间服务] 用户{}在房间{}中的成员信息缺失，使用降级处理", userId, room.getRoomId());
                     }
                 }
             } catch (Exception e) {
-                log.error("增强房间{}的用户关系信息失败", room.getRoomId(), e);
+                log.error("[房间服务] 增强房间{}的用户关系信息失败", room.getRoomId(), e);
                 // 设置默认值，不影响主流程
                 room.setUserRole(0);
                 room.setRelationshipType("joined");
             }
         }
         
-        log.info("为用户{}增强了{}个房间的关系信息", userId, rooms.size());
+        log.info("[房间服务] 为用户{}增强了{}个房间的关系信息", userId, rooms.size());
     }
 
     /**
@@ -361,7 +466,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             
             return roomMemberMapper.selectOne(queryWrapper);
         } catch (Exception e) {
-            log.error("查询用户{}在房间{}中的成员信息失败", userId, roomId, e);
+            log.error("[房间服务] 查询用户{}在房间{}中的成员信息失败", userId, roomId, e);
             return null;
         }
     }

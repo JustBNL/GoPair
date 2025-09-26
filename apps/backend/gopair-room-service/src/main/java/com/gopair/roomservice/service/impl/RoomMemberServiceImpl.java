@@ -60,7 +60,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         int insertRows = roomMemberMapper.insert(roomMember);
         
         if (insertRows > 0) {
-            log.info("用户{}加入房间{}成功，角色：{}", userId, roomId, role);
+            log.info("[房间服务] 用户{}加入房间{}成功，角色={}", userId, roomId, role);
         }
         
         return insertRows > 0;
@@ -76,7 +76,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         int deleteRows = roomMemberMapper.delete(queryWrapper);
         
         if (deleteRows > 0) {
-            log.info("用户{}离开房间{}成功", userId, roomId);
+            log.info("[房间服务] 用户{}离开房间{}成功", userId, roomId);
         }
         
         return deleteRows > 0;
@@ -144,7 +144,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         int deleteRows = roomMemberMapper.delete(queryWrapper);
         
         if (deleteRows > 0) {
-            log.info("房间{}的所有成员已删除", roomId);
+            log.info("[房间服务] 房间{}的所有成员已删除", roomId);
         }
         
         return deleteRows > 0;

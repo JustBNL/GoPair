@@ -5,22 +5,14 @@
       { 'own-message': message.isOwn }
     ]"
   >
-    <!-- 用户头像和信息 -->
-    <div v-if="!message.isOwn" class="message-avatar">
-      <a-avatar 
-        :src="message.senderAvatar" 
-        :size="32"
-      >
-        {{ message.senderNickname?.charAt(0) }}
-      </a-avatar>
-    </div>
+    <!-- 用户头像占位（暂不显示头像，仅保留容器一致性） -->
+    <div class="message-avatar"></div>
 
     <!-- 消息内容区域 -->
     <div class="message-content">
-      <!-- 发送者信息 -->
+      <!-- 发送者信息（仅他人消息显示昵称，不显示时间） -->
       <div v-if="!message.isOwn && showSenderInfo" class="sender-info">
         <span class="sender-name">{{ message.senderNickname }}</span>
-        <span class="message-time">{{ formatTime(message.createTime) }}</span>
       </div>
 
       <!-- 回复消息 -->
@@ -97,10 +89,10 @@
         </div>
       </div>
 
-      <!-- 消息状态和时间（自己的消息） -->
-      <div v-if="message.isOwn" class="message-meta">
+      <!-- 统一的消息时间与状态（右下角显示时间） -->
+      <div class="message-meta">
         <span class="message-time">{{ formatTime(message.createTime) }}</span>
-        <check-outlined class="message-status" />
+        <check-outlined v-if="message.isOwn" class="message-status" />
       </div>
     </div>
 
@@ -178,10 +170,20 @@ const isPlaying = ref(false)
 const voiceDuration = ref(0)
 
 /**
- * 格式化时间
+ * 格式化时间（统一 MM-DD HH:mm），兼容多种输入
  */
-const formatTime = (timeStr: string) => {
-  return dayjs(timeStr).format('HH:mm')
+const formatTime = (timeInput: any) => {
+  if (!timeInput) return ''
+  let d
+  if (typeof timeInput === 'number') {
+    d = dayjs(timeInput)
+  } else if (typeof timeInput === 'string' && /^\d+$/.test(timeInput)) {
+    d = dayjs(Number(timeInput))
+  } else {
+    d = dayjs(timeInput)
+  }
+  if (!d.isValid()) return ''
+  return d.format('MM-DD HH:mm')
 }
 
 /**
@@ -277,6 +279,8 @@ const onDelete = () => {
 
 .message-avatar {
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
 }
 
 .message-content {

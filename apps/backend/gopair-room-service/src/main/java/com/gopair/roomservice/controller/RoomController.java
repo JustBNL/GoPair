@@ -8,6 +8,8 @@ import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
+import com.gopair.roomservice.domain.vo.JoinAcceptedVO;
+import com.gopair.roomservice.service.JoinResultQueryService.JoinStatusVO;
 import com.gopair.roomservice.service.RoomService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -58,6 +60,24 @@ public class RoomController {
         Long userId = UserContextHolder.getCurrentUserId();
         RoomVO roomVO = roomService.joinRoom(joinRoomDto, userId);
         return R.ok(roomVO);
+    }
+
+    @Operation(summary = "加入房间(异步)", description = "通过房间码加入房间，返回受理token")
+    @PostMapping("/join/async")
+    public R<JoinAcceptedVO> joinRoomAsync(
+            @Parameter(description = "加入房间信息", required = true)
+            @RequestBody JoinRoomDto joinRoomDto) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        JoinAcceptedVO accepted = roomService.joinRoomAsync(joinRoomDto, userId);
+        return R.ok(accepted);
+    }
+
+    @Operation(summary = "查询加入结果", description = "根据token查询加入结果")
+    @GetMapping("/join/result")
+    public R<JoinStatusVO> joinResult(
+            @RequestParam("token") String token) {
+        JoinStatusVO status = roomService.queryJoinResult(token);
+        return R.ok(status);
     }
 
     /**

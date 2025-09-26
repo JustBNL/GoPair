@@ -41,3 +41,6 @@ build/
 # /apps/backend/gopair-room-service/
 
 /logs/
+**/logs/
+*.log
+apps/frontend/nul

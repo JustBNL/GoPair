@@ -7,7 +7,7 @@ import type {
   CreateRoomRequest, 
   JoinRoomRequest 
 } from '@/types/room'
-import type { BaseQuery, PageResult } from '@/types/api'
+import type { BaseQuery } from '@/types/api'
 import { RoomAPI } from '@/api/room'
 import { useAuthStore } from './auth'
 
@@ -123,6 +123,39 @@ export const useRoomStore = defineStore('room', () => {
     } finally {
       joinLoading.value = false
     }
+  }
+
+  // 新增：异步加入请求，返回token
+  async function requestJoinRoomAsync(joinData: JoinRoomRequest): Promise<string | null> {
+    joinLoading.value = true
+    try {
+      const resp = await RoomAPI.joinRoomAsync(joinData)
+      const token = resp.data.joinToken
+      if (token) {
+        message.loading({ content: '加入中…', key: 'joinAsync', duration: 1 })
+        return token
+      }
+      return null
+    } catch (e) {
+      console.error('异步加入请求失败:', e)
+      throw e
+    } finally {
+      joinLoading.value = false
+    }
+  }
+
+  // 新增：根据token查询结果
+  async function queryJoinResult(token: string): Promise<'JOINED' | 'PROCESSING' | 'FAILED'> {
+    const resp = await RoomAPI.getJoinResult(token)
+    const status = resp.data.status
+    if (status === 'JOINED') {
+      message.success({ content: '加入成功', key: 'joinAsync' })
+      // 刷新房间列表
+      await fetchUserRooms()
+    } else if (status === 'FAILED') {
+      message.error({ content: '加入失败，请重试', key: 'joinAsync' })
+    }
+    return status
   }
 
   /**
@@ -272,6 +305,8 @@ export const useRoomStore = defineStore('room', () => {
     fetchUserRooms,
     createRoom,
     joinRoom,
+    requestJoinRoomAsync,
+    queryJoinResult,
     getRoomByCode,
     fetchRoomMembers,
     leaveRoom,

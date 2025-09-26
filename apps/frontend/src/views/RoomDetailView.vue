@@ -785,12 +785,15 @@ const initRoomSubscription = async () => {
  */
 const handleSendMessage = async (messageData: any) => {
   try {
-    // 使用新的WebSocket发送机制
-    const success = sendRoomMessage(messageData)
-    if (!success) {
-      // 如果WebSocket发送失败，回退到HTTP API
-      await MessageAPI.sendMessage(messageData)
+    if (!currentRoom.value) {
+      throw new Error('房间信息不存在')
     }
+    // 始终通过HTTP发送，由后端持久化并通过WebSocket广播
+    const payload = {
+      roomId: currentRoom.value.roomId,
+      ...messageData
+    }
+    await MessageAPI.sendMessage(payload)
   } catch (error: any) {
     antMessage.error(error.response?.data?.msg || '发送消息失败')
   }

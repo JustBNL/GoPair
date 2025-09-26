@@ -11,6 +11,37 @@ spring:
       - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
+  # Redis与RabbitMQ基础配置（可被Nacos覆盖）
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 0
+          max-wait: 2000ms
+      timeout: 3000ms
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: AUTO
+        prefetch: 50
+        concurrency: 1
+        max-concurrency: 8
+
 # 仅保留服务特定的MyBatis Plus配置
 mybatis-plus:
   # 实体类包路径，用于类型别名
@@ -25,8 +56,28 @@ gopair:
     default-expire-hours: 24
     # 房间码长度
     code-length: 8
+    # Redis预占参数（毫秒/秒）
+    reservation:
+      join-token-ttl-seconds: 30
+      pending-ttl-seconds: 30
+      reaper-interval-ms: 60000
+      # 单房间入队限流（每毫秒最多受理数）
+      rate-limit-per-ms: 100
   
   # 定时任务配置
   schedule:
     # 房间清理任务执行间隔（毫秒）
     room-cleanup-interval: 900000  # 15分钟
+
+# 业务消息队列配置
+mq:
+  room-join:
+    exchange: room.join.exchange
+    routing-key: room.join.requested
+    queue: room.join.queue
+    dlx: room.join.dlx
+    dlq: room.join.dlq
+  room-leave:
+    exchange: room.leave.exchange
+    routing-key: room.leave.requested
+    queue: room.leave.queue

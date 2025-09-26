@@ -23,7 +23,7 @@
         SELECT 
             <include refid="Base_Column_List" />
         FROM room 
-        WHERE expire_time &lt; #{currentTime}
+        WHERE expire_time <![CDATA[ < ]]> #{currentTime}
         AND status = 0
         ORDER BY expire_time ASC
         LIMIT 100
@@ -39,7 +39,7 @@
         ORDER BY create_time DESC
     </select>
 
-    <!-- 更新房间当前成员数 -->
+    <!-- 更新房间当前成员数（手工CAS，保留兼容） -->
     <update id="updateCurrentMembers">
         UPDATE room 
         SET current_members = #{currentMembers},
@@ -47,6 +47,26 @@
             update_time = NOW()
         WHERE room_id = #{roomId}
         AND version = #{version}
+    </update>
+
+    <!-- 原子加一（仅在未满时） -->
+    <update id="incrementMembersIfNotFull">
+        UPDATE room
+        SET current_members = current_members + 1,
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+          AND current_members <![CDATA[ < ]]> max_members
+    </update>
+
+    <!-- 原子减一（仅在大于0时） -->
+    <update id="decrementMembersIfPositive">
+        UPDATE room
+        SET current_members = current_members - 1,
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+          AND current_members <![CDATA[ > ]]> 0
     </update>
 
 </mapper> 

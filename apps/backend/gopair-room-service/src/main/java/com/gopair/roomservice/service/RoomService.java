@@ -7,6 +7,8 @@ import com.gopair.roomservice.domain.dto.RoomDto;
 import com.gopair.roomservice.domain.po.Room;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
+import com.gopair.roomservice.domain.vo.JoinAcceptedVO;
+import com.gopair.roomservice.service.JoinResultQueryService.JoinStatusVO;
 
 import java.util.List;
 
@@ -100,4 +102,9 @@ public interface RoomService {
      * @return 是否唯一
      */
     boolean isRoomCodeUnique(String roomCode);
+
+    // 新增：异步加入能力
+    JoinAcceptedVO joinRoomAsync(JoinRoomDto joinRoomDto, Long userId);
+
+    JoinStatusVO queryJoinResult(String token);
 } 

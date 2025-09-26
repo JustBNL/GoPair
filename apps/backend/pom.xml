@@ -23,13 +23,11 @@
 		<module>gopair-gateway</module>
 		<module>gopair-room-service</module>
 		<module>gopair-message-service</module>
-		<module>gopair-file-relay-service</module>
-		<module>gopair-voice-service</module>
 		<module>gopair-websocket-service</module>
 	</modules>
 
 	<properties>
-		<java.version>21</java.version>
+		<java.version>23</java.version>
 		<gopair.version>0.0.1-SNAPSHOT</gopair.version>
 		<mybatis-plus.version>3.5.12</mybatis-plus.version>
 		<pagehelper.version>2.1.1</pagehelper.version>

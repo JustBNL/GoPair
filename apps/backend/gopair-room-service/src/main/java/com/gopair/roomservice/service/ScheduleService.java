@@ -26,7 +26,7 @@ public class ScheduleService {
 
     @PostConstruct
     public void init() {
-        log.info("[房间服务] 定时任务服务初始化完成");
+        log.info("[房间服务][schedule] 定时任务服务初始化完成");
     }
 
     /**
@@ -35,13 +35,13 @@ public class ScheduleService {
      */
     @Scheduled(fixedRateString = "${gopair.schedule.room-cleanup-interval:900000}")
     public void cleanupExpiredRooms() {
-        log.info("开始执行过期房间清理任务");
+        log.info("[房间服务][schedule] 开始执行过期房间清理任务");
         
         try {
             List<Room> expiredRooms = roomService.findExpiredRooms();
             
             if (expiredRooms.isEmpty()) {
-                log.info("没有发现过期房间");
+                log.info("[房间服务][schedule] 没有发现过期房间");
                 return;
             }
             
@@ -51,17 +51,17 @@ public class ScheduleService {
                     boolean result = roomService.deleteRoomCompletely(room.getRoomId());
                     if (result) {
                         cleanedCount++;
-                        log.info("成功清理过期房间：{} ({})", room.getRoomName(), room.getRoomCode());
+                        log.info("[房间服务][schedule] 成功清理过期房间：{} ({})", room.getRoomName(), room.getRoomCode());
                     }
                 } catch (Exception e) {
-                    log.error("清理房间{}失败", room.getRoomId(), e);
+                    log.error("[房间服务][schedule] 清理房间{}失败", room.getRoomId(), e);
                 }
             }
             
-            log.info("过期房间清理任务完成，共处理{}个房间，成功清理{}个", expiredRooms.size(), cleanedCount);
+            log.info("[房间服务][schedule] 过期房间清理任务完成，共处理{}个房间，成功清理{}个", expiredRooms.size(), cleanedCount);
             
         } catch (Exception e) {
-            log.error("执行过期房间清理任务失败", e);
+            log.error("[房间服务][schedule] 执行过期房间清理任务失败", e);
         }
     }
 
@@ -71,16 +71,16 @@ public class ScheduleService {
      */
     @Scheduled(fixedRate = 1800000) // 30分钟
     public void maintainRoomStatus() {
-        log.debug("开始执行房间状态维护任务");
+        log.debug("[房间服务][schedule] 开始执行房间状态维护任务");
         
         try {
             // 这里可以添加房间状态检查逻辑
             // 例如：检查无成员的房间、更新房间统计信息等
             
-            log.debug("房间状态维护任务完成");
+            log.debug("[房间服务][schedule] 房间状态维护任务完成");
             
         } catch (Exception e) {
-            log.error("执行房间状态维护任务失败", e);
+            log.error("[房间服务][schedule] 执行房间状态维护任务失败", e);
         }
     }
 } 

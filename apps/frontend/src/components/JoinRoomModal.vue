@@ -154,44 +154,24 @@ import { useAuthStore } from '@/stores/auth'
 import type { JoinRoomFormData, RoomInfo } from '@/types/room'
 import { ROOM_STATUS } from '@/types/room'
 
-// ==================== 组件属性 ====================
-
-interface Props {
-  visible: boolean
-}
-
+interface Props { visible: boolean }
 const props = defineProps<Props>()
 
-// ==================== 组件事件 ====================
-
-interface Emits {
-  'update:visible': [visible: boolean]
-  success: [room: RoomInfo]
-}
-
+interface Emits { 'update:visible': [visible: boolean]; success: [room: RoomInfo] }
 const emit = defineEmits<Emits>()
-
-// ==================== 组件状态 ====================
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
 
-// 表单数据
-const formData = reactive<JoinRoomFormData>({
-  roomCode: '',
-  displayName: ''
-})
+const formData = reactive<JoinRoomFormData>({ roomCode: '', displayName: '' })
 
-// 房间预览数据
 const roomPreview = ref<RoomInfo | null>(null)
 const searchLoading = ref(false)
 const showNotFound = ref(false)
 
-// 防抖定时器
 let searchTimer: number | null = null
 
-// 表单验证规则
 const formRules = {
   roomCode: [
     { required: true, message: '请输入房间码' },
@@ -205,12 +185,8 @@ const formRules = {
   ]
 }
 
-// ==================== 计算属性 ====================
-
-// 房间状态
 const previewStatusColor = computed(() => {
   if (!roomPreview.value) return 'default'
-  
   if (roomPreview.value.status === ROOM_STATUS.CLOSED) return 'red'
   if (isRoomExpired.value) return 'red'
   if (isRoomFull.value) return 'orange'
@@ -220,7 +196,6 @@ const previewStatusColor = computed(() => {
 
 const previewStatusText = computed(() => {
   if (!roomPreview.value) return ''
-  
   if (roomPreview.value.status === ROOM_STATUS.CLOSED) return '已关闭'
   if (isRoomExpired.value) return '已过期'
   if (isRoomFull.value) return '房间已满'
@@ -228,28 +203,21 @@ const previewStatusText = computed(() => {
   return '可加入'
 })
 
-// 房间是否可加入
 const isRoomJoinable = computed(() => {
   if (!roomPreview.value) return false
-  
-  return roomPreview.value.status === ROOM_STATUS.ACTIVE &&
-         !isRoomExpired.value &&
-         !isRoomFull.value
+  return roomPreview.value.status === ROOM_STATUS.ACTIVE && !isRoomExpired.value && !isRoomFull.value
 })
 
-// 房间是否已过期
 const isRoomExpired = computed(() => {
   if (!roomPreview.value) return false
   return dayjs(roomPreview.value.expireTime).isBefore(dayjs())
 })
 
-// 房间是否已满
 const isRoomFull = computed(() => {
   if (!roomPreview.value) return false
   return roomPreview.value.currentMembers >= roomPreview.value.maxMembers
 })
 
-// 房间是否即将过期（1小时内）
 const isRoomExpiringSoon = computed(() => {
   if (!roomPreview.value) return false
   const expireTime = dayjs(roomPreview.value.expireTime)
@@ -257,69 +225,34 @@ const isRoomExpiringSoon = computed(() => {
   return expireTime.diff(now, 'hour') <= 1 && expireTime.isAfter(now)
 })
 
-// ==================== 监听器 ====================
+watch(() => props.visible, (newVal) => { if (newVal) resetForm() })
 
-// 监听可见性变化，重置表单
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    resetForm()
-  }
-})
-
-// ==================== 事件处理 ====================
-
-/**
- * 房间码输入处理
- */
 function handleRoomCodeInput() {
-  // 清除之前的搜索
-  if (searchTimer) {
-    clearTimeout(searchTimer)
-  }
-  
-  // 重置状态
+  if (searchTimer) { clearTimeout(searchTimer) }
   roomPreview.value = null
   showNotFound.value = false
-  
-  // 如果房间码长度足够，开始搜索
   if (formData.roomCode.length >= 4) {
-    searchTimer = setTimeout(() => {
-      searchRoom()
-    }, 500) // 500ms 防抖
+    searchTimer = setTimeout(() => { searchRoom() }, 500)
   }
 }
 
-/**
- * 粘贴处理
- */
 function handlePaste(event: ClipboardEvent) {
-  // 延迟处理，确保粘贴内容已被设置
-  setTimeout(() => {
-    handleRoomCodeInput()
-  }, 10)
+  setTimeout(() => { handleRoomCodeInput() }, 10)
 }
 
-/**
- * 搜索房间
- */
 async function searchRoom() {
   if (!formData.roomCode.trim()) return
-  
   searchLoading.value = true
   showNotFound.value = false
-  
   try {
     const room = await roomStore.getRoomByCode(formData.roomCode.trim())
     if (room) {
       roomPreview.value = room
-      
-      // 自动填充显示名称（如果未填写）
       if (!formData.displayName.trim()) {
         formData.displayName = authStore.user?.nickname || ''
       }
     }
   } catch (error) {
-    console.warn('查找房间失败:', error)
     roomPreview.value = null
     showNotFound.value = true
   } finally {
@@ -327,72 +260,51 @@ async function searchRoom() {
   }
 }
 
-/**
- * 提交表单
- */
 async function handleSubmit(values: JoinRoomFormData) {
-  if (!roomPreview.value) {
-    message.warning('请先输入有效的房间码')
-    return
-  }
-  
-  if (!isRoomJoinable.value) {
-    message.warning('该房间当前无法加入')
-    return
-  }
-  
+  if (!roomPreview.value) { message.warning('请先输入有效的房间码'); return }
+  if (!isRoomJoinable.value) { message.warning('该房间当前无法加入'); return }
   try {
-    const room = await roomStore.joinRoom({
+    // 改为异步加入：请求受理token并轮询结果
+    const token = await roomStore.requestJoinRoomAsync({
       roomCode: values.roomCode.trim(),
       displayName: values.displayName.trim()
     })
-    
-    if (room) {
-      emit('success', room)
-      resetForm()
-      message.success('成功加入房间！')
+    if (!token) return
+    // 简单退避轮询（最多6次，~1.2s）
+    for (let i = 0; i < 6; i++) {
+      const status = await roomStore.queryJoinResult(token)
+      if (status === 'JOINED') {
+        resetForm()
+        emit('update:visible', false)
+        return
+      }
+      if (status === 'FAILED') {
+        return
+      }
+      await new Promise(r => setTimeout(r, 200 * Math.pow(2, i / 3)))
     }
+    message.info('加入处理中，请稍后在“我的房间”查看')
   } catch (error: any) {
-    console.error('加入房间失败:', error)
-    
-    // 根据错误类型显示不同的提示
     const errorMessage = error?.message || '加入房间失败，请重试'
     message.error(errorMessage)
   }
 }
 
-/**
- * 提交失败处理
- */
 function handleSubmitFailed(errorInfo: any) {
-  console.warn('表单验证失败:', errorInfo)
   message.warning('请检查表单信息')
 }
 
-/**
- * 取消操作
- */
 function handleCancel() {
   emit('update:visible', false)
 }
 
-/**
- * 重置表单
- */
 function resetForm() {
   formData.roomCode = ''
   formData.displayName = ''
   roomPreview.value = null
   searchLoading.value = false
   showNotFound.value = false
-  
-  // 清除搜索定时器
-  if (searchTimer) {
-    clearTimeout(searchTimer)
-    searchTimer = null
-  }
-  
-  // 清除表单验证状态
+  if (searchTimer) { clearTimeout(searchTimer); searchTimer = null }
   formRef.value?.clearValidate()
 }
 </script>
