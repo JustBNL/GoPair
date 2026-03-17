@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import java.util.List;
 import java.util.ArrayList;
 
+import static com.gopair.userservice.enums.UserErrorCode.*;
 import static org.assertj.core.api.Assertions.*;
 import static com.gopair.common.constants.MessageConstants.*;
 import com.gopair.userservice.enums.UserErrorCode;
@@ -66,7 +67,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<RegisterResponse>> response = callUserRegistration(duplicateUser);
 
             assertThat(response.getBody().isSuccess()).isFalse();
-            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.NICKNAME_ALREADY_EXISTS.getCode());
+            assertThat(response.getBody().getCode()).isEqualTo(NICKNAME_ALREADY_EXISTS.getCode());
             assertThat(response.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS);
         }
 
@@ -84,7 +85,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<RegisterResponse>> response = callUserRegistration(duplicate);
 
             assertThat(response.getBody().isSuccess()).isFalse();
-            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.EMAIL_ALREADY_EXISTS.getCode());
+            assertThat(response.getBody().getCode()).isEqualTo(EMAIL_ALREADY_EXISTS.getCode());
             assertThat(response.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS);
         }
 
@@ -125,7 +126,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             String nonExistentEmail = "nonexist_" + System.currentTimeMillis() + "@example.com";
             ResponseEntity<R<LoginResponse>> response = callUserLogin(nonExistentEmail, "password");
             assertThat(response.getBody().isSuccess()).isFalse();
-            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
             assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
         }
 
@@ -170,7 +171,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             Long nonExistentId = 999999L;
             ResponseEntity<R<UserVO>> response = callGetUser(nonExistentId);
             assertThat(response.getBody().isSuccess()).isFalse();
-            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
             assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
         }
 
@@ -216,7 +217,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             updateDto.setNickname("nonexistent");
             ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
             assertThat(response.getBody().isSuccess()).isFalse();
-            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
             assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
         }
 
@@ -248,7 +249,7 @@ class UserApiContractTest extends BaseIntegrationTest {
                 assertThat(nicknameResponse.getBody().getData()).isTrue();
             } else {
                 assertThat(nicknameResponse.getBody().getCode()).isIn(
-                    UserErrorCode.NICKNAME_ALREADY_EXISTS.getCode()
+                    NICKNAME_ALREADY_EXISTS.getCode()
                 );
                 assertThat(nicknameResponse.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS);
             }
@@ -262,7 +263,7 @@ class UserApiContractTest extends BaseIntegrationTest {
                 assertThat(emailResponse.getBody().getData()).isTrue();
             } else {
                 assertThat(emailResponse.getBody().getCode()).isIn(
-                    UserErrorCode.EMAIL_ALREADY_EXISTS.getCode()
+                    EMAIL_ALREADY_EXISTS.getCode()
                 );
                 assertThat(emailResponse.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS);
             }
@@ -285,7 +286,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             // 删除后再次查询该用户，验证用户确实已被删除
             ResponseEntity<R<UserVO>> getResponse = callGetUser(loginResult.getUserId());
             assertThat(getResponse.getBody().isSuccess()).isFalse();
-            assertThat(getResponse.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(getResponse.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
             assertThat(getResponse.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
         }
 
@@ -295,7 +296,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             Long nonExistentId = 999999L;
             ResponseEntity<R<Boolean>> response = callUserDelete(nonExistentId);
             assertThat(response.getBody().isSuccess()).isFalse();
-            assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND.getCode());
+            assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
             assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
         }
     }

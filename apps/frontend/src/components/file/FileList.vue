@@ -95,7 +95,16 @@
 
             <!-- 文件图标 -->
             <div class="file-icon">
-              <file-icon :file-type="file.fileType" />
+              <a-image
+                v-if="file.iconType === 'image'"
+                :src="file.downloadUrl"
+                :alt="file.fileName"
+                :width="48"
+                :height="48"
+                :preview="true"
+                style="object-fit: cover; border-radius: 4px;"
+              />
+              <file-icon v-else :file-type="file.fileType" />
             </div>
 
             <!-- 文件信息 -->
@@ -377,17 +386,13 @@ const previewFile = (file: FileVO) => {
  */
 const downloadFile = async (file: FileVO) => {
   try {
-    const blob = await FileAPI.downloadFile(file.fileId)
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = file.fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    
-    antMessage.success('下载成功')
+    // 调用后端 /download 接口，触发计数并返回带 content-disposition 的 presigned URL
+    const response = await FileAPI.downloadFile(file.fileId)
+    // response.data 就是 presigned URL 字符串
+    window.open(response.data, '_blank')
+    antMessage.success('开始下载')
+    // 刷新列表更新下载次数
+    loadFileList()
   } catch (error) {
     antMessage.error('下载失败')
   }
@@ -495,7 +500,7 @@ const formatTime = (timeStr: string) => {
  * 格式化文件大小
  */
 const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B'
+  if (!bytes || bytes <= 0) return '0 B'
   
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
@@ -504,11 +509,9 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// 监听刷新标志
+// 监听刷新标志，每次值变化（无论 true/false）都触发刷新
 watch(() => props.refresh, () => {
-  if (props.refresh) {
-    loadFileList()
-  }
+  loadFileList()
 })
 
 // 组件挂载时加载数据

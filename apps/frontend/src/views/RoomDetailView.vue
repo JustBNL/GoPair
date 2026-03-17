@@ -103,9 +103,9 @@
 
       <!-- 通讯功能区域 -->
       <div class="communication-section">
-        <a-tabs 
-          v-model:activeKey="activeTab" 
-          type="card" 
+        <a-tabs
+          v-model:activeKey="activeTab"
+          type="card"
           class="communication-tabs"
           :tab-bar-style="{ background: '#fafafa', margin: 0 }"
         >
@@ -175,7 +175,6 @@
               <span class="tab-title">
                 <FolderOutlined />
                 文件
-                <a-badge v-if="fileCount > 0 && serviceStates.files.available" :count="fileCount" class="tab-badge" />
                 <a-badge v-if="!serviceStates.files.available" status="error" class="tab-badge" />
               </span>
             </template>
@@ -200,15 +199,6 @@
               <!-- 正常的文件功能 -->
               <div v-else>
                 <!-- 文件上传区域 -->
-                <div class="file-upload-section">
-                  <file-upload-area
-                    :room-id="currentRoom.roomId"
-                    @upload-success="handleFileUploadSuccess"
-                    @upload-error="handleFileUploadError"
-                    @upload-progress="handleFileUploadProgress"
-                  />
-                </div>
-                
                 <!-- 文件列表 -->
                 <div class="file-list-section">
                   <file-list
@@ -234,6 +224,7 @@
             </template>
             <div class="voice-container">
               <voice-call-panel
+                ref="voicePanelRef"
                 :room-id="currentRoom.roomId"
                 :current-user-id="currentUser?.userId || 0"
                 @call-state-changed="handleCallStateChanged"
@@ -386,7 +377,6 @@ import type { MessageVO, FileVO, MessageQueryDto } from '@/types/api'
 // 组件导入
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import MessageInput from '@/components/chat/MessageInput.vue'
-import FileUploadArea from '@/components/file/FileUploadArea.vue'
 import FileList from '@/components/file/FileList.vue'
 import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
 
@@ -442,13 +432,24 @@ const {
   onMemberLeave: () => {
     console.log('👋 收到成员离开事件')
     loadRoomMembers()
+  },
+  onCallStart: (callId: number, initiatorId: number) => {
+    console.log('received call_start:', callId, initiatorId)
+    voicePanelRef.value?.notifyCallStart(callId)
+  },
+  onCallEnd: (callId: number) => {
+    console.log('received call_end:', callId)
+    voicePanelRef.value?.notifyCallEnd(callId)
+  },
+  onSignaling: (data: any) => {
+    voicePanelRef.value?.handleSignaling(data)
   }
 })
 
 // 用户信息
 const currentUser = computed(() => authStore.user)
-const isOwner = computed(() => 
-  currentRoom.value && currentUser.value && 
+const isOwner = computed(() =>
+  currentRoom.value && currentUser.value &&
   currentRoom.value.ownerId === currentUser.value.userId
 )
 
@@ -464,6 +465,7 @@ const fileListRefresh = ref(false)
 
 // 语音通话状态
 const callState = ref<'idle' | 'calling' | 'in-call'>('idle')
+const voicePanelRef = ref<any>()
 
 // 成员相关状态
 const roomMembers = ref<RoomMember[]>([])
@@ -961,7 +963,13 @@ const copyRoomCode = async () => {
 /**
  * 返回上一页
  */
-const goBack = () => {
+/**
+ * 返回大厅：若正在通话则先退出通话，再导航
+ */
+const goBack = async () => {
+  if (voicePanelRef.value?.handleLeaveBeforeUnmount) {
+    await voicePanelRef.value.handleLeaveBeforeUnmount()
+  }
   router.push('/rooms')
 }
 
@@ -1326,11 +1334,6 @@ onUnmounted(() => {
         display: flex;
         flex-direction: column;
         
-        .file-upload-section {
-          border-bottom: 1px solid #f0f0f0;
-          padding: 16px;
-        }
-        
         .file-list-section {
           flex: 1;
           overflow: hidden;
@@ -1519,4 +1522,4 @@ onUnmounted(() => {
 .message-header {
   .message-time { margin-left: 8px; }
 }
-</style> 
+</style>

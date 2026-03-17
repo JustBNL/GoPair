@@ -276,23 +276,28 @@ const handleFileUpload = async (file: File) => {
 
   try {
     uploadProgress.value = 0
+    sending.value = true
     
-    // 模拟上传进度
-    const progressInterval = setInterval(() => {
-      uploadProgress.value += 10
-      emit('upload-progress', uploadProgress.value)
-      
-      if (uploadProgress.value >= 90) {
-        clearInterval(progressInterval)
+    // 上传文件到文件服务，获取持久 URL
+    const { FileAPI } = await import('@/api/file')
+    const response = await FileAPI.uploadFile(
+      {
+        roomId: props.roomId,
+        file
+      },
+      (progressEvent) => {
+        const progress = Math.round((progressEvent.loaded / (progressEvent.total || 1)) * 100)
+        uploadProgress.value = progress
+        emit('upload-progress', uploadProgress.value)
       }
-    }, 200)
-
-    // TODO: 实际上传文件到文件服务
-    const fileUrl = 'mock-file-url'
+    )
     
+    const fileVO = response.data
+    
+    // 发送消息，使用服务器返回的持久 URL
     emit('send-message', {
       messageType: MessageType.FILE,
-      fileUrl,
+      fileUrl: fileVO.downloadUrl,
       fileName: file.name,
       fileSize: file.size,
       replyToId: props.replyMessage?.messageId
@@ -308,9 +313,11 @@ const handleFileUpload = async (file: File) => {
       cancelReply()
     }
 
-  } catch (error) {
-    antMessage.error('文件上传失败')
+  } catch (error: any) {
+    antMessage.error(error.response?.data?.msg || '文件上传失败')
     uploadProgress.value = 0
+  } finally {
+    sending.value = false
   }
 
   return false // 阻止默认上传
@@ -332,23 +339,29 @@ const handleImageUpload = async (file: File) => {
 
   try {
     uploadProgress.value = 0
+    sending.value = true
     
-    // 模拟上传进度
-    const progressInterval = setInterval(() => {
-      uploadProgress.value += 15
-      emit('upload-progress', uploadProgress.value)
-      
-      if (uploadProgress.value >= 90) {
-        clearInterval(progressInterval)
+    // 上传图片到文件服务，获取持久 URL
+    const { FileAPI } = await import('@/api/file')
+    const response = await FileAPI.uploadFile(
+      {
+        roomId: props.roomId,
+        file
+      },
+      (progressEvent) => {
+        const progress = Math.round((progressEvent.loaded / (progressEvent.total || 1)) * 100)
+        uploadProgress.value = progress
+        emit('upload-progress', uploadProgress.value)
       }
-    }, 100)
-
-    // TODO: 实际上传图片到文件服务
-    const fileUrl = URL.createObjectURL(file)
+    )
     
+    const fileVO = response.data
+    
+    // 发送消息：fileUrl 存缩略图 URL 供聊天界面显示，content 存原图 URL 供点击预览
     emit('send-message', {
       messageType: MessageType.IMAGE,
-      fileUrl,
+      fileUrl: fileVO.previewUrl,
+      content: fileVO.downloadUrl,
       fileName: file.name,
       fileSize: file.size,
       replyToId: props.replyMessage?.messageId
@@ -364,9 +377,11 @@ const handleImageUpload = async (file: File) => {
       cancelReply()
     }
 
-  } catch (error) {
-    antMessage.error('图片上传失败')
+  } catch (error: any) {
+    antMessage.error(error.response?.data?.msg || '图片上传失败')
     uploadProgress.value = 0
+  } finally {
+    sending.value = false
   }
 
   return false // 阻止默认上传
@@ -628,4 +643,4 @@ watch(() => props.replyMessage, (newVal) => {
     }
   }
 }
-</style> 
+</style>

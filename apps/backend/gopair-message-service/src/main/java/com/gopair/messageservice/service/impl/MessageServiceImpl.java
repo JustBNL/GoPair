@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -72,14 +73,26 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             MessageVO result = messageMapper.selectMessageVOById(message.getMessageId());
 
             // 通过RabbitMQ发送WebSocket消息
-            Map<String, Object> payload = Map.of(
-                    "messageId", result.getMessageId(),
-                    "senderId", result.getSenderId(),
-                    "senderNickname", result.getSenderNickname(),
-                    "content", result.getContent(),
-                    "messageType", result.getMessageType(),
-                    "createTime", result.getCreateTime()
-            );
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("messageId", result.getMessageId());
+            payload.put("senderId", result.getSenderId());
+            payload.put("senderNickname", result.getSenderNickname());
+            payload.put("messageType", result.getMessageType());
+            payload.put("createTime", result.getCreateTime());
+            
+            // 根据消息类型添加相应字段，避免null值
+            if (result.getContent() != null) {
+                payload.put("content", result.getContent());
+            }
+            if (result.getFileUrl() != null) {
+                payload.put("fileUrl", result.getFileUrl());
+            }
+            if (result.getFileName() != null) {
+                payload.put("fileName", result.getFileName());
+            }
+            if (result.getFileSize() != null) {
+                payload.put("fileSize", result.getFileSize());
+            }
             
             webSocketMessageProducer.sendChatMessageToRoom(sendMessageDto.getRoomId(), payload);
 
@@ -213,4 +226,4 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 throw new MessageException(MessageErrorCode.MESSAGE_TYPE_INVALID);
         }
     }
-} 
+}

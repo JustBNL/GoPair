@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request, { http } from '@/utils/request'
 import { API_ENDPOINTS } from './index'
 import type {
   ApiResponse,
@@ -32,7 +32,7 @@ export class FileAPI {
    * 上传文件
    */
   static async uploadFile(
-    dto: FileUploadDto, 
+    dto: FileUploadDto,
     onProgress?: UploadProgressCallback
   ): Promise<ApiResponse<FileVO>> {
     const formData = new FormData()
@@ -47,25 +47,25 @@ export class FileAPI {
       formData.append('overwrite', dto.overwrite.toString())
     }
 
-    return request.post(API_ENDPOINTS.FILE_UPLOAD, formData, {
+    return http.post(API_ENDPOINTS.FILE_UPLOAD, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
       onUploadProgress: onProgress
-    })
+    } as any)
   }
 
   /**
    * 获取房间文件列表
    */
   static async getRoomFiles(
-    roomId: number, 
-    pageNum: number = 1, 
+    roomId: number,
+    pageNum: number = 1,
     pageSize: number = 20
   ): Promise<ApiResponse<PageResult<FileVO>>> {
-    return request.get(API_ENDPOINTS.FILE_ROOM_LIST(roomId), {
+    return http.get(API_ENDPOINTS.FILE_ROOM_LIST(roomId), {
       params: { pageNum, pageSize }
-    })
+    } as any)
   }
 
   /**
@@ -78,11 +78,8 @@ export class FileAPI {
   /**
    * 下载文件
    */
-  static async downloadFile(fileId: number): Promise<Blob> {
-    const response = await request.get(API_ENDPOINTS.FILE_DOWNLOAD(fileId), {
-      responseType: 'blob'
-    })
-    return response.data
+  static async downloadFile(fileId: number): Promise<ApiResponse<string>> {
+    return http.get(API_ENDPOINTS.FILE_DOWNLOAD(fileId))
   }
 
   /**
@@ -141,8 +138,8 @@ export class FileAPI {
    * 批量下载文件
    */
   static async batchDownloadFiles(fileIds: number[]): Promise<Blob> {
-    const response = await request.post('/file/batch-download', 
-      { fileIds }, 
+    const response = await request.post('/file/batch-download',
+      { fileIds },
       { responseType: 'blob' }
     )
     return response.data
@@ -198,8 +195,8 @@ export class FileAPI {
    * 文件搜索
    */
   static async searchFiles(
-    roomId: number, 
-    keyword: string, 
+    roomId: number,
+    keyword: string,
     fileType?: string,
     pageNum: number = 1,
     pageSize: number = 20
@@ -208,4 +205,4 @@ export class FileAPI {
       params: { keyword, fileType, pageNum, pageSize }
     })
   }
-} 
+}

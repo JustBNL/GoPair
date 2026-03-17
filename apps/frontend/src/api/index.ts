@@ -48,10 +48,13 @@ export const API_ENDPOINTS = {
   
   // 语音通话
   VOICE_INITIATE: '/voice/initiate',
-  VOICE_JOIN: (callId: number) => `/voice/join/${callId}`,
-  VOICE_LEAVE: (callId: number) => `/voice/leave/${callId}`,
-  VOICE_END: (callId: number) => `/voice/end/${callId}`,
+  VOICE_JOIN: (callId: number) => `/voice/${callId}/join`,
+  VOICE_LEAVE: (callId: number) => `/voice/${callId}/leave`,
+  VOICE_END: (callId: number) => `/voice/${callId}/end`,
+  VOICE_SIGNALING: '/voice/signaling',
   VOICE_GET: (callId: number) => `/voice/${callId}`,
+  VOICE_ROOM_JOIN: (roomId: number) => `/voice/room/${roomId}/join`,
+  VOICE_READY: (callId: number) => `/voice/${callId}/ready`,
   VOICE_ROOM_ACTIVE: (roomId: number) => `/voice/room/${roomId}/active`,
   VOICE_ROOM_HISTORY: (roomId: number) => `/voice/room/${roomId}/history`,
   VOICE_PARTICIPANTS: (callId: number) => `/voice/${callId}/participants`,
@@ -88,4 +91,4 @@ export const CONTENT_TYPE = {
   JSON: 'application/json;charset=UTF-8',
   FORM: 'application/x-www-form-urlencoded',
   MULTIPART: 'multipart/form-data'
-} as const 
+} as const

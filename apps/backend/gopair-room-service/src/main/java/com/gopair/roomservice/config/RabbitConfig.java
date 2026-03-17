@@ -1,11 +1,8 @@
 package com.gopair.roomservice.config;
 
 import org.springframework.amqp.core.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -82,28 +79,11 @@ public class RabbitConfig {
     }
 
     @Bean
-    public MessageConverter rabbitMessageConverter(ObjectMapper objectMapper) {
-        return new Jackson2JsonMessageConverter(objectMapper);
-    }
-
-    @Bean
-    public RabbitTemplate rabbitTemplate(CachingConnectionFactory connectionFactory, MessageConverter rabbitMessageConverter) {
-        RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMandatory(true);
-        template.setConfirmCallback((correlationData, ack, cause) -> {
-        });
-        template.setReturnsCallback(returned -> {
-        });
-        template.setMessageConverter(rabbitMessageConverter);
-        return template;
-    }
-
-    @Bean
-    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(CachingConnectionFactory connectionFactory,
-                                                                               MessageConverter rabbitMessageConverter) {
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,
+                                                                               MessageConverter jackson2JsonMessageConverter) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(rabbitMessageConverter);
+        factory.setMessageConverter(jackson2JsonMessageConverter);
         return factory;
     }
-} 
+}

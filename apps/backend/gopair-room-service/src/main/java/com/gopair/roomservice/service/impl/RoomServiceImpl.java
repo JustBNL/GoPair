@@ -27,6 +27,7 @@ import com.gopair.roomservice.service.JoinResultQueryService;
 import com.gopair.roomservice.service.RoomCacheSyncService;
 import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.roomservice.service.RoomService;
+import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.roomservice.util.RoomCodeUtils;
 import com.gopair.framework.logging.annotation.LogRecord;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 
@@ -59,11 +61,12 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     private final RoomCacheSyncService roomCacheSyncService;
     private final LeaveRoomProducer leaveRoomProducer;
     private final StringRedisTemplate stringRedisTemplate;
+    private final WebSocketMessageProducer wsProducer;
 
     public RoomServiceImpl(RoomMapper roomMapper, RoomMemberMapper roomMemberMapper, RoomMemberService roomMemberService,
                            JoinReservationService joinReservationService, JoinResultQueryService joinResultQueryService,
                            RoomCacheSyncService roomCacheSyncService, LeaveRoomProducer leaveRoomProducer,
-                           StringRedisTemplate stringRedisTemplate) {
+                           StringRedisTemplate stringRedisTemplate, WebSocketMessageProducer wsProducer) {
         this.roomMapper = roomMapper;
         this.roomMemberMapper = roomMemberMapper;
         this.roomMemberService = roomMemberService;
@@ -72,6 +75,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         this.roomCacheSyncService = roomCacheSyncService;
         this.leaveRoomProducer = leaveRoomProducer;
         this.stringRedisTemplate = stringRedisTemplate;
+        this.wsProducer = wsProducer;
     }
 
     @Override
@@ -122,6 +126,18 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             @Override
             public void afterCommit() {
                 try { roomCacheSyncService.initializeRoomInCache(room, userId); } catch (Exception ignore) {}
+
+                // 通知语音服务自动创建通话
+                try {
+                    wsProducer.sendEventToRoom(room.getRoomId(), "room_created", Map.of(
+                            "roomId", room.getRoomId(),
+                            "ownerId", userId
+                    ));
+                    log.info("[房间] 已发送 room_created 事件: roomId={}", room.getRoomId());
+                } catch (Exception e) {
+                    log.warn("[房间] 发送 room_created 事件失败，不影响房间创建: roomId={}, error={}",
+                            room.getRoomId(), e.getMessage());
+                }
             }
         });
         

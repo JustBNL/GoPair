@@ -41,7 +41,7 @@
           <a-image
             :src="message.fileUrl"
             :alt="message.fileName"
-            :preview="true"
+            :preview="{ src: message.content || message.fileUrl }"
             class="message-image"
           />
           <div v-if="message.fileName" class="image-caption">

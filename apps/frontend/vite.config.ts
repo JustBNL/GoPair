@@ -3,12 +3,15 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vue(),
     vueDevTools(),
+    // 启用自签名 HTTPS，移动端跨网段访问 getUserMedia 必须使用 HTTPS
+    basicSsl(),
   ],
   resolve: {
     alias: {
@@ -17,6 +20,8 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // 启用 HTTPS（配合 basicSsl 插件），移动端跨网段 getUserMedia 需要安全上下文
+    https: true,
     proxy: {
       // HTTP API代理（保持现有行为）
       '/api': {

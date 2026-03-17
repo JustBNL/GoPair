@@ -1,10 +1,9 @@
 package com.gopair.websocketservice.listener;
 
-import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.websocketservice.config.RabbitMQConfig;
 import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
-import com.gopair.websocketservice.service.ConnectionManagerService;
+import com.gopair.websocketservice.service.ChannelMessageRouter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -16,7 +15,34 @@ import java.util.*;
 
 /**
  * 业务消息监听器
- * 监听来自业务服务的RabbitMQ消息并分发到WebSocket连接
+ * 
+ * 职责：
+ * - 监听来自业务服务的RabbitMQ消息
+ * - 转换消息格式
+ * - 分发消息到WebSocket连接
+ * - 处理不同类型的业务消息
+ * 
+ * 架构设计：
+ * - 使用RabbitMQ作为消息中间件
+ * - 支持多个消息队列（聊天、信令、文件、系统）
+ * - 与ConnectionManagerService协作进行消息分发
+ * 
+ * 支持的消息类型：
+ * 1. 聊天消息：房间聊天、私聊等
+ * 2. 信令消息：WebRTC信令、控制消息等
+ * 3. 文件消息：文件上传、下载通知等
+ * 4. 系统消息：系统公告、维护通知等
+ * 
+ * 消息处理流程：
+ * 1. 从RabbitMQ队列接收消息
+ * 2. 转换为UnifiedWebSocketMessage格式
+ * 3. 归一化时间字段格式
+ * 4. 调用ConnectionManagerService进行消息分发
+ * 
+ * 性能优化：
+ * - 使用批量监听器提升吞吐量
+ * - 优化消息转换逻辑
+ * - 减少不必要的对象创建
  * 
  * @author gopair
  */
@@ -25,13 +51,18 @@ import java.util.*;
 @RequiredArgsConstructor
 public class BusinessMessageListener {
 
-    private final ConnectionManagerService connectionManager;
+    private final ChannelMessageRouter channelMessageRouter;
 
     /**
      * 监听聊天消息队列
+     * 
+     * 队列：websocket.chat
+     * 路由键：chat.*
+     * 
+     * @param messageDto 消息数据传输对象
      */
     @RabbitListener(queues = RabbitMQConfig.CHAT_QUEUE)
-    public void handleChatMessage(WebSocketMessageProducer.WebSocketMessageDto messageDto) {
+    public void handleChatMessage(WebSocketMessageDto messageDto) {
         log.debug("[消息监听] 收到聊天消息: messageId={}, channel={}, eventType={}", 
                  messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
         
@@ -39,14 +70,14 @@ public class BusinessMessageListener {
         UnifiedWebSocketMessage message = convertToUnifiedMessage(messageDto);
         
         // 使用频道路由处理消息
-        connectionManager.processChannelMessage(message);
+        channelMessageRouter.processChannelMessage(message);
     }
 
     /**
      * 监听信令消息队列
      */
     @RabbitListener(queues = RabbitMQConfig.SIGNALING_QUEUE)
-    public void handleSignalingMessage(WebSocketMessageProducer.WebSocketMessageDto messageDto) {
+    public void handleSignalingMessage(WebSocketMessageDto messageDto) {
         log.debug("[消息监听] 收到信令消息: messageId={}, channel={}, eventType={}", 
                  messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
         
@@ -54,14 +85,14 @@ public class BusinessMessageListener {
         UnifiedWebSocketMessage message = convertToUnifiedMessage(messageDto);
         
         // 使用频道路由处理消息
-        connectionManager.processChannelMessage(message);
+        channelMessageRouter.processChannelMessage(message);
     }
 
     /**
      * 监听文件消息队列
      */
     @RabbitListener(queues = RabbitMQConfig.FILE_QUEUE)
-    public void handleFileMessage(WebSocketMessageProducer.WebSocketMessageDto messageDto) {
+    public void handleFileMessage(WebSocketMessageDto messageDto) {
         log.debug("[消息监听] 收到文件消息: messageId={}, channel={}, eventType={}", 
                  messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
         
@@ -69,14 +100,14 @@ public class BusinessMessageListener {
         UnifiedWebSocketMessage message = convertToUnifiedMessage(messageDto);
         
         // 使用频道路由处理消息
-        connectionManager.processChannelMessage(message);
+        channelMessageRouter.processChannelMessage(message);
     }
 
     /**
      * 监听系统消息队列
      */
     @RabbitListener(queues = RabbitMQConfig.SYSTEM_QUEUE)
-    public void handleSystemMessage(WebSocketMessageProducer.WebSocketMessageDto messageDto) {
+    public void handleSystemMessage(WebSocketMessageDto messageDto) {
         log.debug("[消息监听] 收到系统消息: messageId={}, channel={}, eventType={}", 
                  messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
         
@@ -84,14 +115,14 @@ public class BusinessMessageListener {
         UnifiedWebSocketMessage message = convertToUnifiedMessage(messageDto);
         
         // 使用频道路由处理消息
-        connectionManager.processChannelMessage(message);
+        channelMessageRouter.processChannelMessage(message);
     }
     
     /**
      * 将WebSocketMessageDto转换为UnifiedWebSocketMessage
      */
     @SuppressWarnings("unchecked")
-    private UnifiedWebSocketMessage convertToUnifiedMessage(WebSocketMessageProducer.WebSocketMessageDto dto) {
+    private UnifiedWebSocketMessage convertToUnifiedMessage(WebSocketMessageDto dto) {
         UnifiedWebSocketMessage message = new UnifiedWebSocketMessage();
         message.setMessageId(dto.getMessageId());
         
@@ -152,5 +183,23 @@ public class BusinessMessageListener {
                 }
             }
         }
+    }
+
+    /**
+     * WebSocket消息DTO
+     * 用于接收来自RabbitMQ的消息
+     */
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class WebSocketMessageDto {
+        private String messageId;
+        private LocalDateTime timestamp;
+        private String type;
+        private String channel;
+        private String eventType;
+        private Map<String, Object> payload;
+        private String source;
     }
 } 

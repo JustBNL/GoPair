@@ -128,7 +128,24 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 用户退出登录
    */
-  function logout(): void {
+  /**
+   * 用户退出登录
+   */
+  async function logout(): Promise<void> {
+    // 退出前尝试离开活跃通话（fire and forget，不阻塞退出流程）
+    try {
+      const { VoiceAPI } = await import('@/api/voice')
+      const roomMatch = window.location.pathname.match(/\/rooms\/(\d+)/)
+      if (roomMatch) {
+        const res = await VoiceAPI.getActiveCall(Number(roomMatch[1]))
+        if (res.data?.callId) {
+          await VoiceAPI.leaveCall(res.data.callId)
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     // 断开WebSocket连接
     try {
       const wsStore = useWebSocketStore()
@@ -137,20 +154,13 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (error) {
       if (WS_FEATURES.debug) console.error('❌ 断开WebSocket连接失败:', error)
     }
-    
-    // 清除状态
+
     user.value = null
     token.value = null
-    
-    // 清除Cookie
     Storage.removeCookieToken()
-    
-    // 重置初始化状态锁
     isInitialized.value = false
-    
-    // 清除存储
     Storage.clearAuth()
-    
+
     message.success('退出登录成功')
   }
 

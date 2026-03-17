@@ -18,7 +18,21 @@ import java.util.UUID;
 
 /**
  * WebSocket连接处理器
- * 专门负责连接建立和断开的逻辑处理
+ * 
+ * 职责：
+ * - 处理WebSocket连接的建立和断开
+ * - 管理连接生命周期
+ * - 执行登录时的基础订阅
+ * 
+ * 架构设计：
+ * - 作为GlobalWebSocketHandler的专门处理器
+ * - 负责连接相关的所有逻辑
+ * - 与ConnectionManagerService和BasicSubscriptionService协作
+ * 
+ * 使用场景：
+ * - 客户端建立WebSocket连接时
+ * - 客户端断开WebSocket连接时
+ * - 需要清理连接资源时
  * 
  * @author gopair
  */
@@ -30,6 +44,13 @@ public class ConnectionHandler {
     private final BasicSubscriptionService basicSubscriptionService;
     private final ObjectMapper objectMapper;
     
+    /**
+     * 构造函数
+     * 
+     * @param connectionManager 连接管理服务
+     * @param basicSubscriptionService 基础订阅服务（使用@Lazy避免循环依赖）
+     * @param objectMapper JSON序列化工具
+     */
     public ConnectionHandler(ConnectionManagerService connectionManager,
                            @Lazy BasicSubscriptionService basicSubscriptionService,
                            ObjectMapper objectMapper) {
@@ -41,8 +62,14 @@ public class ConnectionHandler {
     /**
      * 处理连接建立
      * 
+     * 流程：
+     * 1. 验证用户信息
+     * 2. 添加全局连接到连接管理器
+     * 3. 执行登录基础订阅
+     * 4. 发送欢迎消息
+     * 
      * @param session WebSocket会话
-     * @param userInfo 用户信息
+     * @param userInfo 用户信息（从请求头提取）
      * @return 是否建立成功
      */
     public boolean handleConnectionEstablished(WebSocketSession session, Map<String, Object> userInfo) {
@@ -92,6 +119,11 @@ public class ConnectionHandler {
     /**
      * 处理连接断开
      * 
+     * 流程：
+     * 1. 记录断开日志
+     * 2. 清理连接相关资源
+     * 3. 清理订阅关系
+     * 
      * @param session WebSocket会话
      */
     public void handleConnectionClosed(WebSocketSession session) {
@@ -110,6 +142,14 @@ public class ConnectionHandler {
 
     /**
      * 发送欢迎消息
+     * 
+     * 流程：
+     * 1. 将消息对象序列化为JSON字符串
+     * 2. 通过WebSocket会话发送消息
+     * 3. 记录发送日志
+     * 
+     * @param session WebSocket会话
+     * @param message 统一WebSocket消息对象
      */
     private void sendWelcomeMessage(WebSocketSession session, UnifiedWebSocketMessage message) {
         try {

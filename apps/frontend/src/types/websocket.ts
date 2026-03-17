@@ -61,7 +61,8 @@ export enum WsEventType {
   CALL_START = 'call_start',
   CALL_END = 'call_end',
   PARTICIPANT_JOIN = 'participant_join',
-  PARTICIPANT_LEAVE = 'participant_leave'
+  PARTICIPANT_LEAVE = 'participant_leave',
+  SIGNALING = 'signaling'
 }
 
 /**

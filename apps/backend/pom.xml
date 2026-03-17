@@ -24,6 +24,8 @@
 		<module>gopair-room-service</module>
 		<module>gopair-message-service</module>
 		<module>gopair-websocket-service</module>
+		<module>gopair-voice-service</module>
+		<module>gopair-file-service</module>
 	</modules>
 
 	<properties>
@@ -39,6 +41,8 @@
 		<commons-fileupload.version>1.5</commons-fileupload.version>
 		<commons-io.version>2.15.1</commons-io.version>
 		<spring-boot-starter-amqp.version>3.2.5</spring-boot-starter-amqp.version>
+		<minio.version>8.5.10</minio.version>
+		<thumbnailator.version>0.4.20</thumbnailator.version>
 	</properties>
 
 	<dependencyManagement>
@@ -106,9 +110,9 @@
 			
 			<!-- API文档 -->
 			<dependency>
-    			<groupId>com.github.xiaoymin</groupId>
-    			<artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-    			<version>${knife4j.version}</version>
+				<groupId>com.github.xiaoymin</groupId>
+				<artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+				<version>${knife4j.version}</version>
 			</dependency>
 			
 			<!-- JWT 依赖 -->
@@ -145,6 +149,20 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-starter-amqp</artifactId>
 				<version>${spring-boot-starter-amqp.version}</version>
+			</dependency>
+
+			<!-- MinIO 对象存储 -->
+			<dependency>
+				<groupId>io.minio</groupId>
+				<artifactId>minio</artifactId>
+				<version>${minio.version}</version>
+			</dependency>
+
+			<!-- Thumbnailator 图片缩略图生成 -->
+			<dependency>
+				<groupId>net.coobird</groupId>
+				<artifactId>thumbnailator</artifactId>
+				<version>${thumbnailator.version}</version>
 			</dependency>
 			
 		</dependencies>

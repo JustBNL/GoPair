@@ -1,6 +1,7 @@
 package com.gopair.websocketservice.util;
 
 import com.gopair.websocketservice.domain.payload.SubscriptionPayload;
+import com.gopair.websocketservice.enums.WebSocketErrorCode;
 import com.gopair.websocketservice.exception.PayloadAdaptationException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,7 +25,7 @@ public class PayloadAdapter {
      */
     public static SubscriptionPayload forSubscription(Map<String, Object> payload) {
         if (payload == null) {
-            throw new PayloadAdaptationException("Payload cannot be null");
+            throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_ADAPTATION_ERROR, "Payload cannot be null");
         }
 
         try {
@@ -57,7 +58,7 @@ public class PayloadAdapter {
 
         } catch (Exception e) {
             log.error("[载荷适配] 转换订阅载荷失败: payload={}", payload, e);
-            throw new PayloadAdaptationException("Failed to adapt subscription payload", e);
+            throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_ADAPTATION_ERROR, "Failed to adapt subscription payload", e);
         }
     }
 
@@ -75,7 +76,8 @@ public class PayloadAdapter {
         
         if (value == null) {
             if (required) {
-                throw new PayloadAdaptationException(String.format("Required field '%s' is missing", key));
+                throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_FIELD_MISSING, 
+                    String.format("Required field '%s' is missing", key));
             }
             return null;
         }
@@ -92,12 +94,12 @@ public class PayloadAdapter {
             try {
                 return Long.parseLong((String) value);
             } catch (NumberFormatException e) {
-                throw new PayloadAdaptationException(
+                throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_TYPE_MISMATCH,
                     String.format("Cannot parse '%s' as Long for field '%s'", value, key), e);
             }
         }
 
-        throw new PayloadAdaptationException(
+        throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_TYPE_MISMATCH,
             String.format("Cannot convert %s to Long for field '%s'", value.getClass().getSimpleName(), key));
     }
 
@@ -114,7 +116,8 @@ public class PayloadAdapter {
         
         if (value == null) {
             if (required) {
-                throw new PayloadAdaptationException(String.format("Required field '%s' is missing", key));
+                throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_FIELD_MISSING, 
+                    String.format("Required field '%s' is missing", key));
             }
             return null;
         }
@@ -122,7 +125,8 @@ public class PayloadAdapter {
         if (value instanceof String) {
             String stringValue = (String) value;
             if (required && stringValue.trim().isEmpty()) {
-                throw new PayloadAdaptationException(String.format("Required field '%s' cannot be empty", key));
+                throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_FIELD_MISSING, 
+                    String.format("Required field '%s' cannot be empty", key));
             }
             return stringValue;
         }
@@ -146,7 +150,8 @@ public class PayloadAdapter {
         
         if (value == null) {
             if (required) {
-                throw new PayloadAdaptationException(String.format("Required field '%s' is missing", key));
+                throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_FIELD_MISSING, 
+                    String.format("Required field '%s' is missing", key));
             }
             return null;
         }
@@ -181,7 +186,7 @@ public class PayloadAdapter {
             return Set.of((String) value);
         }
 
-        throw new PayloadAdaptationException(
+        throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_TYPE_MISMATCH,
             String.format("Cannot convert %s to Set<String> for field '%s'", value.getClass().getSimpleName(), key));
     }
 } 

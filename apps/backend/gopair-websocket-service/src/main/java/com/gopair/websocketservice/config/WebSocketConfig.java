@@ -1,5 +1,6 @@
 package com.gopair.websocketservice.config;
 
+import com.alibaba.cloud.commons.lang.StringUtils;
 import com.gopair.websocketservice.handler.GlobalWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +56,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
     }
 
     private String[] parseAllowedOrigins(String origins) {
-        if (origins == null || origins.isBlank()) {
+        if (StringUtils.isBlank(origins)) {
             return new String[]{"*"};
         }
         return java.util.Arrays.stream(origins.split(","))

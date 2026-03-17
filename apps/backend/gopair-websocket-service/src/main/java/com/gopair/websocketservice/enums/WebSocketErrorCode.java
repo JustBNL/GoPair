@@ -30,7 +30,14 @@ public enum WebSocketErrorCode implements ErrorCode {
      */
     MESSAGE_PROCESSING_ERROR(20510, "消息处理失败"),
     SESSION_NOT_FOUND(20511, "会话不存在"),
-    HEARTBEAT_TIMEOUT(20512, "心跳超时");
+    HEARTBEAT_TIMEOUT(20512, "心跳超时"),
+    
+    /**
+     * 载荷处理相关错误码
+     */
+    PAYLOAD_ADAPTATION_ERROR(20520, "消息载荷转换失败"),
+    PAYLOAD_FIELD_MISSING(20521, "必需字段缺失"),
+    PAYLOAD_TYPE_MISMATCH(20522, "字段类型不匹配");
 
     /**
      * 错误码

@@ -13,7 +13,7 @@ import java.util.UUID;
 /**
  * WebSocket消息生产者
  * 供业务服务向WebSocket服务发送消息
- * 
+ *
  * @author gopair
  */
 @Slf4j
@@ -23,13 +23,13 @@ import java.util.UUID;
 public class WebSocketMessageProducer {
 
     private final RabbitTemplate rabbitTemplate;
-    
+
     private static final String WEBSOCKET_EXCHANGE = "websocket.topic";
 
     /**
      * 发送聊天消息到房间
-     * 
-     * @param roomId 房间ID
+     *
+     * @param roomId  房间ID
      * @param payload 消息载荷
      */
     public void sendChatMessageToRoom(Long roomId, Map<String, Object> payload) {
@@ -38,7 +38,7 @@ public class WebSocketMessageProducer {
                 .timestamp(LocalDateTime.now())
                 .type("chat")
                 .channel("room:" + roomId)
-                .eventType("message_send")  // 修正事件类型以匹配前端期待
+                .eventType("message_send")
                 .payload(payload)
                 .source(getServiceName())
                 .build();
@@ -49,8 +49,8 @@ public class WebSocketMessageProducer {
 
     /**
      * 发送消息给特定用户
-     * 
-     * @param userId 用户ID
+     *
+     * @param userId  用户ID
      * @param payload 消息载荷
      */
     public void sendMessageToUser(Long userId, Map<String, Object> payload) {
@@ -70,8 +70,8 @@ public class WebSocketMessageProducer {
 
     /**
      * 发送WebRTC信令消息
-     * 
-     * @param userId 目标用户ID
+     *
+     * @param userId  目标用户ID
      * @param payload 信令载荷
      */
     public void sendSignalingMessage(Long userId, Map<String, Object> payload) {
@@ -91,9 +91,9 @@ public class WebSocketMessageProducer {
 
     /**
      * 发送文件传输进度消息
-     * 
-     * @param userId 用户ID
-     * @param fileId 文件ID
+     *
+     * @param userId   用户ID
+     * @param fileId   文件ID
      * @param progress 进度信息
      */
     public void sendFileProgressMessage(Long userId, String fileId, Map<String, Object> progress) {
@@ -117,9 +117,32 @@ public class WebSocketMessageProducer {
     }
 
     /**
+     * 发送自定义事件到房间频道
+     * 供语音等业务服务向房间内所有订阅者推送事件
+     *
+     * @param roomId    房间ID
+     * @param eventType 事件类型（如 call_start / call_end）
+     * @param payload   事件载荷
+     */
+    public void sendEventToRoom(Long roomId, String eventType, Map<String, Object> payload) {
+        WebSocketMessageDto message = WebSocketMessageDto.builder()
+                .messageId(UUID.randomUUID().toString())
+                .timestamp(LocalDateTime.now())
+                .type("system")
+                .channel("room:" + roomId)
+                .eventType(eventType)
+                .payload(payload)
+                .source(getServiceName())
+                .build();
+
+        rabbitTemplate.convertAndSend(WEBSOCKET_EXCHANGE, "system.room", message);
+        log.debug("发送语音事件到房间: roomId={}, eventType={}, messageId={}", roomId, eventType, message.getMessageId());
+    }
+
+    /**
      * 发送系统通知消息到房间
-     * 
-     * @param roomId 房间ID
+     *
+     * @param roomId       房间ID
      * @param notification 通知内容
      */
     public void sendSystemNotificationToRoom(Long roomId, String notification) {
@@ -165,4 +188,4 @@ public class WebSocketMessageProducer {
         private Map<String, Object> payload;
         private String source;
     }
-} 
+}

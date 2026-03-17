@@ -17,7 +17,23 @@ import java.util.UUID;
 
 /**
  * WebSocket错误处理器
- * 专门负责统一的错误处理和错误响应
+ * 
+ * 职责：
+ * - 处理WebSocket传输错误
+ * - 发送错误消息给客户端
+ * - 统一错误处理逻辑
+ * - 提供清晰的错误信息
+ * 
+ * 架构设计：
+ * - 作为GlobalWebSocketHandler的专门处理器
+ * - 负责所有错误相关的逻辑
+ * - 使用统一的错误码和错误消息格式
+ * 
+ * 错误处理策略：
+ * - 传输错误：记录日志并尝试发送错误消息
+ * - 消息处理错误：发送错误消息但不关闭连接
+ * - 权限错误：发送权限不足的错误消息
+ * - 严重错误：发送错误消息并关闭连接
  * 
  * @author gopair
  */
@@ -30,6 +46,10 @@ public class ErrorHandler {
 
     /**
      * 处理传输错误
+     * 
+     * 流程：
+     * 1. 记录错误日志
+     * 2. 如果会话仍然打开，尝试发送错误消息
      * 
      * @param session WebSocket会话
      * @param exception 异常信息
@@ -87,6 +107,11 @@ public class ErrorHandler {
     /**
      * 发送错误消息
      * 
+     * 流程：
+     * 1. 检查会话是否打开
+     * 2. 创建错误响应消息（包含错误代码和错误消息）
+     * 3. 序列化为JSON并发送
+     * 
      * @param session WebSocket会话
      * @param errorCode 错误代码
      * @param errorMessage 错误消息
@@ -124,6 +149,10 @@ public class ErrorHandler {
     /**
      * 处理消息处理错误
      * 
+     * 流程：
+     * 1. 记录错误日志（包含原始消息和异常信息）
+     * 2. 发送错误消息给客户端
+     * 
      * @param session WebSocket会话
      * @param originalMessage 原始消息
      * @param exception 异常信息
@@ -143,6 +172,10 @@ public class ErrorHandler {
 
     /**
      * 处理权限验证错误
+     * 
+     * 流程：
+     * 1. 记录权限错误日志
+     * 2. 发送权限不足的错误消息
      * 
      * @param session WebSocket会话
      * @param action 执行的动作

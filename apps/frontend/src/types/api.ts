@@ -302,15 +302,6 @@ export interface CallVO {
 }
 
 /**
- * 发起通话DTO
- */
-export interface CallInitiateDto {
-  roomId: number
-  callType: CallType
-  inviteUserIds?: number[]
-}
-
-/**
  * WebRTC信令DTO
  */
 export interface SignalingDto {

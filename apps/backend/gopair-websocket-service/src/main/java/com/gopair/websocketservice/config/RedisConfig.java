@@ -74,15 +74,14 @@ public class RedisConfig {
      * @return RedisTemplate
      */
     @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory, 
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory,
                                                         @Qualifier("redisObjectMapper") ObjectMapper redisObjectMapper) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
         // 使用Jackson2JsonRedisSerializer序列化和反序列化Redis的value值
         // 直接使用专用的redisObjectMapper，该ObjectMapper已经配置了类型处理
-        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(Object.class);
-        jackson2JsonRedisSerializer.setObjectMapper(redisObjectMapper);
+        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper,Object.class);
 
         // 使用StringRedisSerializer序列化和反序列化Redis的key值
         StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
