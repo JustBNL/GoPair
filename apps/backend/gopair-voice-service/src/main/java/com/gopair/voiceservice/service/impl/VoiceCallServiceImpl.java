@@ -1,1 +1,334 @@
-package com.gopair.voiceservice.service.impl;import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;import com.gopair.common.service.WebSocketMessageProducer;import com.gopair.voiceservice.domain.dto.SignalingDto;import com.gopair.voiceservice.domain.po.VoiceCall;import com.gopair.voiceservice.domain.po.VoiceCallParticipant;import com.gopair.voiceservice.domain.vo.CallParticipantVO;import com.gopair.voiceservice.domain.vo.CallVO;import com.gopair.voiceservice.enums.CallStatus;import com.gopair.voiceservice.mapper.VoiceCallMapper;import com.gopair.voiceservice.mapper.VoiceCallParticipantMapper;import com.gopair.voiceservice.service.VoiceCallService;import lombok.RequiredArgsConstructor;import lombok.extern.slf4j.Slf4j;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;import java.time.LocalDateTime;import java.util.List;import java.util.Map;/** * 语音通话服务实现 * 采用按需创建 + 两阶段加入模式： *   1. joinOrCreateCall  — 创建/加入通话，记录参与者，但不广播 participant-join *   2. notifyReady       — 前端 WebRTC 就绪后调用，广播 participant-join * 这样可以避免其他参与者在当前用户 WebRTC 未就绪时就发送 offer 导致信令丢失。 * * @author gopair */@Slf4j@Service@RequiredArgsConstructorpublic class VoiceCallServiceImpl implements VoiceCallService {    private final VoiceCallMapper voiceCallMapper;    private final VoiceCallParticipantMapper participantMapper;    private final WebSocketMessageProducer wsProducer;    @Override    @Transactional    public CallVO createAutoCall(Long roomId, Long roomOwnerId) {        VoiceCall existing = voiceCallMapper.selectOne(                new LambdaQueryWrapper<VoiceCall>()                        .eq(VoiceCall::getRoomId, roomId)                        .eq(VoiceCall::getStatus, CallStatus.IN_PROGRESS.getCode())                        .last("LIMIT 1")        );        if (existing != null) {            log.info("[语音] 房间已有活跃通话，跳过自动创建: roomId={}", roomId);            return buildCallVO(existing);        }        VoiceCall call = new VoiceCall();        call.setRoomId(roomId);        call.setInitiatorId(roomOwnerId);        call.setCallType(2);        call.setStatus(CallStatus.IN_PROGRESS.getCode());        call.setStartTime(LocalDateTime.now());        call.setParticipantCount(1);        call.setIsAutoCreated(true);        voiceCallMapper.insert(call);        addOrUpdateParticipant(call.getCallId(), roomOwnerId);        log.info("[语音] 房间通话自动创建: callId={}, roomId={}, ownerId={}",                call.getCallId(), roomId, roomOwnerId);        return buildCallVO(call);    }    /**     * 加入通话（仅记录参与者，不广播 participant-join）     * participant-join 广播由 notifyReady 在前端 WebRTC 就绪后触发。     */    @Override    @Transactional    public CallVO joinCall(Long callId, Long userId) {        VoiceCall call = getCallOrThrow(callId);        if (call.getStatus() != CallStatus.IN_PROGRESS.getCode()) {            throw new IllegalStateException("通话已结束，无法加入");        }        // UPSERT：若用户已有记录（包括历史离开的）则重新激活，否则新建        // 此调用同时处理了"僵尸参与者"场景（小数进行 leaveTime=null 的重置）        boolean wasActive = participantMapper.selectCount(                new LambdaQueryWrapper<VoiceCallParticipant>()                        .eq(VoiceCallParticipant::getCallId, callId)                        .eq(VoiceCallParticipant::getUserId, userId)                        .isNull(VoiceCallParticipant::getLeaveTime)        ) > 0;        addOrUpdateParticipant(callId, userId);        // 只有全新加入才增加计数（重新激活的不重复计）        if (!wasActive) {            call.setParticipantCount(call.getParticipantCount() + 1);            voiceCallMapper.updateById(call);        }        log.info("[语音] 用户加入通话（等待就绪信号）: callId={}, userId={}, wasActive={}",                callId, userId, wasActive);        return buildCallVO(call);    }    @Override    @Transactional    public CallVO joinOrCreateCall(Long roomId, Long userId) {        VoiceCall call = voiceCallMapper.selectOne(                new LambdaQueryWrapper<VoiceCall>()                        .eq(VoiceCall::getRoomId, roomId)                        .eq(VoiceCall::getStatus, CallStatus.IN_PROGRESS.getCode())                        .orderByDesc(VoiceCall::getStartTime)                        .last("LIMIT 1")        );        if (call == null) {            // 无活跃通话，当前用户为发起人，按需创建            call = new VoiceCall();            call.setRoomId(roomId);            call.setInitiatorId(userId);            call.setCallType(2);            call.setStatus(CallStatus.IN_PROGRESS.getCode());            call.setStartTime(LocalDateTime.now());            call.setParticipantCount(0);            call.setIsAutoCreated(false);            voiceCallMapper.insert(call);            log.info("[语音] 按需创建通话: callId={}, roomId={}, initiatorId={}",                    call.getCallId(), roomId, userId);            // 广播 call_start 给房间内其他成员（通知有新通话开始）            final Long callId = call.getCallId();            wsProducer.sendEventToRoom(roomId, "call_start", Map.of(                    "callId", callId,                    "roomId", roomId,                    "initiatorId", userId            ));        }        // 加入通话（不广播 participant-join，等待 notifyReady）        return joinCall(call.getCallId(), userId);    }    /**     * 前端 WebRTC 就绪后调用，向通话中其他参与者广播 participant-join。     * 此时当前用户的 PeerConnection 已建立，其他人发来的 offer 不会丢失。     */    @Override    public void notifyReady(Long callId, Long userId) {        // 广播 voice_roster_update 到整个房间，前端收到后拉取最新名单并 diff WebRTC 状态        VoiceCall call = getCallOrThrow(callId);        wsProducer.sendEventToRoom(call.getRoomId(), "voice_roster_update", Map.of(                "callId", callId        ));        log.info("[语音] 用户就绪，广播 voice_roster_update: callId={}, userId={}", callId, userId);    }    @Override    @Transactional    public void leaveCall(Long callId, Long userId) {        VoiceCallParticipant participant = participantMapper.selectOne(                new LambdaQueryWrapper<VoiceCallParticipant>()                        .eq(VoiceCallParticipant::getCallId, callId)                        .eq(VoiceCallParticipant::getUserId, userId)                        .isNull(VoiceCallParticipant::getLeaveTime)        );        if (participant != null) {            participant.setLeaveTime(LocalDateTime.now());            participant.setConnectionStatus(2);            participantMapper.updateById(participant);        }        // 一次性查询剩余活跃参与者（当前用户已被标记离开），避免两次查询的竞态窗口        List<Long> remaining = getActiveParticipantUserIds(callId).stream()                .filter(uid -> !uid.equals(userId))                .toList();        // 广播 voice_roster_update，前端收到后拉取名单、移除离开者的 PC        VoiceCall call = getCallOrThrow(callId);        if (remaining.isEmpty()) {            terminateCall(call);            wsProducer.sendEventToRoom(call.getRoomId(), "call_end", Map.of(                    "callId", callId,                    "roomId", call.getRoomId()            ));        } else {            wsProducer.sendEventToRoom(call.getRoomId(), "voice_roster_update", Map.of(                    "callId", callId            ));        }        log.info("[语音] 用户离开通话: callId={}, userId={}", callId, userId);    }    @Override    @Transactional    public void endCall(Long callId, Long userId) {        VoiceCall call = getCallOrThrow(callId);        getActiveParticipantUserIds(callId)                .forEach(uid -> wsProducer.sendSignalingMessage(uid, Map.of(                        "type", "call-end",                        "callId", callId,                        "fromUserId", userId                )));        terminateCall(call);        wsProducer.sendEventToRoom(call.getRoomId(), "call_end", Map.of(                "callId", callId,                "roomId", call.getRoomId()        ));        log.info("[语音] 通话结束: callId={}, operatorId={}", callId, userId);    }    @Override    public CallVO getCall(Long callId) {        return buildCallVO(getCallOrThrow(callId));    }    @Override    public CallVO getActiveCall(Long roomId, Long userId) {        VoiceCall call = voiceCallMapper.selectOne(                new LambdaQueryWrapper<VoiceCall>()                        .eq(VoiceCall::getRoomId, roomId)                        .eq(VoiceCall::getStatus, CallStatus.IN_PROGRESS.getCode())                        .orderByDesc(VoiceCall::getStartTime)                        .last("LIMIT 1")        );        return call != null ? buildCallVO(call) : null;    }    @Override    public void forwardSignaling(SignalingDto dto, Long fromUserId) {        wsProducer.sendSignalingMessage(dto.getTargetUserId(), Map.of(                "type", dto.getType(),                "callId", dto.getCallId(),                "fromUserId", fromUserId,                "data", dto.getData() != null ? dto.getData() : Map.of()        ));        log.debug("[语音] 信令转发: type={}, from={}, to={}", dto.getType(), fromUserId, dto.getTargetUserId());    }    // -------------------------------------------------------------------------    // 私有工具方法    // -------------------------------------------------------------------------    private void addOrUpdateParticipant(Long callId, Long userId) {        // 查询任意记录（含已离开的），唯一约束 uk_call_user 决定同用户同通话只有一条记录        VoiceCallParticipant existing = participantMapper.selectOne(                new LambdaQueryWrapper<VoiceCallParticipant>()                        .eq(VoiceCallParticipant::getCallId, callId)                        .eq(VoiceCallParticipant::getUserId, userId)        );        if (existing != null) {            // 重新激活：清空 leaveTime，更新 joinTime 和状态            existing.setJoinTime(LocalDateTime.now());            existing.setLeaveTime(null);            existing.setConnectionStatus(1);            participantMapper.updateById(existing);        } else {            VoiceCallParticipant p = new VoiceCallParticipant();            p.setCallId(callId);            p.setUserId(userId);            p.setJoinTime(LocalDateTime.now());            p.setConnectionStatus(1);            participantMapper.insert(p);        }    }    private void terminateCall(VoiceCall call) {        if (call.getStatus() == CallStatus.IN_PROGRESS.getCode()) {            call.setStatus(CallStatus.ENDED.getCode());            call.setEndTime(LocalDateTime.now());            if (call.getStartTime() != null) {                long seconds = java.time.Duration.between(call.getStartTime(), call.getEndTime()).getSeconds();                call.setDuration((int) seconds);            }            voiceCallMapper.updateById(call);        }    }    private List<Long> getActiveParticipantUserIds(Long callId) {        return participantMapper.selectList(                new LambdaQueryWrapper<VoiceCallParticipant>()                        .eq(VoiceCallParticipant::getCallId, callId)                        .isNull(VoiceCallParticipant::getLeaveTime)        ).stream().map(VoiceCallParticipant::getUserId).toList();    }    private VoiceCall getCallOrThrow(Long callId) {        VoiceCall call = voiceCallMapper.selectById(callId);        if (call == null) {            throw new IllegalArgumentException("通话不存在: callId=" + callId);        }        return call;    }    private CallVO buildCallVO(VoiceCall call) {        // 只返回当前活跃参与者（leaveTime IS NULL），避免前端对已离开的用户发起无效 offer        List<VoiceCallParticipant> participants = participantMapper.selectList(                new LambdaQueryWrapper<VoiceCallParticipant>()                        .eq(VoiceCallParticipant::getCallId, call.getCallId())                        .isNull(VoiceCallParticipant::getLeaveTime)        );        List<CallParticipantVO> participantVOs = participants.stream().map(p -> {            CallParticipantVO vo = new CallParticipantVO();            vo.setUserId(p.getUserId());            vo.setJoinTime(p.getJoinTime());            vo.setLeaveTime(p.getLeaveTime());            vo.setConnectionStatus(p.getConnectionStatus());            vo.setInitiator(p.getUserId().equals(call.getInitiatorId()));            return vo;        }).toList();        CallVO vo = new CallVO();        vo.setCallId(call.getCallId());        vo.setRoomId(call.getRoomId());        vo.setInitiatorId(call.getInitiatorId());        vo.setCallType(call.getCallType());        vo.setStatus(call.getStatus());        vo.setStartTime(call.getStartTime());        vo.setEndTime(call.getEndTime());        // 用实际活跃参与者数量覆盖累计计数，避免重复加入导致数字虚高        vo.setParticipantCount(participantVOs.size());        vo.setJoinable(call.getStatus() == CallStatus.IN_PROGRESS.getCode());        vo.setParticipants(participantVOs);        return vo;    }}
+package com.gopair.voiceservice.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.gopair.common.service.WebSocketMessageProducer;
+import com.gopair.voiceservice.domain.dto.SignalingDto;
+import com.gopair.voiceservice.domain.po.VoiceCall;
+import com.gopair.voiceservice.domain.po.VoiceCallParticipant;
+import com.gopair.voiceservice.domain.vo.CallParticipantVO;
+import com.gopair.voiceservice.domain.vo.CallVO;
+import com.gopair.voiceservice.enums.CallStatus;
+import com.gopair.voiceservice.mapper.VoiceCallMapper;
+import com.gopair.voiceservice.mapper.VoiceCallParticipantMapper;
+import com.gopair.voiceservice.service.VoiceCallService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 语音通话服务实现
+ * 采用按需创建 + 两阶段加入模式：
+ *   1. joinOrCreateCall  — 创建/加入通话，记录参与者，但不广播 participant-join
+ *   2. notifyReady       — 前端 WebRTC 就绪后调用，广播 participant-join
+ * 这样可以避免其他参与者在当前用户 WebRTC 未就绪时就发送 offer 导致信令丢失。
+ *
+ * @author gopair
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class VoiceCallServiceImpl implements VoiceCallService {
+
+    private final VoiceCallMapper voiceCallMapper;
+    private final VoiceCallParticipantMapper participantMapper;
+    private final WebSocketMessageProducer wsProducer;
+
+    @Override
+    @Transactional
+    public CallVO createAutoCall(Long roomId, Long roomOwnerId) {
+        VoiceCall existing = voiceCallMapper.selectOne(
+                new LambdaQueryWrapper<VoiceCall>()
+                        .eq(VoiceCall::getRoomId, roomId)
+                        .eq(VoiceCall::getStatus, CallStatus.IN_PROGRESS.getCode())
+                        .last("LIMIT 1")
+        );
+        if (existing != null) {
+            log.info("[语音] 房间已有活跃通话，跳过自动创建: roomId={}", roomId);
+            return buildCallVO(existing);
+        }
+
+        VoiceCall call = new VoiceCall();
+        call.setRoomId(roomId);
+        call.setInitiatorId(roomOwnerId);
+        call.setCallType(2);
+        call.setStatus(CallStatus.IN_PROGRESS.getCode());
+        call.setStartTime(LocalDateTime.now());
+        call.setParticipantCount(1);
+        call.setIsAutoCreated(true);
+        voiceCallMapper.insert(call);
+
+        addOrUpdateParticipant(call.getCallId(), roomOwnerId);
+
+        log.info("[语音] 房间通话自动创建: callId={}, roomId={}, ownerId={}",
+                call.getCallId(), roomId, roomOwnerId);
+        return buildCallVO(call);
+    }
+
+    /**
+     * 加入通话（仅记录参与者，不广播 participant-join）
+     * participant-join 广播由 notifyReady 在前端 WebRTC 就绪后触发。
+     */
+    @Override
+    @Transactional
+    public CallVO joinCall(Long callId, Long userId) {
+        VoiceCall call = getCallOrThrow(callId);
+
+        if (call.getStatus() != CallStatus.IN_PROGRESS.getCode()) {
+            throw new IllegalStateException("通话已结束，无法加入");
+        }
+
+        // UPSERT：若用户已有记录（包括历史离开的）则重新激活，否则新建
+        // 此调用同时处理了"僵尸参与者"场景（小数进行 leaveTime=null 的重置）
+        boolean wasActive = participantMapper.selectCount(
+                new LambdaQueryWrapper<VoiceCallParticipant>()
+                        .eq(VoiceCallParticipant::getCallId, callId)
+                        .eq(VoiceCallParticipant::getUserId, userId)
+                        .isNull(VoiceCallParticipant::getLeaveTime)
+        ) > 0;
+
+        addOrUpdateParticipant(callId, userId);
+
+        // 只有全新加入才增加计数（重新激活的不重复计）
+        if (!wasActive) {
+            call.setParticipantCount(call.getParticipantCount() + 1);
+            voiceCallMapper.updateById(call);
+        }
+
+        log.info("[语音] 用户加入通话（等待就绪信号）: callId={}, userId={}, wasActive={}",
+                callId, userId, wasActive);
+        return buildCallVO(call);
+    }
+
+    @Override
+    @Transactional
+    public CallVO joinOrCreateCall(Long roomId, Long userId) {
+        VoiceCall call = voiceCallMapper.selectOne(
+                new LambdaQueryWrapper<VoiceCall>()
+                        .eq(VoiceCall::getRoomId, roomId)
+                        .eq(VoiceCall::getStatus, CallStatus.IN_PROGRESS.getCode())
+                        .orderByDesc(VoiceCall::getStartTime)
+                        .last("LIMIT 1")
+        );
+
+        if (call == null) {
+            // 无活跃通话，当前用户为发起人，按需创建
+            call = new VoiceCall();
+            call.setRoomId(roomId);
+            call.setInitiatorId(userId);
+            call.setCallType(2);
+            call.setStatus(CallStatus.IN_PROGRESS.getCode());
+            call.setStartTime(LocalDateTime.now());
+            call.setParticipantCount(0);
+            call.setIsAutoCreated(false);
+            voiceCallMapper.insert(call);
+            log.info("[语音] 按需创建通话: callId={}, roomId={}, initiatorId={}",
+                    call.getCallId(), roomId, userId);
+
+            // 广播 call_start 给房间内其他成员（通知有新通话开始）
+            final Long callId = call.getCallId();
+            wsProducer.sendEventToRoom(roomId, "call_start", Map.of(
+                    "callId", callId,
+                    "roomId", roomId,
+                    "initiatorId", userId
+            ));
+        }
+
+        // 加入通话（不广播 participant-join，等待 notifyReady）
+        return joinCall(call.getCallId(), userId);
+    }
+
+    /**
+     * 前端 WebRTC 就绪后调用，向通话中其他参与者广播 participant-join。
+     * 此时当前用户的 PeerConnection 已建立，其他人发来的 offer 不会丢失。
+     */
+    @Override
+    public void notifyReady(Long callId, Long userId) {
+        // 广播 voice_roster_update 到整个房间，前端收到后拉取最新名单并 diff WebRTC 状态
+        VoiceCall call = getCallOrThrow(callId);
+        wsProducer.sendEventToRoom(call.getRoomId(), "voice_roster_update", Map.of(
+                "callId", callId
+        ));
+        log.info("[语音] 用户就绪，广播 voice_roster_update: callId={}, userId={}", callId, userId);
+    }
+
+    @Override
+    @Transactional
+    public void leaveCall(Long callId, Long userId) {
+        VoiceCallParticipant participant = participantMapper.selectOne(
+                new LambdaQueryWrapper<VoiceCallParticipant>()
+                        .eq(VoiceCallParticipant::getCallId, callId)
+                        .eq(VoiceCallParticipant::getUserId, userId)
+                        .isNull(VoiceCallParticipant::getLeaveTime)
+        );
+        if (participant != null) {
+            participant.setLeaveTime(LocalDateTime.now());
+            participant.setConnectionStatus(2);
+            participantMapper.updateById(participant);
+        }
+
+        // 一次性查询剩余活跃参与者（当前用户已被标记离开），避免两次查询的竞态窗口
+        List<Long> remaining = getActiveParticipantUserIds(callId).stream()
+                .filter(uid -> !uid.equals(userId))
+                .toList();
+
+        // 广播 voice_roster_update，前端收到后拉取名单、移除离开者的 PC
+        VoiceCall call = getCallOrThrow(callId);
+        if (remaining.isEmpty()) {
+            terminateCall(call);
+            wsProducer.sendEventToRoom(call.getRoomId(), "call_end", Map.of(
+                    "callId", callId,
+                    "roomId", call.getRoomId()
+            ));
+        } else {
+            wsProducer.sendEventToRoom(call.getRoomId(), "voice_roster_update", Map.of(
+                    "callId", callId
+            ));
+        }
+
+        log.info("[语音] 用户离开通话: callId={}, userId={}", callId, userId);
+    }
+
+    @Override
+    @Transactional
+    public void endCall(Long callId, Long userId) {
+        VoiceCall call = getCallOrThrow(callId);
+
+        getActiveParticipantUserIds(callId)
+                .forEach(uid -> wsProducer.sendSignalingMessage(uid, Map.of(
+                        "type", "call-end",
+                        "callId", callId,
+                        "fromUserId", userId
+                )));
+
+        terminateCall(call);
+
+        wsProducer.sendEventToRoom(call.getRoomId(), "call_end", Map.of(
+                "callId", callId,
+                "roomId", call.getRoomId()
+        ));
+
+        log.info("[语音] 通话结束: callId={}, operatorId={}", callId, userId);
+    }
+
+    @Override
+    public CallVO getCall(Long callId) {
+        return buildCallVO(getCallOrThrow(callId));
+    }
+
+    @Override
+    public CallVO getActiveCall(Long roomId, Long userId) {
+        VoiceCall call = voiceCallMapper.selectOne(
+                new LambdaQueryWrapper<VoiceCall>()
+                        .eq(VoiceCall::getRoomId, roomId)
+                        .eq(VoiceCall::getStatus, CallStatus.IN_PROGRESS.getCode())
+                        .orderByDesc(VoiceCall::getStartTime)
+                        .last("LIMIT 1")
+        );
+        return call != null ? buildCallVO(call) : null;
+    }
+
+    @Override
+    public void forwardSignaling(SignalingDto dto, Long fromUserId) {
+        wsProducer.sendSignalingMessage(dto.getTargetUserId(), Map.of(
+                "type", dto.getType(),
+                "callId", dto.getCallId(),
+                "fromUserId", fromUserId,
+                "data", dto.getData() != null ? dto.getData() : Map.of()
+        ));
+        log.debug("[语音] 信令转发: type={}, from={}, to={}", dto.getType(), fromUserId, dto.getTargetUserId());
+    }
+
+    // -------------------------------------------------------------------------
+    // 私有工具方法
+    // -------------------------------------------------------------------------
+
+    private void addOrUpdateParticipant(Long callId, Long userId) {
+        // 查询任意记录（含已离开的），唯一约束 uk_call_user 决定同用户同通话只有一条记录
+        VoiceCallParticipant existing = participantMapper.selectOne(
+                new LambdaQueryWrapper<VoiceCallParticipant>()
+                        .eq(VoiceCallParticipant::getCallId, callId)
+                        .eq(VoiceCallParticipant::getUserId, userId)
+        );
+
+        if (existing != null) {
+            // 重新激活：清空 leaveTime，更新 joinTime 和状态
+            existing.setJoinTime(LocalDateTime.now());
+            existing.setLeaveTime(null);
+            existing.setConnectionStatus(1);
+            participantMapper.updateById(existing);
+        } else {
+            VoiceCallParticipant p = new VoiceCallParticipant();
+            p.setCallId(callId);
+            p.setUserId(userId);
+            p.setJoinTime(LocalDateTime.now());
+            p.setConnectionStatus(1);
+            participantMapper.insert(p);
+        }
+    }
+
+    private void terminateCall(VoiceCall call) {
+        if (call.getStatus() == CallStatus.IN_PROGRESS.getCode()) {
+            call.setStatus(CallStatus.ENDED.getCode());
+            call.setEndTime(LocalDateTime.now());
+            if (call.getStartTime() != null) {
+                long seconds = java.time.Duration.between(call.getStartTime(), call.getEndTime()).getSeconds();
+                call.setDuration((int) seconds);
+            }
+            voiceCallMapper.updateById(call);
+        }
+    }
+
+    private List<Long> getActiveParticipantUserIds(Long callId) {
+        return participantMapper.selectList(
+                new LambdaQueryWrapper<VoiceCallParticipant>()
+                        .eq(VoiceCallParticipant::getCallId, callId)
+                        .isNull(VoiceCallParticipant::getLeaveTime)
+        ).stream().map(VoiceCallParticipant::getUserId).toList();
+    }
+
+    private VoiceCall getCallOrThrow(Long callId) {
+        VoiceCall call = voiceCallMapper.selectById(callId);
+        if (call == null) {
+            throw new IllegalArgumentException("通话不存在: callId=" + callId);
+        }
+        return call;
+    }
+
+    private CallVO buildCallVO(VoiceCall call) {
+        // 只返回当前活跃参与者（leaveTime IS NULL），避免前端对已离开的用户发起无效 offer
+        List<VoiceCallParticipant> participants = participantMapper.selectList(
+                new LambdaQueryWrapper<VoiceCallParticipant>()
+                        .eq(VoiceCallParticipant::getCallId, call.getCallId())
+                        .isNull(VoiceCallParticipant::getLeaveTime)
+        );
+
+        List<CallParticipantVO> participantVOs = participants.stream().map(p -> {
+            CallParticipantVO vo = new CallParticipantVO();
+            vo.setUserId(p.getUserId());
+            vo.setJoinTime(p.getJoinTime());
+            vo.setLeaveTime(p.getLeaveTime());
+            vo.setConnectionStatus(p.getConnectionStatus());
+            vo.setInitiator(p.getUserId().equals(call.getInitiatorId()));
+            return vo;
+        }).toList();
+
+        CallVO vo = new CallVO();
+        vo.setCallId(call.getCallId());
+        vo.setRoomId(call.getRoomId());
+        vo.setInitiatorId(call.getInitiatorId());
+        vo.setCallType(call.getCallType());
+        vo.setStatus(call.getStatus());
+        vo.setStartTime(call.getStartTime());
+        vo.setEndTime(call.getEndTime());
+        // 用实际活跃参与者数量覆盖累计计数，避免重复加入导致数字虚高
+        vo.setParticipantCount(participantVOs.size());
+        vo.setJoinable(call.getStatus() == CallStatus.IN_PROGRESS.getCode());
+        vo.setParticipants(participantVOs);
+        return vo;
+    }
+}
