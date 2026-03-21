@@ -28,4 +28,17 @@ public class RoomConfig {
      * 房间码长度
      */
     private Integer codeLength = 8;
+
+    /**
+     * 密码相关配置
+     */
+    private Password password = new Password();
+
+    @Data
+    public static class Password {
+        /**
+         * AES 主密钥，用于派生每个房间的加密密钥
+         */
+        private String masterKey = "gopair-room-secret-key-2024";
+    }
 } 

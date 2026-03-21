@@ -30,7 +30,12 @@ public enum MessageType {
     /**
      * 语音消息
      */
-    VOICE(4, "语音消息");
+    VOICE(4, "语音消息"),
+
+    /**
+     * Emoji 互动消息（持久化存库，前端触发漂浮动画）
+     */
+    EMOJI(5, "Emoji互动");
 
     /**
      * 类型值

@@ -87,6 +87,12 @@
             <div class="voice-duration">{{ formatDuration(voiceDuration) }}</div>
           </div>
         </div>
+
+        <!-- Emoji 互动消息（正常不在气泡列表中展示，此处为防御性兜底） -->
+        <div v-else-if="message.messageType === 5" class="emoji-inline-message">
+          <span class="emoji-char">{{ message.content }}</span>
+          <span class="emoji-label">发送了一个Emoji互动</span>
+        </div>
       </div>
 
       <!-- 统一的消息时间与状态（右下角显示时间） -->
@@ -462,4 +468,16 @@ const onDelete = () => {
     }
   }
 }
-</style> 
+
+.emoji-inline-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #8c8c8c;
+
+  .emoji-char {
+    font-size: 20px;
+  }
+}
+</style>

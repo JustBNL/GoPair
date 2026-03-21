@@ -72,4 +72,19 @@ public class Room extends BaseEntity {
      * 配置的乐观锁拦截器已就绪，可随时激活使用
      */
     private Integer version;
+
+    /**
+     * 密码模式（0-关闭 1-固定密码 2-动态令牌TOTP）
+     */
+    private Integer passwordMode;
+
+    /**
+     * 密码存储：模式1存AES密文(Base64)，模式2存TOTP secret(Base32)
+     */
+    private String passwordHash;
+
+    /**
+     * 密码是否展示给成员查看（0-隐藏 1-显示）
+     */
+    private Integer passwordVisible;
 } 

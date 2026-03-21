@@ -21,7 +21,22 @@ export interface RoomInfo {
   userRole?: number // 用户角色 0-成员 1-管理员 2-房主
   relationshipType?: 'created' | 'joined' // 关系类型：创建的房间或加入的房间
   joinTime?: string // 用户加入房间的时间
+  passwordMode?: number // 密码模式 0-关闭 1-固定密码 2-动态令牌
+  passwordVisible?: number // 密码是否可见 0-隐藏 1-显示
+  currentPassword?: string // 当前密码/令牌（仅房主可见）
+  remainingSeconds?: number // 动态令牌剩余秒数
 }
+
+/**
+ * 密码模式枚举
+ */
+export const PASSWORD_MODE = {
+  OFF: 0,
+  FIXED: 1,
+  TOTP: 2
+} as const
+
+export type PasswordMode = typeof PASSWORD_MODE[keyof typeof PASSWORD_MODE]
 
 /**
  * 创建房间请求接口
@@ -31,6 +46,9 @@ export interface CreateRoomRequest {
   description?: string
   maxMembers?: number
   expireHours?: number
+  passwordMode?: number
+  rawPassword?: string
+  passwordVisible?: number
 }
 
 /**
@@ -39,6 +57,26 @@ export interface CreateRoomRequest {
 export interface JoinRoomRequest {
   roomCode: string
   displayName: string
+  password?: string
+}
+
+/**
+ * 更新房间密码请求接口
+ */
+export interface UpdateRoomPasswordRequest {
+  mode: number
+  rawPassword?: string
+  visible?: number
+}
+
+/**
+ * 房间当前密码响应
+ */
+export interface RoomPasswordInfo {
+  passwordMode: number
+  passwordVisible: number
+  currentPassword?: string
+  remainingSeconds?: number
 }
 
 /**
@@ -74,11 +112,15 @@ export interface CreateRoomFormData {
   description: string
   maxMembers: number
   expireHours: number
+  passwordMode: number
+  rawPassword: string
+  passwordVisible: number
 }
 
 export interface JoinRoomFormData {
   roomCode: string
   displayName: string
+  password: string
 }
 
 /**
@@ -91,4 +133,4 @@ export interface RoomState {
   loading: boolean
   createLoading: boolean
   joinLoading: boolean
-} 
+}

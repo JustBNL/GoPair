@@ -82,8 +82,8 @@ router.beforeEach((to, from, next) => {
     document.title = to.meta.title as string
   }
   
-  // 初始化认证状态（仅在必要时）
-  if (!authStore.user && !authStore.token) {
+  // 初始化认证状态（仅在首次加载时，不在 logout 后重复触发）
+  if (!authStore.isInitialized) {
     console.log('🔄 Initializing auth state...')
     authStore.initAuth()
     console.log('✅ Auth state initialized')

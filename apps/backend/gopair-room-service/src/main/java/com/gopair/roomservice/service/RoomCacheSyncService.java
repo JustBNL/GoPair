@@ -8,4 +8,5 @@ public interface RoomCacheSyncService {
     void removeMemberFromCache(Long roomId, Long userId);
     void incrementConfirmed(Long roomId, int delta);
     void setStatus(Long roomId, int status);
+    void setPasswordMode(Long roomId, int passwordMode);
 } 

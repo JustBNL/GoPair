@@ -25,12 +25,12 @@ public class SendMessageDto {
     private Long roomId;
 
     /**
-     * 消息类型：1-文本 2-图片 3-文件 4-语音
+     * 消息类型：1-文本 2-图片 3-文件 4-语音 5-Emoji互动
      */
     @NotNull(message = "消息类型不能为空")
     @Min(value = 1, message = "消息类型值最小为1")
-    @Max(value = 4, message = "消息类型值最大为4")
-    @Schema(description = "消息类型", example = "1", allowableValues = {"1", "2", "3", "4"})
+    @Max(value = 5, message = "消息类型值最大为5")
+    @Schema(description = "消息类型", example = "1", allowableValues = {"1", "2", "3", "4", "5"})
     private Integer messageType;
 
     /**

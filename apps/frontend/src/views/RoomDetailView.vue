@@ -87,7 +87,7 @@
         </div>
 
         <!-- 新增通话状态卡片 -->
-        <div class="info-card" :class="{ 'active-call': callState !== 'idle' }">
+        <div class="info-card" :class="{ 'active-call': callState === 'active' || callState === 'in-call' }">
           <div class="card-header">
             <PhoneOutlined class="card-icon" />
             <h3>语音状态</h3>
@@ -154,6 +154,10 @@
                     />
                   </div>
                 </div>
+                <!-- Emoji 互动栏 -->
+                <div class="emoji-bar-container">
+                  <emoji-bar @send-emoji="sendEmoji" />
+                </div>
                 <div class="message-input-container">
                   <message-input
                     v-if="currentRoom"
@@ -218,16 +222,27 @@
               <span class="tab-title">
                 <PhoneOutlined />
                 语音
-                <a-badge v-if="callState === 'in-call'" text="进行中" status="processing" class="tab-badge" />
-                <a-badge v-else-if="callState === 'calling'" text="通话中" status="warning" class="tab-badge" />
+                <a-badge v-if="callState === 'in-call'" text="通话中" status="processing" class="tab-badge" />
+                <a-badge v-else-if="callState === 'active'" text="进行中" status="warning" class="tab-badge" />
               </span>
             </template>
             <div class="voice-container">
               <voice-call-panel
-                ref="voicePanelRef"
                 :room-id="currentRoom.roomId"
                 :current-user-id="currentUser?.userId || 0"
-                @call-state-changed="handleCallStateChanged"
+                :call-state="callState"
+                :is-owner="voiceIsOwner"
+                :current-call="currentCall"
+                :loading="voiceLoading"
+                :action-loading="actionLoading"
+                :is-muted="isMuted"
+                :is-speaker-off="isSpeakerOff"
+                @open="handleOpen"
+                @join="handleJoin"
+                @leave="handleLeave"
+                @end="handleEnd"
+                @toggle-mute="handleToggleMute"
+                @toggle-speaker="handleToggleSpeaker"
               />
             </div>
           </a-tab-pane>
@@ -341,6 +356,12 @@
     <div v-if="globalLoading" class="global-loading">
       <a-spin />
     </div>
+
+    <!-- 全屏 Emoji 漂浮层 -->
+    <emoji-overlay
+      :particles="emojiParticles"
+      @particle-done="removeParticle"
+    />
   </div>
 </template>
 
@@ -364,7 +385,7 @@ import {
 } from '@ant-design/icons-vue'
 
 // API和工具导入
-import { getRoomByCode, getRoomMembers } from '@/api/room'
+import { getRoomMembers } from '@/api/room'
 import { MessageAPI } from '@/api/message'
 import { FileAPI } from '@/api/file'
 import { VoiceAPI } from '@/api/voice'
@@ -376,9 +397,13 @@ import type { MessageVO, FileVO, MessageQueryDto } from '@/types/api'
 
 // 组件导入
 import MessageBubble from '@/components/chat/MessageBubble.vue'
+import EmojiOverlay from '@/components/chat/EmojiOverlay.vue'
+import EmojiBar from '@/components/chat/EmojiBar.vue'
+import type { EmojiParticle } from '@/types/api'
 import MessageInput from '@/components/chat/MessageInput.vue'
 import FileList from '@/components/file/FileList.vue'
 import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
+import { useVoiceCall } from '@/composables/useVoiceCall'
 
 const route = useRoute()
 const router = useRouter()
@@ -435,14 +460,20 @@ const {
   },
   onCallStart: (callId: number, initiatorId: number) => {
     console.log('received call_start:', callId, initiatorId)
-    voicePanelRef.value?.notifyCallStart(callId)
+    notifyCallStart(callId)
   },
   onCallEnd: (callId: number) => {
     console.log('received call_end:', callId)
-    voicePanelRef.value?.notifyCallEnd(callId)
+    notifyCallEnd(callId)
   },
   onSignaling: (data: any) => {
-    voicePanelRef.value?.handleSignaling(data)
+    handleSignaling(data)
+  },
+  onVoiceRosterUpdate: (callId: number) => {
+    handleRosterUpdate(callId)
+  },
+  onEmojiReceived: (emoji: string, senderNickname: string) => {
+    spawnEmojiParticle(emoji, senderNickname)
   }
 })
 
@@ -463,9 +494,37 @@ const newMessage = ref('')
 const fileCount = ref(0)
 const fileListRefresh = ref(false)
 
-// 语音通话状态
-const callState = ref<'idle' | 'calling' | 'in-call'>('idle')
-const voicePanelRef = ref<any>()
+// Emoji 漂浮动画状态
+const emojiParticles = ref<EmojiParticle[]>([])
+const MAX_PARTICLES = 15
+
+// 语音通话状态 - 通过 useVoiceCall composable 管理
+const voiceRoomId = computed(() => currentRoom.value?.roomId ?? 0)
+const voiceCurrentUserId = computed(() => currentUser.value?.userId ?? 0)
+const voiceIsOwner = computed(() => !!(
+  currentRoom.value && currentUser.value &&
+  currentRoom.value.ownerId === currentUser.value.userId
+))
+
+const {
+  callState,
+  currentCall,
+  loading: voiceLoading,
+  actionLoading,
+  isMuted,
+  isSpeakerOff,
+  handleOpen,
+  handleJoin,
+  handleLeave,
+  handleEnd,
+  handleToggleMute,
+  handleToggleSpeaker,
+  notifyCallStart,
+  notifyCallEnd,
+  handleSignaling,
+  handleRosterUpdate,
+  handleLeaveBeforeUnmount
+} = useVoiceCall(voiceRoomId, voiceCurrentUserId, voiceIsOwner)
 
 // 成员相关状态
 const roomMembers = ref<RoomMember[]>([])
@@ -568,12 +627,13 @@ const expireText = computed(() => {
 })
 
 const callStateText = computed(() => {
-  const stateMap = {
+  const stateMap: Record<string, string> = {
+    locked: '未开启',
     idle: '空闲',
-    calling: '通话中',
-    'in-call': '进行中'
+    active: '通话进行中',
+    'in-call': '通话中'
   }
-  return stateMap[callState.value]
+  return stateMap[callState.value] ?? callState.value
 })
 
 /**
@@ -614,9 +674,6 @@ const loadRoomInfo = async () => {
         throw new Error('房间不存在或您没有权限访问')
       }
       
-      // 使用房间码重新获取最新的房间信息
-      const response = await getRoomByCode(roomInfo.roomCode)
-      roomInfo = response.data
       roomStore.setCurrentRoom(roomInfo)
     }
     
@@ -676,7 +733,9 @@ const loadMessages = async () => {
     }))
 
     // 以房间层为单一数据源
-    replaceMessages(messagesWithOwnership)
+    // 过滤掉 EMOJI 消息，不在聊天气泡中展示
+    const filteredMessages = messagesWithOwnership.filter((m: any) => m.messageType !== 5)
+    replaceMessages(filteredMessages)
     serviceStates.value.messages.retryCount = 0
 
     // 初次加载滚动到底部
@@ -920,12 +979,7 @@ const handleFileDeleted = (fileId: number) => {
   fileCount.value = Math.max(0, fileCount.value - 1)
 }
 
-/**
- * 处理通话状态变化
- */
-const handleCallStateChanged = (state: 'idle' | 'calling' | 'in-call') => {
-  callState.value = state
-}
+// 通话状态变化现在由 useVoiceCall composable 直接管理
 
 /**
  * 踢出成员
@@ -967,9 +1021,7 @@ const copyRoomCode = async () => {
  * 返回大厅：若正在通话则先退出通话，再导航
  */
 const goBack = async () => {
-  if (voicePanelRef.value?.handleLeaveBeforeUnmount) {
-    await voicePanelRef.value.handleLeaveBeforeUnmount()
-  }
+  await handleLeaveBeforeUnmount()
   router.push('/rooms')
 }
 
@@ -1005,6 +1057,46 @@ const getStatusText = (status: string): string => {
 /**
  * 滚动到底部
  */
+/**
+ * 生成一个 Emoji 漂浮粒子
+ */
+function spawnEmojiParticle(emoji: string, senderNickname: string) {
+  if (emojiParticles.value.length >= MAX_PARTICLES) {
+    emojiParticles.value = emojiParticles.value.slice(1)
+  }
+  emojiParticles.value = [...emojiParticles.value, {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    emoji,
+    senderNickname,
+    x: Math.random() * 80 + 5,
+    size: Math.floor(Math.random() * 24) + 32,
+    duration: Math.floor(Math.random() * 1500) + 2500
+  }]
+}
+
+/**
+ * 移除已完成动画的粒子
+ */
+function removeParticle(id: string) {
+  emojiParticles.value = emojiParticles.value.filter(p => p.id !== id)
+}
+
+/**
+ * 发送 Emoji 互动消息
+ */
+async function sendEmoji(emoji: string) {
+  try {
+    if (!currentRoom.value) return
+    await MessageAPI.sendMessage({
+      roomId: currentRoom.value.roomId,
+      messageType: 5,
+      content: emoji
+    })
+  } catch (error: any) {
+    antMessage.error(error.response?.data?.msg || 'Emoji 发送失败')
+  }
+}
+
 const scrollToBottom = () => {
   nextTick(() => {
     const messageContainer = document.querySelector('.message-list-container')

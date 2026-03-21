@@ -154,7 +154,10 @@ const beforeUpload = (file: File) => {
   // 检查文件类型
   const fileType = getFileType(file.name)
   if (!props.allowedTypes.includes(fileType)) {
-    antMessage.error(`不支持的文件类型：${fileType}`)
+    antMessage.error({
+      content: `不支持上传 .${fileType} 类型的文件，支持的类型：${props.allowedTypes.join('、')}`,
+      duration: 5
+    })
     return false
   }
 

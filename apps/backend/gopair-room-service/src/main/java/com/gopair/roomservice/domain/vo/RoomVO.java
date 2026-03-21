@@ -81,4 +81,24 @@ public class RoomVO {
      * 用户加入房间的时间
      */
     private LocalDateTime joinTime;
+
+    /**
+     * 密码模式（0-关闭 1-固定密码 2-动态令牌）
+     */
+    private Integer passwordMode;
+
+    /**
+     * 密码是否展示给成员查看（0-隐藏 1-显示）
+     */
+    private Integer passwordVisible;
+
+    /**
+     * 当前密码/令牌明文（仅房主可见，由 getRoomCurrentPassword 单独接口返回）
+     */
+    private String currentPassword;
+
+    /**
+     * 动态令牌剩余有效秒数（仅 passwordMode=2 时有值）
+     */
+    private Integer remainingSeconds;
 } 

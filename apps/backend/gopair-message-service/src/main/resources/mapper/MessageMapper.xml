@@ -35,6 +35,7 @@
             WHEN 2 THEN '图片消息'
             WHEN 3 THEN '文件消息'
             WHEN 4 THEN '语音消息'
+            WHEN 5 THEN 'Emoji互动'
             ELSE '未知类型'
         END as message_type_desc,
         m.content,

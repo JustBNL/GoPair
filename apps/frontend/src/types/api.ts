@@ -158,7 +158,26 @@ export enum MessageType {
   TEXT = 1,
   IMAGE = 2,
   FILE = 3,
-  VOICE = 4
+  VOICE = 4,
+  EMOJI = 5
+}
+
+/**
+ * Emoji 漂浮粒子接口
+ */
+export interface EmojiParticle {
+  /** 唯一标识，格式：${timestamp}-${random} */
+  id: string
+  /** Emoji 字符 */
+  emoji: string
+  /** 发送者昵称 */
+  senderNickname: string
+  /** 水平位置，单位 vw，范围 5~85 */
+  x: number
+  /** 字体大小 px，范围 32~56 */
+  size: number
+  /** 动画时长 ms，范围 2500~4000 */
+  duration: number
 }
 
 /**
@@ -330,4 +349,4 @@ export interface RoomStats {
   totalFileSize: number
   callCount: number
   activeUsers: number
-} 
+}

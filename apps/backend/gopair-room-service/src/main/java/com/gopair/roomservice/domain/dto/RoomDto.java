@@ -37,4 +37,19 @@ public class RoomDto extends BaseQuery {
      * 房间过期小时数（默认24小时）
      */
     private Integer expireHours;
+
+    /**
+     * 密码模式（0-关闭 1-固定密码 2-动态令牌）
+     */
+    private Integer passwordMode;
+
+    /**
+     * 明文密码（仅 passwordMode=1 时必填）
+     */
+    private String rawPassword;
+
+    /**
+     * 密码是否展示给成员查看（0-隐藏 1-显示，默认1）
+     */
+    private Integer passwordVisible;
 } 

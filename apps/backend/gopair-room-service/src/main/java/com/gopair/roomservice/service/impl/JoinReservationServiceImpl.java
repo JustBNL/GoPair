@@ -63,6 +63,9 @@ public class JoinReservationServiceImpl implements JoinReservationService {
         stringRedisTemplate.opsForHash().put(metaKey, "status", String.valueOf(room.getStatus() == null ? 0 : room.getStatus()));
         long expireAtMs = room.getExpireTime() == null ? 0L : room.getExpireTime().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
         stringRedisTemplate.opsForHash().put(metaKey, "expireAt", String.valueOf(expireAtMs));
+        // 补全密码模式字段
+        int passwordMode = room.getPasswordMode() == null ? 0 : room.getPasswordMode();
+        stringRedisTemplate.opsForHash().put(metaKey, "passwordMode", String.valueOf(passwordMode));
         if (log.isDebugEnabled()) {
             log.debug("[房间服务][join-async] 房间={} 初始化缓存元数据 meta={}", roomId, stringRedisTemplate.opsForHash().entries(metaKey));
         }

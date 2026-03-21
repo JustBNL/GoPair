@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API基础配置
  */
 
@@ -27,6 +27,9 @@ export const API_ENDPOINTS = {
   ROOM_MEMBERS: (roomId: number) => `/room/${roomId}/members`,
   ROOM_LEAVE: (roomId: number) => `/room/${roomId}/leave`,
   ROOM_CLOSE: (roomId: number) => `/room/${roomId}/close`,
+  ROOM_UPDATE_PASSWORD: (roomId: number) => `/room/${roomId}/password`,
+  ROOM_CURRENT_PASSWORD: (roomId: number) => `/room/${roomId}/password/current`,
+  ROOM_KICK_MEMBER: (roomId: number, userId: number) => `/room/${roomId}/members/${userId}`,
   
   // 消息管理
   MESSAGE_SEND: '/message/send',

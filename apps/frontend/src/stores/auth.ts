@@ -157,8 +157,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     user.value = null
     token.value = null
-    Storage.removeCookieToken()
-    isInitialized.value = false
     Storage.clearAuth()
 
     message.success('退出登录成功')
@@ -252,6 +250,21 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * 更新用户资料（昵称、邮箱、密码、头像）
+   */
+  async function updateProfile(data: { nickname?: string; email?: string; password?: string; avatar?: string }): Promise<void> {
+    if (!user.value?.userId) throw new Error('未登录')
+    await AuthAPI.updateUser({ userId: user.value.userId, ...data })
+    // 同步更新本地昵称
+    if (data.nickname && user.value) {
+      const updatedUser = { ...user.value, nickname: data.nickname }
+      user.value = updatedUser
+      Storage.setUser(updatedUser)
+    }
+    message.success('资料更新成功')
+  }
+
+  /**
    * 刷新用户信息
    */
   async function refreshUser(): Promise<void> {
@@ -299,6 +312,7 @@ export const useAuthStore = defineStore('auth', () => {
     initAuth,
     setRememberEmail,
     getSavedEmail,
-    refreshUser
+    refreshUser,
+    updateProfile
   }
-}) 
+})

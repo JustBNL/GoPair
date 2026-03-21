@@ -107,4 +107,33 @@ public interface RoomService {
     JoinAcceptedVO joinRoomAsync(JoinRoomDto joinRoomDto, Long userId);
 
     JoinStatusVO queryJoinResult(String token);
-} 
+
+    /**
+     * 更新房间密码设置（仅房主）
+     *
+     * @param roomId      房间ID
+     * @param userId      操作用户ID（必须是房主）
+     * @param mode        密码模式（0-关闭 1-固定密码 2-动态令牌）
+     * @param rawPassword 明文密码（mode=1时必填，mode=0/2时忽略）
+     * @param visible     密码是否可见（0-隐藏 1-显示）
+     */
+    void updateRoomPassword(Long roomId, Long userId, Integer mode, String rawPassword, Integer visible);
+
+    /**
+     * 获取当前房间密码/令牌（仅房主）
+     *
+     * @param roomId 房间ID
+     * @param userId 操作用户ID（必须是房主）
+     * @return 当前密码明文或TOTP令牌，以及剩余有效秒数
+     */
+    RoomVO getRoomCurrentPassword(Long roomId, Long userId);
+
+    /**
+     * 踢出房间成员（仅房主）
+     *
+     * @param roomId       房间ID
+     * @param operatorId   操作者ID（必须是房主）
+     * @param targetUserId 被踢出的用户ID
+     */
+    void kickMember(Long roomId, Long operatorId, Long targetUserId);
+}

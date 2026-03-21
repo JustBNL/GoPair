@@ -115,6 +115,10 @@ export const http = {
   
   delete<T = any>(url: string, config?: InternalAxiosRequestConfig): Promise<ApiResponse<T>> {
     return request.delete(url, config).then(res => res.data)
+  },
+
+  patch<T = any>(url: string, data?: any, config?: InternalAxiosRequestConfig): Promise<ApiResponse<T>> {
+    return request.patch(url, data, config).then(res => res.data)
   }
 }
 

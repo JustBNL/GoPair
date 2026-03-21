@@ -4,7 +4,7 @@
     <div class="file-stats">
       <div class="stats-item">
         <span class="stats-label">文件总数：</span>
-        <span class="stats-value">{{ pagination.total }}</span>
+        <span class="stats-value">{{ fileCount }}</span>
       </div>
       <div class="stats-item">
         <span class="stats-label">已用空间：</span>
@@ -245,6 +245,7 @@ const loading = ref(false)
 const fileList = ref<FileVO[]>([])
 const selectedFiles = ref<number[]>([])
 const totalSize = ref(0)
+const fileCount = ref(0)
 
 // 搜索和筛选
 const searchKeyword = ref('')
@@ -316,7 +317,8 @@ const loadFileList = async () => {
 const loadFileStats = async () => {
   try {
     const response = await FileAPI.getRoomFileStats(props.roomId)
-    totalSize.value = response.data.totalSize
+    fileCount.value = response.data.fileCount ?? 0
+    totalSize.value = response.data.totalSize ?? 0
   } catch (error) {
     console.error('加载文件统计失败:', error)
   }

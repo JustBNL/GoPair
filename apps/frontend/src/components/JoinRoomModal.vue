@@ -1,6 +1,6 @@
 <template>
   <a-modal
-    :visible="visible"
+    :open="visible"
     :title="null"
     :footer="null"
     :maskClosable="false"
@@ -91,26 +91,23 @@
         <span>房间不存在或已过期</span>
       </div>
 
-      <!-- 显示名称输入 -->
-      <a-form-item 
-        name="displayName" 
-        label="房间内显示名称"
-        v-if="roomPreview"
+      <!-- 房间密码输入（有密码时显示） -->
+      <a-form-item
+        v-if="roomPreview && roomPreview.passwordMode && roomPreview.passwordMode !== 0"
+        name="password"
+        :label="roomPreview.passwordMode === 2 ? '动态令牌' : '房间密码'"
       >
-        <a-input
-          v-model:value="formData.displayName"
-          placeholder="请输入您在房间内的显示名称"
+        <a-input-password
+          v-model:value="formData.password"
+          :placeholder="roomPreview.passwordMode === 2 ? '请输入6位动态令牌' : '请输入房间密码'"
           size="large"
-          :maxlength="20"
-          showCount
-          :prefix="h(UserOutlined)"
+          :maxlength="roomPreview.passwordMode === 2 ? 6 : 20"
         />
-        <div class="input-hint">
-          <span>其他成员将看到此名称，可与您的账户昵称不同</span>
+        <div class="input-hint password-hint">
+          <span v-if="roomPreview.passwordMode === 1">此房间设有固定密码，请向房主获取</span>
+          <span v-else>此房间使用动态令牌，每5分钟更新，请向房主获取当前令牌</span>
         </div>
       </a-form-item>
-
-      <!-- 操作按钮 -->
       <div class="form-actions">
         <a-button 
           size="large" 
@@ -164,7 +161,7 @@ const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
 
-const formData = reactive<JoinRoomFormData>({ roomCode: '', displayName: '' })
+const formData = reactive<JoinRoomFormData>({ roomCode: '', displayName: '', password: '' })
 
 const roomPreview = ref<RoomInfo | null>(null)
 const searchLoading = ref(false)
@@ -178,10 +175,8 @@ const formRules = {
     { min: 4, max: 20, message: '房间码长度为4-20个字符' },
     { pattern: /^[A-Za-z0-9]+$/, message: '房间码只能包含字母和数字' }
   ],
-  displayName: [
-    { required: true, message: '请输入显示名称' },
-    { min: 1, max: 20, message: '显示名称长度为1-20个字符' },
-    { pattern: /^[^<>'"&]*$/, message: '显示名称不能包含特殊字符' }
+  password: [
+    { max: 20, message: '密码不能超过20个字符' }
   ]
 }
 
@@ -236,7 +231,7 @@ function handleRoomCodeInput() {
   }
 }
 
-function handlePaste(event: ClipboardEvent) {
+function handlePaste(_event: ClipboardEvent) {
   setTimeout(() => { handleRoomCodeInput() }, 10)
 }
 
@@ -248,9 +243,6 @@ async function searchRoom() {
     const room = await roomStore.getRoomByCode(formData.roomCode.trim())
     if (room) {
       roomPreview.value = room
-      if (!formData.displayName.trim()) {
-        formData.displayName = authStore.user?.nickname || ''
-      }
     }
   } catch (error) {
     roomPreview.value = null
@@ -260,22 +252,30 @@ async function searchRoom() {
   }
 }
 
-async function handleSubmit(values: JoinRoomFormData) {
+async function handleSubmit(_values: JoinRoomFormData) {
   if (!roomPreview.value) { message.warning('请先输入有效的房间码'); return }
   if (!isRoomJoinable.value) { message.warning('该房间当前无法加入'); return }
+  // 保存预览，用于成功后 emit
+  const targetRoom = roomPreview.value
+  const currentRoomCode = formData.roomCode.trim()
   try {
-    // 改为异步加入：请求受理token并轮询结果
+    // 异步加入：请求受理 token 并轮询结果
     const token = await roomStore.requestJoinRoomAsync({
-      roomCode: values.roomCode.trim(),
-      displayName: values.displayName.trim()
+      roomCode: currentRoomCode,
+      // displayName 使用当前登录用户昵称，后端要求非空
+      displayName: authStore.currentNickname || currentRoomCode,
+      password: formData.password?.trim() || undefined
     })
     if (!token) return
-    // 简单退避轮询（最多6次，~1.2s）
+    // 退避轮询（最多6次，约1.2s）
     for (let i = 0; i < 6; i++) {
       const status = await roomStore.queryJoinResult(token)
       if (status === 'JOINED') {
+        // queryJoinResult 内部已调用 fetchUserRooms，从刷新后列表找房间
+        const joinedRoom = roomStore.roomList.find(r => r.roomCode === currentRoomCode) ?? targetRoom
         resetForm()
         emit('update:visible', false)
+        emit('success', joinedRoom)
         return
       }
       if (status === 'FAILED') {
@@ -283,14 +283,17 @@ async function handleSubmit(values: JoinRoomFormData) {
       }
       await new Promise(r => setTimeout(r, 200 * Math.pow(2, i / 3)))
     }
-    message.info('加入处理中，请稍后在“我的房间”查看')
+    // 超时未得到明确结果
+    message.info('加入处理中，请稍后在"我的房间"查看')
+    resetForm()
+    emit('update:visible', false)
   } catch (error: any) {
     const errorMessage = error?.message || '加入房间失败，请重试'
     message.error(errorMessage)
   }
 }
 
-function handleSubmitFailed(errorInfo: any) {
+function handleSubmitFailed(_errorInfo: any) {
   message.warning('请检查表单信息')
 }
 
@@ -301,6 +304,7 @@ function handleCancel() {
 function resetForm() {
   formData.roomCode = ''
   formData.displayName = ''
+  formData.password = ''
   roomPreview.value = null
   searchLoading.value = false
   showNotFound.value = false
@@ -558,49 +562,36 @@ function resetForm() {
     margin: 16px;
     max-width: calc(100vw - 32px);
   }
-  
+
   .modal-header {
     padding: 24px 20px 20px;
   }
-  
-  .header-icon {
-    font-size: 40px;
-    margin-bottom: 12px;
-  }
-  
-  .modal-title {
-    font-size: 20px;
-  }
-  
-  .modal-subtitle {
-    font-size: 13px;
-  }
-  
+
   .join-form {
     padding: 24px 20px;
   }
-  
+
   .room-preview {
     padding: 16px;
   }
-  
+
   .preview-content {
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .room-status {
     align-self: flex-start;
   }
-  
+
   .form-actions {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .cancel-btn,
   .submit-btn {
     flex: none;
   }
 }
-</style> 
+</style>

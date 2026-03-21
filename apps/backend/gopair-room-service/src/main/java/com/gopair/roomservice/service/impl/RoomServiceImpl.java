@@ -29,6 +29,9 @@ import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.roomservice.service.RoomService;
 import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.roomservice.util.RoomCodeUtils;
+import com.gopair.roomservice.util.PasswordUtils;
+import com.gopair.roomservice.config.RoomConfig;
+import com.gopair.framework.context.UserContextHolder;
 import com.gopair.framework.logging.annotation.LogRecord;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -62,11 +65,13 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     private final LeaveRoomProducer leaveRoomProducer;
     private final StringRedisTemplate stringRedisTemplate;
     private final WebSocketMessageProducer wsProducer;
+    private final RoomConfig roomConfig;
 
     public RoomServiceImpl(RoomMapper roomMapper, RoomMemberMapper roomMemberMapper, RoomMemberService roomMemberService,
                            JoinReservationService joinReservationService, JoinResultQueryService joinResultQueryService,
                            RoomCacheSyncService roomCacheSyncService, LeaveRoomProducer leaveRoomProducer,
-                           StringRedisTemplate stringRedisTemplate, WebSocketMessageProducer wsProducer) {
+                           StringRedisTemplate stringRedisTemplate, WebSocketMessageProducer wsProducer,
+                           RoomConfig roomConfig) {
         this.roomMapper = roomMapper;
         this.roomMemberMapper = roomMemberMapper;
         this.roomMemberService = roomMemberService;
@@ -76,6 +81,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         this.leaveRoomProducer = leaveRoomProducer;
         this.stringRedisTemplate = stringRedisTemplate;
         this.wsProducer = wsProducer;
+        this.roomConfig = roomConfig;
     }
 
     @Override
@@ -157,10 +163,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
         
-        if (!StringUtils.hasText(joinRoomDto.getDisplayName())) {
-            throw new RoomException(RoomErrorCode.NICKNAME_EMPTY);
-        }
-
         // 查找房间
         Room room = roomMapper.selectByRoomCode(joinRoomDto.getRoomCode());
         if (room == null) {
@@ -187,8 +189,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.ROOM_FULL);
         }
 
+        // 使用账号昵称作为房间内显示名称
+        String displayName = UserContextHolder.getCurrentNickname();
+        if (!StringUtils.hasText(displayName)) {
+            displayName = "用户" + userId;
+        }
+
         // 添加成员（普通成员角色）
-        roomMemberService.addMember(room.getRoomId(), userId, joinRoomDto.getDisplayName(), 0);
+        roomMemberService.addMember(room.getRoomId(), userId, displayName, 0);
 
         // 更新房间成员数（使用乐观锁）
         int updateRows = roomMapper.updateCurrentMembers(room.getRoomId(), 
@@ -214,9 +222,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
-        if (!StringUtils.hasText(joinRoomDto.getDisplayName())) {
-            throw new RoomException(RoomErrorCode.NICKNAME_EMPTY);
-        }
         Room room = roomMapper.selectByRoomCode(joinRoomDto.getRoomCode());
         if (room == null) {
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
@@ -225,7 +230,11 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             // 记录异步入口，便于排查是否真正触发预占
             log.debug("[房间服务][join-async] 异步加入入口 房间码={} 房间ID={} 用户={}", joinRoomDto.getRoomCode(), room.getRoomId(), userId);
         }
-        JoinReservationService.PreReserveResult result = joinReservationService.preReserve(room.getRoomId(), userId, joinRoomDto.getDisplayName());
+        String nickname = UserContextHolder.getCurrentNickname();
+        if (!StringUtils.hasText(nickname)) {
+            nickname = "用户" + userId;
+        }
+        JoinReservationService.PreReserveResult result = joinReservationService.preReserve(room.getRoomId(), userId, nickname);
         if (log.isDebugEnabled()) {
             if (joinReservationService instanceof JoinReservationServiceImpl reservationService) {
                 // 预占后再次记录 Redis 快照，监控 reserved/pending 变化
@@ -486,4 +495,124 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             return null;
         }
     }
-} 
+    // ==================== 密码相关方法 ====================
+
+    private void verifyRoomPassword(Room room, String inputPassword) {
+        int mode = room.getPasswordMode() == null ? 0 : room.getPasswordMode();
+        if (mode == 0) return;
+        if (!StringUtils.hasText(inputPassword)) {
+            throw new RoomException(RoomErrorCode.PASSWORD_REQUIRED);
+        }
+        String masterKey = roomConfig.getPassword().getMasterKey();
+        if (mode == 1) {
+            if (!PasswordUtils.verifyPassword(inputPassword, room.getPasswordHash(), room.getRoomId(), masterKey)) {
+                throw new RoomException(RoomErrorCode.PASSWORD_WRONG);
+            }
+        } else if (mode == 2) {
+            if (!PasswordUtils.verifyTotp(inputPassword, room.getPasswordHash())) {
+                throw new RoomException(RoomErrorCode.PASSWORD_WRONG);
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateRoomPassword(Long roomId, Long userId, Integer mode, String rawPassword, Integer visible) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        if (!room.getOwnerId().equals(userId)) {
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
+        }
+        int passwordMode = mode != null ? mode : 0;
+        room.setPasswordMode(passwordMode);
+        room.setPasswordVisible(visible != null ? visible : 1);
+        String masterKey = roomConfig.getPassword().getMasterKey();
+        if (passwordMode == 1) {
+            if (!StringUtils.hasText(rawPassword)) {
+                throw new RoomException(RoomErrorCode.PASSWORD_REQUIRED);
+            }
+            room.setPasswordHash(PasswordUtils.encryptPassword(rawPassword, roomId, masterKey));
+        } else if (passwordMode == 2) {
+            room.setPasswordHash(PasswordUtils.generateTotpSecret());
+        } else {
+            room.setPasswordHash(null);
+        }
+        room.setUpdateTime(LocalDateTime.now());
+        roomMapper.updateById(room);
+        final int finalMode = passwordMode;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try { roomCacheSyncService.setPasswordMode(roomId, finalMode); } catch (Exception ignore) {}
+            }
+        });
+        log.info("[房间服务] 房间{}密码已更新，模式={}", roomId, passwordMode);
+    }
+
+    @Override
+    public RoomVO getRoomCurrentPassword(Long roomId, Long userId) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        if (!room.getOwnerId().equals(userId)) {
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
+        }
+        RoomVO vo = new RoomVO();
+        vo.setRoomId(room.getRoomId());
+        vo.setPasswordMode(room.getPasswordMode());
+        vo.setPasswordVisible(room.getPasswordVisible());
+        int m = room.getPasswordMode() == null ? 0 : room.getPasswordMode();
+        String masterKey = roomConfig.getPassword().getMasterKey();
+        if (m == 1 && StringUtils.hasText(room.getPasswordHash())) {
+            vo.setCurrentPassword(PasswordUtils.decryptPassword(room.getPasswordHash(), roomId, masterKey));
+        } else if (m == 2 && StringUtils.hasText(room.getPasswordHash())) {
+            vo.setCurrentPassword(PasswordUtils.getCurrentTotp(room.getPasswordHash()));
+            vo.setRemainingSeconds(PasswordUtils.getRemainingSeconds());
+        }
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void kickMember(Long roomId, Long operatorId, Long targetUserId) {
+        if (operatorId == null) {
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
+        }
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        if (!room.getOwnerId().equals(operatorId)) {
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
+        }
+        if (operatorId.equals(targetUserId)) {
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
+        }
+        if (!roomMemberService.isMemberInRoom(roomId, targetUserId)) {
+            throw new RoomException(RoomErrorCode.NOT_IN_ROOM);
+        }
+        roomMemberService.removeMember(roomId, targetUserId);
+        int dec = roomMapper.decrementMembersIfPositive(roomId);
+        if (dec == 1) {
+            try { roomCacheSyncService.incrementConfirmed(roomId, -1); } catch (Exception ignore) {}
+        }
+        try { roomCacheSyncService.removeMemberFromCache(roomId, targetUserId); } catch (Exception ignore) {}
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    wsProducer.sendEventToRoom(roomId, "member_kick", Map.of(
+                            "targetUserId", targetUserId,
+                            "roomId", roomId
+                    ));
+                    log.info("[房间服务] 房主{}已将用户{}踢出房间{}", operatorId, targetUserId, roomId);
+                } catch (Exception e) {
+                    log.warn("[房间服务] 发送 member_kick 事件失败: roomId={}, targetUserId={}", roomId, targetUserId);
+                }
+            }
+        });
+    }
+}

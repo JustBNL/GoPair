@@ -1,6 +1,6 @@
-<template>
+﻿<template>
   <a-modal
-    :visible="visible"
+    :open="visible"
     :title="null"
     :footer="null"
     :maskClosable="false"
@@ -53,9 +53,9 @@
       </a-form-item>
 
       <!-- 高级设置 -->
-      <a-collapse 
-        v-model:activeKey="advancedSettingsOpen" 
-        ghost 
+      <a-collapse
+        v-model:activeKey="advancedSettingsOpen"
+        ghost
         :bordered="false"
         class="advanced-settings"
       >
@@ -63,7 +63,7 @@
           <template #extra>
             <SettingOutlined />
           </template>
-          
+
           <div class="advanced-content">
             <!-- 最大成员数 -->
             <a-form-item name="maxMembers" label="最大成员数">
@@ -98,14 +98,56 @@
                 <a-select-option :value="168">1周</a-select-option>
               </a-select>
             </a-form-item>
+
+            <!-- 房间密码 -->
+            <a-form-item name="passwordMode" label="房间密码">
+              <a-radio-group v-model:value="formData.passwordMode" class="password-mode-group">
+                <a-radio-button :value="0">不设置</a-radio-button>
+                <a-radio-button :value="1">固定密码</a-radio-button>
+                <a-radio-button :value="2">动态令牌</a-radio-button>
+              </a-radio-group>
+              <div class="password-mode-hint">
+                <span v-if="formData.passwordMode === 0" class="hint-text">无需密码即可加入</span>
+                <span v-else-if="formData.passwordMode === 1" class="hint-text">加入者需输入您设置的固定密码</span>
+                <span v-else class="hint-text">每5分钟自动刷新的动态令牌，更安全</span>
+              </div>
+            </a-form-item>
+
+            <!-- 固定密码输入 -->
+            <a-form-item
+              v-if="formData.passwordMode === 1"
+              name="rawPassword"
+              label="设置密码"
+            >
+              <a-input-password
+                v-model:value="formData.rawPassword"
+                placeholder="请输入房间密码（4-20位）"
+                size="large"
+                :maxlength="20"
+              />
+            </a-form-item>
+
+            <!-- 密码可见性（模式1或2） -->
+            <a-form-item
+              v-if="formData.passwordMode !== 0"
+              label="展示密码给成员"
+            >
+              <a-switch
+                :checked="formData.passwordVisible === 1"
+                @change="(val: boolean) => formData.passwordVisible = val ? 1 : 0"
+                checked-children="展示"
+                un-checked-children="隐藏"
+              />
+              <span class="switch-hint">开启后成员可在房间列表看到密码/令牌</span>
+            </a-form-item>
           </div>
         </a-collapse-panel>
       </a-collapse>
 
       <!-- 操作按钮 -->
       <div class="form-actions">
-        <a-button 
-          size="large" 
+        <a-button
+          size="large"
           @click="handleCancel"
           class="cancel-btn"
         >
@@ -169,7 +211,10 @@ const formData = reactive<CreateRoomFormData>({
   roomName: '',
   description: '',
   maxMembers: 10,
-  expireHours: 24
+  expireHours: 24,
+  passwordMode: 0,
+  rawPassword: '',
+  passwordVisible: 1
 })
 
 // 表单验证规则
@@ -211,17 +256,20 @@ async function handleSubmit(values: CreateRoomFormData) {
       roomName: values.roomName.trim(),
       description: values.description?.trim() || undefined,
       maxMembers: values.maxMembers,
-      expireHours: values.expireHours
+      expireHours: values.expireHours,
+      passwordMode: values.passwordMode,
+      rawPassword: values.passwordMode === 1 ? values.rawPassword : undefined,
+      passwordVisible: values.passwordMode !== 0 ? values.passwordVisible : undefined
     })
-    
+
     if (room) {
+      emit('update:visible', false)
       emit('success', room)
       resetForm()
-      message.success('房间创建成功！')
     }
   } catch (error: any) {
     console.error('创建房间失败:', error)
-    
+
     // 根据错误类型显示不同的提示
     const errorMessage = error?.message || '创建房间失败，请重试'
     message.error(errorMessage)
@@ -251,8 +299,11 @@ function resetForm() {
   formData.description = ''
   formData.maxMembers = 10
   formData.expireHours = 24
+  formData.passwordMode = 0
+  formData.rawPassword = ''
+  formData.passwordVisible = 1
   advancedSettingsOpen.value = []
-  
+
   // 清除表单验证状态
   formRef.value?.clearValidate()
 }
@@ -432,40 +483,41 @@ function resetForm() {
     margin: 16px;
     max-width: calc(100vw - 32px);
   }
-  
+
   .modal-header {
     padding: 24px 20px 20px;
   }
-  
+
   .header-icon {
     font-size: 40px;
     margin-bottom: 12px;
   }
-  
+
   .modal-title {
     font-size: 20px;
   }
-  
+
   .modal-subtitle {
     font-size: 13px;
   }
-  
+
   .create-form {
     padding: 24px 20px;
   }
-  
+
   .advanced-content {
     padding: 16px;
   }
-  
+
   .form-actions {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .cancel-btn,
   .submit-btn {
     flex: none;
   }
 }
-</style> 
+</style>
+

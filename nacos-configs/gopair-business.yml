@@ -5,6 +5,23 @@
 
 # Nacos连接和服务发现配置
 spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    # 发布确认与返回（启用可靠投递）
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: AUTO
+        prefetch: 50
+        concurrency: 1
+        max-concurrency: 8
   cloud:
     nacos:
       # Nacos服务地址
@@ -81,6 +98,13 @@ knife4j:
 
 # GoPair业务服务AOP日志配置
 gopair:
+  rabbitmq:
+    # 公共开关：消息发布前设置为持久化（deliveryMode=PERSISTENT）
+    message-persistence-enabled: ${RABBITMQ_MESSAGE_PERSISTENCE_ENABLED:true}
+    # 启用发布确认（异步回调，避免阻塞）
+    publisher-confirm-enabled: ${RABBITMQ_PUBLISHER_CONFIRM_ENABLED:true}
+    # 启用返回回调（路由失败感知），需同时开启 template.mandatory=true
+    publisher-returns-enabled: ${RABBITMQ_PUBLISHER_RETURNS_ENABLED:true}
   logging:
     # 日志功能总开关
     enabled: ${GOPAIR_LOGGING_ENABLED:true}

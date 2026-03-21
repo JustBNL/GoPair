@@ -6,6 +6,7 @@
     <sql id="Base_Column_List">
         room_id, room_code, room_name, description, max_members, current_members,
         owner_id, status, expire_time, version,
+        password_mode, password_hash, password_visible,
         create_time, update_time
     </sql>
 

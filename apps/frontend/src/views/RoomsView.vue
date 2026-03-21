@@ -8,7 +8,10 @@
           <h1 class="page-title">房间管理</h1>
         </div>
         <div class="user-section">
-          <span class="welcome-text">欢迎，{{ authStore.currentNickname }}</span>
+          <div class="user-avatar-btn" @click="profileVisible = true" title="编辑个人资料">
+            <div class="user-avatar">{{ nicknameInitial }}</div>
+            <span class="welcome-text">{{ authStore.currentNickname }}</span>
+          </div>
           <a-button type="text" @click="handleLogout" class="logout-btn">
             <LogoutOutlined />
             退出登录
@@ -86,7 +89,7 @@
         </div>
 
         <!-- 加载状态 -->
-        <div class="loading-state" v-if="roomStore.loading">
+        <div class="loading-state" v-else-if="roomStore.loading">
           <a-spin size="large" />
           <p>加载中...</p>
         </div>
@@ -104,11 +107,17 @@
       v-model:visible="joinModalVisible" 
       @success="handleJoinSuccess" 
     />
+
+    <!-- 个人资料模态框 -->
+    <UserProfileModal v-model:visible="profileVisible" />
+
+    <!-- AI 聊天助手 -->
+    <AiChatDrawer />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { 
@@ -123,6 +132,8 @@ import type { RoomInfo } from '@/types/room'
 import CreateRoomModal from '@/components/CreateRoomModal.vue'
 import JoinRoomModal from '@/components/JoinRoomModal.vue'
 import RoomCard from '@/components/RoomCard.vue'
+import UserProfileModal from '@/components/UserProfileModal.vue'
+import AiChatDrawer from '@/components/ai/AiChatDrawer.vue'
 
 // ==================== 组件状态 ====================
 
@@ -133,6 +144,12 @@ const roomStore = useRoomStore()
 // 模态框状态
 const createModalVisible = ref(false)
 const joinModalVisible = ref(false)
+const profileVisible = ref(false)
+
+const nicknameInitial = computed(() => {
+  const name = authStore.currentNickname
+  return name.charAt(0).toUpperCase()
+})
 
 // ==================== 事件处理 ====================
 
@@ -156,7 +173,6 @@ function showJoinModal() {
 function handleCreateSuccess(room: RoomInfo) {
   createModalVisible.value = false
   message.success(`房间 "${room.roomName}" 创建成功！`)
-  // 可以选择直接进入房间或留在列表页
 }
 
 /**
@@ -227,6 +243,7 @@ async function refreshRooms() {
 
 /**
  * 退出登录
+ * 先导航离开当前页面，再清理数据，避免组件在卸载过程中响应式崩溃
  */
 function handleLogout() {
   Modal.confirm({
@@ -234,10 +251,10 @@ function handleLogout() {
     content: '确定要退出登录吗？',
     okText: '确认',
     cancelText: '取消',
-    onOk: () => {
-      authStore.logout()
+    onOk: async () => {
+      await authStore.logout()
+      await router.push('/login')
       roomStore.clearRoomData()
-      router.push('/login')
     }
   })
 }
@@ -245,7 +262,6 @@ function handleLogout() {
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
-  // 页面加载时获取房间列表
   await roomStore.fetchUserRooms()
 })
 </script>
@@ -512,4 +528,35 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 }
-</style> 
+
+/* ==================== 用户头像按钮 ==================== */
+
+.user-avatar-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 30px;
+  transition: background 0.2s;
+}
+
+.user-avatar-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #667eea;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+</style>

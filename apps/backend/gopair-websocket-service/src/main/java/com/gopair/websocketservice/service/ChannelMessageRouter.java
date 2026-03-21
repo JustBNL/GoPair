@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 频道消息路由服务。
@@ -33,6 +34,17 @@ public class ChannelMessageRouter {
     private final SubscriptionManagerService subscriptionManager;
     private final ConnectionManagerService connectionManagerService;
     private final ObjectMapper objectMapper;
+
+    /**
+     * 每个 WebSocket session 独立的发送锁，防止多个 RabbitMQ 消费线程并发写同一个 session
+     * 导致 TEXT_PARTIAL_WRITING IllegalStateException。
+     * <p>
+     * WebSocketSession.sendMessage() 不是线程安全的：Tomcat 的 WsRemoteEndpointImplBase
+     * 内部维护状态机，若两个线程同时调用 sendText() 则抛出
+     * "The remote endpoint was in state [TEXT_PARTIAL_WRITING]"。
+     * 使用 computeIfAbsent 保证每个 sessionId 只有一个锁对象，synchronized 块保证串行发送。
+     */
+    private final ConcurrentHashMap<String, Object> sessionLocks = new ConcurrentHashMap<>();
 
     public void processChannelMessage(UnifiedWebSocketMessage message) {
         try {
@@ -113,15 +125,25 @@ public class ChannelMessageRouter {
     }
 
     private void sendMessageToSession(WebSocketSession session, UnifiedWebSocketMessage message) {
-        try {
-            String jsonMessage = objectMapper.writeValueAsString(message);
-            session.sendMessage(new TextMessage(jsonMessage));
-            log.debug("[消息代理] WebSocket消息发送成功: sessionId={}, messageId={}",
-                    session.getId(), message.getMessageId());
-        } catch (Exception e) {
-            log.error("[消息代理] 发送WebSocket消息失败: sessionId={}, messageId={}",
-                    session.getId(), message.getMessageId(), e);
+        // 同一个 session 可能被多个 RabbitMQ 消费线程并发调用，
+        // WebSocketSession.sendMessage() 非线程安全，必须串行化。
+        Object lock = sessionLocks.computeIfAbsent(session.getId(), id -> new Object());
+        synchronized (lock) {
+            try {
+                if (!session.isOpen()) {
+                    log.warn("[消息代理] Session已关闭，跳过发送: sessionId={}, messageId={}",
+                            session.getId(), message.getMessageId());
+                    sessionLocks.remove(session.getId());
+                    return;
+                }
+                String jsonMessage = objectMapper.writeValueAsString(message);
+                session.sendMessage(new TextMessage(jsonMessage));
+                log.debug("[消息代理] WebSocket消息发送成功: sessionId={}, messageId={}",
+                        session.getId(), message.getMessageId());
+            } catch (Exception e) {
+                log.error("[消息代理] 发送WebSocket消息失败: sessionId={}, messageId={}",
+                        session.getId(), message.getMessageId(), e);
+            }
         }
     }
 }
-

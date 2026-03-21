@@ -48,6 +48,9 @@ export class WebRTCManager {
   private speakingDetectionInterval: number | null = null
   // 在 remoteDescription 设置前到达的 ICE candidate 缓冲区
   private pendingCandidates: Map<number, RTCIceCandidate[]> = new Map()
+  // addParticipant 尚未完成时提前到达的 offer 缓冲区
+  // 防止 participant-join 和 offer 信号并发时重复创建 PeerConnection
+  private pendingOffers: Map<number, RTCSessionDescription> = new Map()
 
   // 默认WebRTC配置
   private static readonly DEFAULT_CONFIG: RTCConfig = {
@@ -135,7 +138,9 @@ export class WebRTCManager {
       this.localAnalyser.getByteFrequencyData(dataArray)
       
       // 计算音频能量
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
+      let total = 0
+      for (let i = 0; i < dataArray.length; i++) total += dataArray[i]
+      const average = total / dataArray.length
       const threshold = 30 // 说话检测阈值
       
       const newIsSpeaking = average > threshold
@@ -249,7 +254,7 @@ export class WebRTCManager {
         if (!participant || !this.callState.isInCall) return
 
         analyser.getByteFrequencyData(dataArray)
-        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
+        const average = (function(){var t=0;for(var i=0;i<dataArray.length;i++)t+=dataArray[i];return t/dataArray.length;})()
         const isSpeaking = average > 20
 
         if (participant.isSpeaking !== isSpeaking) {
@@ -377,6 +382,15 @@ export class WebRTCManager {
           console.error('[WebRTC] addParticipant: failed to create/send offer for userId:', userId, err)
         }
       }
+    } else {
+      // 較小 userId 一方等待对方 offer。
+      // 若 offer 在 addParticipant 完成前已到达并被缓冲，在此处理它。
+      const bufferedOffer = this.pendingOffers.get(userId)
+      if (bufferedOffer) {
+        this.pendingOffers.delete(userId)
+        console.log('[WebRTC] addParticipant: flushing buffered offer from userId:', userId)
+        await this.handleOffer(peerConnection, userId, bufferedOffer)
+      }
     }
 
     this.callbacks.onParticipantJoined?.(participant)
@@ -399,6 +413,9 @@ export class WebRTCManager {
     }
 
     this.callState.participants.delete(userId)
+    // 清理该用户的缓冲数据
+    this.pendingCandidates.delete(userId)
+    this.pendingOffers.delete(userId)
     this.callbacks.onParticipantLeft?.(userId)
   }
 
@@ -415,8 +432,18 @@ export class WebRTCManager {
 
       const participant = this.callState.participants.get(fromUserId)
       if (!participant?.peerConnection) {
-        // 如果参与者不存在，先添加
-        await this.addParticipant(fromUserId)
+        if (type === 'offer') {
+          // offer 比 participant-join 触发的 addParticipant 更早到达时，缓冲它。
+          // addParticipant 完成后（shouldSendOffer=false 分支）会自动冲刷。
+          console.log('[WebRTC] Buffering early offer from userId:', fromUserId)
+          this.pendingOffers.set(fromUserId, sdp)
+          return
+        }
+        // answer / ice-candidate 在 PeerConnection 不存在时直接丢弃。
+        // PC 的创建由 participant-join → addParticipant 统一负责，
+        // 避免 ice-candidate 先到时提前建 PC，与 participant-join 产生竞争。
+        console.warn('[WebRTC] No PC for', type, 'from userId:', fromUserId, '- dropping')
+        return
       }
 
       const peerConnection = this.callState.participants.get(fromUserId)?.peerConnection
@@ -606,6 +633,20 @@ export class WebRTCManager {
    */
   setCurrentUserIdGetter(getter: () => number): void {
     this.getCurrentUserId = getter
+  }
+
+  /**
+   * 检查参与者是否已有 PeerConnection
+   */
+  hasParticipant(userId: number): boolean {
+    return this.callState.participants.has(userId)
+  }
+
+  /**
+   * 获取当前所有参与者的 userId 列表
+   */
+  getParticipantIds(): number[] {
+    return Array.from(this.callState.participants.keys())
   }
 
   /**

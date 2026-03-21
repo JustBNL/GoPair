@@ -222,6 +222,15 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                     throw new MessageException(MessageErrorCode.FILE_NAME_EMPTY);
                 }
                 break;
+            case EMOJI:
+                // Emoji 消息只需 content 不为空，长度不超过 8（兼容 ❤️ 等多码点 Emoji）
+                if (dto.getContent() == null || dto.getContent().trim().isEmpty()) {
+                    throw new MessageException(MessageErrorCode.MESSAGE_CONTENT_EMPTY);
+                }
+                if (dto.getContent().length() > 8) {
+                    throw new MessageException(MessageErrorCode.MESSAGE_TYPE_INVALID);
+                }
+                break;
             default:
                 throw new MessageException(MessageErrorCode.MESSAGE_TYPE_INVALID);
         }

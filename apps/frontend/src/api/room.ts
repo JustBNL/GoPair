@@ -1,10 +1,11 @@
 import { http } from '@/utils/request'
 import type { ApiResponse, BaseQuery, PageResult } from '@/types/api'
-import type { 
-  RoomInfo, 
-  CreateRoomRequest, 
-  JoinRoomRequest, 
-  RoomMember 
+import type {
+  RoomInfo,
+  CreateRoomRequest,
+  JoinRoomRequest,
+  RoomMember,
+  UpdateRoomPasswordRequest
 } from '@/types/room'
 import { API_ENDPOINTS } from './index'
 
@@ -49,6 +50,18 @@ export class RoomAPI {
   static async closeRoom(roomId: number): Promise<ApiResponse<boolean>> {
     return http.post<boolean>(API_ENDPOINTS.ROOM_CLOSE(roomId))
   }
+
+  static async updateRoomPassword(roomId: number, data: UpdateRoomPasswordRequest): Promise<ApiResponse<void>> {
+    return http.patch<void>(API_ENDPOINTS.ROOM_UPDATE_PASSWORD(roomId), data)
+  }
+
+  static async getRoomCurrentPassword(roomId: number): Promise<ApiResponse<RoomInfo>> {
+    return http.get<RoomInfo>(API_ENDPOINTS.ROOM_CURRENT_PASSWORD(roomId))
+  }
+
+  static async kickMember(roomId: number, userId: number): Promise<ApiResponse<null>> {
+    return http.delete<null>(API_ENDPOINTS.ROOM_KICK_MEMBER(roomId, userId))
+  }
 }
 
 export const {
@@ -60,5 +73,8 @@ export const {
   getRoomByCode,
   getRoomMembers,
   leaveRoom,
-  closeRoom
-} = RoomAPI 
+  closeRoom,
+  updateRoomPassword,
+  getRoomCurrentPassword,
+  kickMember
+} = RoomAPI

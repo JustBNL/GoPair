@@ -64,6 +64,10 @@ gopair:
       # 单房间入队限流（每毫秒最多受理数）
       rate-limit-per-ms: 100
   
+  password:
+    # AES 主密钥，用于派生每个房间的加密密钥（生产环境请通过环境变量覆盖）
+    master-key: ${ROOM_PASSWORD_MASTER_KEY:gopair-room-secret-key-2024}
+
   # 定时任务配置
   schedule:
     # 房间清理任务执行间隔（毫秒）

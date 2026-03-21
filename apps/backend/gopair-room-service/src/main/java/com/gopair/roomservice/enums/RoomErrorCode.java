@@ -80,7 +80,22 @@ public enum RoomErrorCode implements ErrorCode {
     /**
      * 房间状态已变更，请重试
      */
-    ROOM_STATE_CHANGED(20212, "房间状态已变更，请重试");
+    ROOM_STATE_CHANGED(20212, "房间状态已变更，请重试"),
+
+    /**
+     * 房间密码错误
+     */
+    PASSWORD_WRONG(20213, "房间密码错误"),
+
+    /**
+     * 请输入房间密码
+     */
+    PASSWORD_REQUIRED(20214, "请输入房间密码"),
+
+    /**
+     * 权限不足，仅房主可执行此操作
+     */
+    NO_PERMISSION(20215, "权限不足，仅房主可执行此操作");
 
     private final int code;
     private final String message;
@@ -99,4 +114,4 @@ public enum RoomErrorCode implements ErrorCode {
     public String getMessage() {
         return message;
     }
-} 
+}

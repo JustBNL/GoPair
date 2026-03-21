@@ -1,4 +1,4 @@
-import request, { http } from '@/utils/request'
+ import request, { http } from '@/utils/request'
 import { API_ENDPOINTS } from './index'
 import type {
   ApiResponse,
@@ -117,7 +117,7 @@ export class FileAPI {
    * 获取房间文件统计信息
    */
   static async getRoomFileStats(roomId: number): Promise<ApiResponse<RoomFileStats>> {
-    return request.get(API_ENDPOINTS.FILE_STATS(roomId))
+    return http.get<RoomFileStats>(API_ENDPOINTS.FILE_STATS(roomId))
   }
 
   /**

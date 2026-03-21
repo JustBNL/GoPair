@@ -55,6 +55,7 @@ export enum WsEventType {
   // 成员事件
   MEMBER_JOIN = 'member_join',
   MEMBER_LEAVE = 'member_leave',
+  MEMBER_KICK = 'member_kick',
   MEMBER_TYPING = 'member_typing',
   
   // 语音事件
@@ -62,7 +63,8 @@ export enum WsEventType {
   CALL_END = 'call_end',
   PARTICIPANT_JOIN = 'participant_join',
   PARTICIPANT_LEAVE = 'participant_leave',
-  SIGNALING = 'signaling'
+  SIGNALING = 'signaling',
+  VOICE_ROSTER_UPDATE = 'voice_roster_update'
 }
 
 /**

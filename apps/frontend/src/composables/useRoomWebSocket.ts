@@ -24,10 +24,13 @@ interface RoomEventHandlers {
   onFileDelete?: (fileId: number) => void
   onMemberJoin?: (member: any) => void
   onMemberLeave?: (userId: number) => void
+  onMemberKick?: (targetUserId: number) => void
   onTyping?: (userId: number, isTyping: boolean) => void
   onCallStart?: (callId: number, initiatorId: number) => void
   onCallEnd?: (callId: number) => void
   onSignaling?: (data: any) => void
+  onVoiceRosterUpdate?: (callId: number) => void
+  onEmojiReceived?: (emoji: string, senderNickname: string) => void
 }
 
 /**
@@ -110,9 +113,11 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         WsEventType.FILE_DELETE,
         WsEventType.MEMBER_JOIN,
         WsEventType.MEMBER_LEAVE,
+        WsEventType.MEMBER_KICK,
         WsEventType.MEMBER_TYPING,
         WsEventType.CALL_START,
-        WsEventType.CALL_END
+        WsEventType.CALL_END,
+        WsEventType.VOICE_ROSTER_UPDATE
       ],
       currentUser.userId
     )
@@ -154,7 +159,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
 
     switch (eventType) {
       case WsEventType.MESSAGE_SEND: {
-        if (WS_FEATURES.debug) console.log('✅ [房间WebSocket] 处理消息发送事件:', data)
+        if (WS_FEATURES.debug) console.log('✅ [房间WebSocket] 处理消息发送事件', data)
         const enriched: any = { ...data }
         if (!enriched.createTime) {
           enriched.createTime = message.timestamp || new Date().toISOString()
@@ -162,6 +167,11 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         const uid = authStore.user?.userId
         if (typeof enriched.isOwn === 'undefined') {
           enriched.isOwn = (uid != null) && (enriched.senderId === uid)
+        }
+        // EMOJI 消息：触发动画回调，不加入聊天消息列表
+        if (enriched.messageType === 5) {
+          handlers.onEmojiReceived?.(enriched.content, enriched.senderNickname)
+          return
         }
         roomState.value.messages = [...roomState.value.messages, enriched]
         handlers.onMessage?.(enriched)
@@ -209,6 +219,14 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         break
       }
 
+      case WsEventType.MEMBER_KICK: {
+        const targetUserId = data?.targetUserId
+        if (targetUserId) {
+          handlers.onMemberKick?.(targetUserId)
+        }
+        break
+      }
+
       case WsEventType.MEMBER_TYPING: {
         const { userId: typingUserId, isTyping } = data || {}
         if (typingUserId) {
@@ -231,6 +249,14 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         const callId = data?.callId
         if (callId) {
           handlers.onCallEnd?.(callId)
+        }
+        break
+      }
+
+      case WsEventType.VOICE_ROSTER_UPDATE: {
+        const callId = data?.callId
+        if (callId) {
+          handlers.onVoiceRosterUpdate?.(callId)
         }
         break
       }
@@ -293,7 +319,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         console.error('房间WebSocket连接失败:', error)
       })
     } else if (newRoomId === 0 || !newRoomId) {
-      console.log('⏳ 等待有效的房间ID...')
+      console.log('⏰ 等待有效的房间ID...')
     }
   }, { immediate: true })
 
