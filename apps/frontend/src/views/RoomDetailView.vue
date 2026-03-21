@@ -143,39 +143,26 @@
                     <a-empty description="暂无消息，开始聊天吧！" />
                   </div>
                   <div v-else class="message-items">
-                    <div
+                    <MessageBubble
                       v-for="message in messages"
                       :key="message.messageId"
-                      class="message-item"
-                    >
-                      <!-- 简化的消息显示 -->
-                      <div class="message-content">
-                        <div class="message-header">
-                          <span class="sender-name">{{ message.senderNickname || '用户' }}</span>
-                          <span class="message-time">{{ formatTime(message.createTime || Date.now().toString()) }}</span>
-                        </div>
-                        <div class="message-body">{{ message.content || '消息内容' }}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="message-input-container">
-                  <div class="simple-input">
-                    <a-input
-                      v-model:value="newMessage"
-                      placeholder="在此输入消息..."
-                      @keydown.enter="sendMessage"
-                      :disabled="serviceStates.messages.error !== null"
+                      :message="message"
+                      :show-sender-info="true"
+                      :show-actions="true"
+                      @reply="handleReply"
+                      @delete="handleDeleteMessage"
+                      @recall="handleRecallMessage"
                     />
-                    <a-button 
-                      type="primary" 
-                      @click="sendMessage"
-                      :disabled="serviceStates.messages.error !== null"
-                    >
-                      发送
-                    </a-button>
                   </div>
                 </div>
+                <MessageInput
+                  v-if="!serviceStates.messages.loading && currentRoom"
+                  :room-id="currentRoom.roomId"
+                  :reply-message="replyMessage"
+                  :disabled="serviceStates.messages.error !== null"
+                  @send-message="handleSendMessage"
+                  @cancel-reply="replyMessage = null"
+                />
               </div>
             </div>
           </a-tab-pane>
