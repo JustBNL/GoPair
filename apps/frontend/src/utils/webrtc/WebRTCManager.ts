@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WebRTC管理器 - 核心语音通话实现
  */
 
@@ -46,8 +46,11 @@ export class WebRTCManager {
   private localAudioContext: AudioContext | null = null
   private localAnalyser: AnalyserNode | null = null
   private speakingDetectionInterval: number | null = null
-  // ICE candidate 缓冲队列：在 remoteDescription 设置前到达的 candidate 暂存于此
-  private pendingIceCandidates: Map<number, RTCIceCandidate[]> = new Map()
+  // 在 remoteDescription 设置前到达的 ICE candidate 缓冲区
+  private pendingCandidates: Map<number, RTCIceCandidate[]> = new Map()
+  // addParticipant 尚未完成时提前到达的 offer 缓冲区
+  // 防止 participant-join 和 offer 信号并发时重复创建 PeerConnection
+  private pendingOffers: Map<number, RTCSessionDescription> = new Map()
 
   // 默认WebRTC配置
   private static readonly DEFAULT_CONFIG: RTCConfig = {
@@ -135,7 +138,9 @@ export class WebRTCManager {
       this.localAnalyser.getByteFrequencyData(dataArray)
       
       // 计算音频能量
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
+      let total = 0
+      for (let i = 0; i < dataArray.length; i++) total += dataArray[i]
+      const average = total / dataArray.length
       const threshold = 30 // 说话检测阈值
       
       const newIsSpeaking = average > threshold
@@ -215,20 +220,16 @@ export class WebRTCManager {
 
     participant.audioStream = stream
 
-    // 创建音频元素播放远程音频
-    // 必须挂载到 DOM，否则 Chrome 等浏览器不会实际播放
+    // 创建音频元素播放远程音频，必须挂载到 DOM 才能自动播放
     const audioElement = document.createElement('audio')
     audioElement.srcObject = stream
     audioElement.autoplay = true
+    audioElement.setAttribute('playsinline', '') // iOS Safari 内联播放
+    audioElement.setAttribute('data-voice-user-id', String(userId))
     audioElement.style.display = 'none'
-    ;(audioElement as any).playsInline = true // iOS Safari 内联播放
     document.body.appendChild(audioElement)
+    audioElement.play().catch(err => console.warn('[WebRTC] audio.play() failed:', err))
     participant.audioElement = audioElement
-
-    // 部分浏览器需要手动调用 play()
-    audioElement.play().catch((err: unknown) => {
-      console.warn('[WebRTC] audio.play() failed for userId ' + userId + ':', err)
-    })
 
     // 设置远程音频分析
     this.setupRemoteAudioAnalysis(userId, stream)
@@ -253,7 +254,7 @@ export class WebRTCManager {
         if (!participant || !this.callState.isInCall) return
 
         analyser.getByteFrequencyData(dataArray)
-        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
+        const average = (function(){var t=0;for(var i=0;i<dataArray.length;i++)t+=dataArray[i];return t/dataArray.length;})()
         const isSpeaking = average > 20
 
         if (participant.isSpeaking !== isSpeaking) {
@@ -299,7 +300,7 @@ export class WebRTCManager {
   }
 
   /**
-   * 加入通话
+   * 加入通话（本地流已由外部 initializeLocalStream 初始化）
    */
   async joinCall(callId: number): Promise<void> {
     try {
@@ -307,8 +308,6 @@ export class WebRTCManager {
         throw new Error('已在通话中')
       }
 
-      await this.initializeLocalStream()
-      
       this.callState.callId = callId
       this.callState.isInCall = true
       this.callState.isInitiator = false
@@ -326,11 +325,26 @@ export class WebRTCManager {
    */
   async addParticipant(userId: number, nickname?: string): Promise<void> {
     if (this.callState.participants.has(userId)) {
-      return // 参与者已存在
+      console.log('[WebRTC] addParticipant: already exists, skipping userId:', userId)
+      return
     }
 
     const peerConnection = this.createPeerConnection(userId)
-    
+
+    // createPeerConnection 内部会尝试 addTrack，但如果当时 localStream 为 null，这里补充添加
+    if (this.callState.localStream) {
+      const existingSenders = peerConnection.getSenders()
+      const hasAudioSender = existingSenders.some(s => s.track?.kind === 'audio')
+      if (!hasAudioSender) {
+        this.callState.localStream.getTracks().forEach(track => {
+          peerConnection.addTrack(track, this.callState.localStream!)
+          console.log('[WebRTC] addParticipant: addTrack for userId:', userId, 'track:', track.kind)
+        })
+      }
+    } else {
+      console.warn('[WebRTC] addParticipant: localStream is null for userId:', userId)
+    }
+
     const participant: CallParticipant = {
       userId,
       nickname: nickname || `用户${userId}`,
@@ -342,20 +356,41 @@ export class WebRTCManager {
 
     this.callState.participants.set(userId, participant)
 
-    // 如果是发起者，创建offer
-    if (this.callState.isInitiator) {
-      const offer = await peerConnection.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: false
-      })
-      
-      await peerConnection.setLocalDescription(offer)
-      
-      this.sendSignalingMessage({
-        type: 'offer',
-        targetUserId: userId,
-        sdp: offer
-      })
+    // Glare 解决方案：userId 较大的一方主动发 offer，较小的一方等待
+    const currentUserId = this.getCurrentUserId()
+    const shouldSendOffer = currentUserId !== null && currentUserId > userId
+    console.log('[WebRTC] addParticipant: userId:', userId, 'currentUserId:', currentUserId, 'shouldSendOffer:', shouldSendOffer, 'hasLocalStream:', !!this.callState.localStream)
+    if (shouldSendOffer) {
+      if (!this.callState.localStream) {
+        console.error('[WebRTC] addParticipant: cannot send offer, localStream is null!')
+      } else {
+        try {
+          const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: false
+          })
+          console.log('[WebRTC] addParticipant: offer created for userId:', userId)
+          await peerConnection.setLocalDescription(offer)
+          console.log('[WebRTC] addParticipant: offer setLocalDescription done, sending to userId:', userId)
+          this.sendSignalingMessage({
+            type: 'offer',
+            targetUserId: userId,
+            sdp: offer
+          })
+          console.log('[WebRTC] addParticipant: offer sent to userId:', userId)
+        } catch (err) {
+          console.error('[WebRTC] addParticipant: failed to create/send offer for userId:', userId, err)
+        }
+      }
+    } else {
+      // 較小 userId 一方等待对方 offer。
+      // 若 offer 在 addParticipant 完成前已到达并被缓冲，在此处理它。
+      const bufferedOffer = this.pendingOffers.get(userId)
+      if (bufferedOffer) {
+        this.pendingOffers.delete(userId)
+        console.log('[WebRTC] addParticipant: flushing buffered offer from userId:', userId)
+        await this.handleOffer(peerConnection, userId, bufferedOffer)
+      }
     }
 
     this.callbacks.onParticipantJoined?.(participant)
@@ -377,8 +412,10 @@ export class WebRTCManager {
       participant.audioElement.remove()
     }
 
-    this.pendingIceCandidates.delete(userId)
     this.callState.participants.delete(userId)
+    // 清理该用户的缓冲数据
+    this.pendingCandidates.delete(userId)
+    this.pendingOffers.delete(userId)
     this.callbacks.onParticipantLeft?.(userId)
   }
 
@@ -395,8 +432,18 @@ export class WebRTCManager {
 
       const participant = this.callState.participants.get(fromUserId)
       if (!participant?.peerConnection) {
-        // 如果参与者不存在，先添加
-        await this.addParticipant(fromUserId)
+        if (type === 'offer') {
+          // offer 比 participant-join 触发的 addParticipant 更早到达时，缓冲它。
+          // addParticipant 完成后（shouldSendOffer=false 分支）会自动冲刷。
+          console.log('[WebRTC] Buffering early offer from userId:', fromUserId)
+          this.pendingOffers.set(fromUserId, sdp)
+          return
+        }
+        // answer / ice-candidate 在 PeerConnection 不存在时直接丢弃。
+        // PC 的创建由 participant-join → addParticipant 统一负责，
+        // 避免 ice-candidate 先到时提前建 PC，与 participant-join 产生竞争。
+        console.warn('[WebRTC] No PC for', type, 'from userId:', fromUserId, '- dropping')
+        return
       }
 
       const peerConnection = this.callState.participants.get(fromUserId)?.peerConnection
@@ -407,19 +454,10 @@ export class WebRTCManager {
           await this.handleOffer(peerConnection, fromUserId, sdp)
           break
         case 'answer':
-          await this.handleAnswer(peerConnection, fromUserId, sdp)
+          await this.handleAnswer(peerConnection, sdp, fromUserId)
           break
         case 'ice-candidate':
-          // remoteDescription 未设置时先缓冲，避免竞态丢失
-          if (!peerConnection.remoteDescription) {
-            console.log('[WebRTC] Buffering ICE candidate from userId: ' + fromUserId + ' (no remoteDescription yet)')
-            if (!this.pendingIceCandidates.has(fromUserId)) {
-              this.pendingIceCandidates.set(fromUserId, [])
-            }
-            this.pendingIceCandidates.get(fromUserId).push(candidate)
-          } else {
-            await this.handleIceCandidate(peerConnection, candidate)
-          }
+          await this.handleIceCandidate(peerConnection, candidate, fromUserId)
           break
       }
     } catch (error) {
@@ -432,49 +470,66 @@ export class WebRTCManager {
    * 处理Offer
    */
   private async handleOffer(peerConnection: RTCPeerConnection, fromUserId: number, offer: RTCSessionDescription): Promise<void> {
+    // Glare 处理：如果本地已经发出了 offer（have-local-offer），需要先 rollback
+    if (peerConnection.signalingState === 'have-local-offer') {
+      console.log('[WebRTC] Glare detected, rolling back local offer for userId:', fromUserId)
+      await peerConnection.setLocalDescription({ type: 'rollback' })
+    }
+
     await peerConnection.setRemoteDescription(offer)
     
     const answer = await peerConnection.createAnswer()
     await peerConnection.setLocalDescription(answer)
     
+    // 冲刷在 remoteDescription 设置前缓冲的 ICE candidate
+    await this.flushPendingCandidates(peerConnection, fromUserId)
+
     this.sendSignalingMessage({
       type: 'answer',
       targetUserId: fromUserId,
       sdp: answer
     })
-
-    // remoteDescription 已设置，flush 缓冲的 ICE candidates
-    await this.flushPendingIceCandidates(fromUserId, peerConnection)
   }
 
   /**
    * 处理Answer
    */
-  private async handleAnswer(peerConnection: RTCPeerConnection, fromUserId: number, answer: RTCSessionDescription): Promise<void> {
+  private async handleAnswer(peerConnection: RTCPeerConnection, answer: RTCSessionDescription, fromUserId: number): Promise<void> {
     await peerConnection.setRemoteDescription(answer)
-    // remoteDescription 已设置，flush 缓冲的 ICE candidates
-    await this.flushPendingIceCandidates(fromUserId, peerConnection)
-  }
-
-  /**
-   * flush 缓冲的 ICE candidates
-   */
-  private async flushPendingIceCandidates(userId: number, peerConnection: RTCPeerConnection): Promise<void> {
-    const pending = this.pendingIceCandidates.get(userId)
-    if (!pending || pending.length === 0) return
-    console.log('[WebRTC] Flushing ' + pending.length + ' buffered ICE candidates for userId: ' + userId)
-    for (const candidate of pending) {
-      try { await peerConnection.addIceCandidate(candidate) }
-      catch (err) { console.warn('[WebRTC] Failed buffered ICE candidate for userId ' + userId + ':', err) }
-    }
-    this.pendingIceCandidates.delete(userId)
+    // 冲刷在 remoteDescription 设置前缓冲的 ICE candidate
+    await this.flushPendingCandidates(peerConnection, fromUserId)
   }
 
   /**
    * 处理ICE候选
    */
-  private async handleIceCandidate(peerConnection: RTCPeerConnection, candidate: RTCIceCandidate): Promise<void> {
+  private async handleIceCandidate(peerConnection: RTCPeerConnection, candidate: RTCIceCandidate, fromUserId: number): Promise<void> {
+    if (!peerConnection.remoteDescription) {
+      // remoteDescription 尚未设置，缓冲 candidate
+      const pending = this.pendingCandidates.get(fromUserId) ?? []
+      pending.push(candidate)
+      this.pendingCandidates.set(fromUserId, pending)
+      console.log('[WebRTC] Buffering ICE candidate for userId:', fromUserId, 'total:', pending.length)
+      return
+    }
     await peerConnection.addIceCandidate(candidate)
+  }
+
+  /**
+   * 冲刷指定用户的待处理 ICE candidate
+   */
+  private async flushPendingCandidates(peerConnection: RTCPeerConnection, userId: number): Promise<void> {
+    const pending = this.pendingCandidates.get(userId)
+    if (!pending || pending.length === 0) return
+    this.pendingCandidates.delete(userId)
+    console.log('[WebRTC] Flushing', pending.length, 'buffered ICE candidates for userId:', userId)
+    for (const candidate of pending) {
+      try {
+        await peerConnection.addIceCandidate(candidate)
+      } catch (e) {
+        console.warn('[WebRTC] Failed to add buffered ICE candidate:', e)
+      }
+    }
   }
 
   /**
@@ -526,11 +581,6 @@ export class WebRTCManager {
       this.localAudioContext.close()
       this.localAudioContext = null
     }
-
-    // 清理 ICE 缓冲队列
-    this.pendingIceCandidates.clear()
-
-    this.pendingIceCandidates.clear()
 
     // 重置状态
     this.callState = {
@@ -586,6 +636,20 @@ export class WebRTCManager {
   }
 
   /**
+   * 检查参与者是否已有 PeerConnection
+   */
+  hasParticipant(userId: number): boolean {
+    return this.callState.participants.has(userId)
+  }
+
+  /**
+   * 获取当前所有参与者的 userId 列表
+   */
+  getParticipantIds(): number[] {
+    return Array.from(this.callState.participants.keys())
+  }
+
+  /**
    * 获取当前通话状态
    */
   getCallState(): CallState {
@@ -596,7 +660,7 @@ export class WebRTCManager {
    * 获取网络质量统计
    */
   async getNetworkStats(userId?: number): Promise<RTCStatsReport | null> {
-    const participant = userId 
+    const participant = userId
       ? this.callState.participants.get(userId)
       : Array.from(this.callState.participants.values())[0]
 
@@ -611,4 +675,4 @@ export class WebRTCManager {
   destroy(): void {
     this.leaveCall()
   }
-} 
+}

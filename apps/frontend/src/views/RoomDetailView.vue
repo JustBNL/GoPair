@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="room-detail-view">
     <!-- 加载状态 -->
     <div class="loading-container" v-if="loading">
@@ -87,7 +87,7 @@
         </div>
 
         <!-- 新增通话状态卡片 -->
-        <div class="info-card" :class="{ 'active-call': callState !== 'idle' }">
+        <div class="info-card" :class="{ 'active-call': callState === 'active' || callState === 'in-call' }">
           <div class="card-header">
             <PhoneOutlined class="card-icon" />
             <h3>语音状态</h3>
@@ -103,9 +103,9 @@
 
       <!-- 通讯功能区域 -->
       <div class="communication-section">
-        <a-tabs 
-          v-model:activeKey="activeTab" 
-          type="card" 
+        <a-tabs
+          v-model:activeKey="activeTab"
+          type="card"
           class="communication-tabs"
           :tab-bar-style="{ background: '#fafafa', margin: 0 }"
         >
@@ -143,26 +143,32 @@
                     <a-empty description="暂无消息，开始聊天吧！" />
                   </div>
                   <div v-else class="message-items">
-                    <MessageBubble
+                    <message-bubble
                       v-for="message in messages"
                       :key="message.messageId"
                       :message="message"
                       :show-sender-info="true"
-                      :show-actions="true"
                       @reply="handleReply"
-                      @delete="handleDeleteMessage"
-                      @recall="handleRecallMessage"
+                      @delete="(id) => handleDeleteMessage(messages.find(m => m.messageId === id)!)"
+                      @recall="(id) => handleRecallMessage(messages.find(m => m.messageId === id)!)"
                     />
                   </div>
                 </div>
-                <MessageInput
-                  v-if="!serviceStates.messages.loading && currentRoom"
-                  :room-id="currentRoom.roomId"
-                  :reply-message="replyMessage"
-                  :disabled="serviceStates.messages.error !== null"
-                  @send-message="handleSendMessage"
-                  @cancel-reply="replyMessage = null"
-                />
+                <!-- Emoji 互动栏 -->
+                <div class="emoji-bar-container">
+                  <emoji-bar @send-emoji="sendEmoji" />
+                </div>
+                <div class="message-input-container">
+                  <message-input
+                    v-if="currentRoom"
+                    :room-id="currentRoom.roomId"
+                    :reply-message="replyMessage"
+                    :disabled="serviceStates.messages.error !== null"
+                    @send-message="handleSendMessage"
+                    @cancel-reply="() => (replyMessage = null)"
+                    @upload-progress="handleUploadProgress"
+                  />
+                </div>
               </div>
             </div>
           </a-tab-pane>
@@ -173,7 +179,6 @@
               <span class="tab-title">
                 <FolderOutlined />
                 文件
-                <a-badge v-if="fileCount > 0 && serviceStates.files.available" :count="fileCount" class="tab-badge" />
                 <a-badge v-if="!serviceStates.files.available" status="error" class="tab-badge" />
               </span>
             </template>
@@ -198,15 +203,6 @@
               <!-- 正常的文件功能 -->
               <div v-else>
                 <!-- 文件上传区域 -->
-                <div class="file-upload-section">
-                  <file-upload-area
-                    :room-id="currentRoom.roomId"
-                    @upload-success="handleFileUploadSuccess"
-                    @upload-error="handleFileUploadError"
-                    @upload-progress="handleFileUploadProgress"
-                  />
-                </div>
-                
                 <!-- 文件列表 -->
                 <div class="file-list-section">
                   <file-list
@@ -226,17 +222,27 @@
               <span class="tab-title">
                 <PhoneOutlined />
                 语音
-                <a-badge v-if="callState === 'in-call'" text="进行中" status="processing" class="tab-badge" />
-                <a-badge v-else-if="callState === 'calling'" text="通话中" status="warning" class="tab-badge" />
+                <a-badge v-if="callState === 'in-call'" text="通话中" status="processing" class="tab-badge" />
+                <a-badge v-else-if="callState === 'active'" text="进行中" status="warning" class="tab-badge" />
               </span>
             </template>
             <div class="voice-container">
               <voice-call-panel
-                ref="voiceCallPanelRef"
                 :room-id="currentRoom.roomId"
                 :current-user-id="currentUser?.userId || 0"
-                :is-owner="isOwner || false"
-                @call-state-changed="handleCallStateChanged"
+                :call-state="callState"
+                :is-owner="voiceIsOwner"
+                :current-call="currentCall"
+                :loading="voiceLoading"
+                :action-loading="actionLoading"
+                :is-muted="isMuted"
+                :is-speaker-off="isSpeakerOff"
+                @open="handleOpen"
+                @join="handleJoin"
+                @leave="handleLeave"
+                @end="handleEnd"
+                @toggle-mute="handleToggleMute"
+                @toggle-speaker="handleToggleSpeaker"
               />
             </div>
           </a-tab-pane>
@@ -350,6 +356,12 @@
     <div v-if="globalLoading" class="global-loading">
       <a-spin />
     </div>
+
+    <!-- 全屏 Emoji 漂浮层 -->
+    <emoji-overlay
+      :particles="emojiParticles"
+      @particle-done="removeParticle"
+    />
   </div>
 </template>
 
@@ -373,12 +385,11 @@ import {
 } from '@ant-design/icons-vue'
 
 // API和工具导入
-import { getRoomByCode, getRoomMembers } from '@/api/room'
+import { getRoomMembers } from '@/api/room'
 import { MessageAPI } from '@/api/message'
 import { FileAPI } from '@/api/file'
 import { VoiceAPI } from '@/api/voice'
 import { useRoomWebSocket } from '@/composables/useRoomWebSocket'
-import { useWebSocketStore } from '@/stores/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import type { RoomInfo, RoomMember } from '@/types/room'
@@ -386,22 +397,23 @@ import type { MessageVO, FileVO, MessageQueryDto } from '@/types/api'
 
 // 组件导入
 import MessageBubble from '@/components/chat/MessageBubble.vue'
+import EmojiOverlay from '@/components/chat/EmojiOverlay.vue'
+import EmojiBar from '@/components/chat/EmojiBar.vue'
+import type { EmojiParticle } from '@/types/api'
 import MessageInput from '@/components/chat/MessageInput.vue'
-import FileUploadArea from '@/components/file/FileUploadArea.vue'
 import FileList from '@/components/file/FileList.vue'
 import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
+import { useVoiceCall } from '@/composables/useVoiceCall'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const wsStore = useWebSocketStore()
 
 // 基础状态
 const loading = ref(true)
 const globalLoading = ref(false)
 const currentRoom = ref<RoomInfo | null>(null)
 const activeTab = ref('chat')
-const voiceCallPanelRef = ref<any>(null)
 
 // WebSocket状态 - 使用新的Composable架构
 const roomId = computed(() => currentRoom.value?.roomId || 0)
@@ -410,11 +422,15 @@ const {
   isRoomConnected,
   connectToRoom,
   sendRoomMessage,
-  sendSignaling
+  replaceMessages 
 } = useRoomWebSocket(roomId, {
   onMessage: (message: any) => {
     console.log('📨 收到聊天消息:', message)
-    messages.value.push(message)
+    const normalized = { ...message }
+    if (!normalized.createTime) {
+      normalized.createTime = message.timestamp || new Date().toISOString()
+    }
+    // 页面不再push，由房间层维护messages
     if (activeTab.value !== 'chat') {
       unreadCount.value++
     }
@@ -422,10 +438,7 @@ const {
   },
   onMessageDelete: (messageId: number) => {
     console.log('🗑️ 收到消息删除事件:', messageId)
-    const index = messages.value.findIndex(m => m.messageId === messageId)
-    if (index > -1) {
-      messages.value.splice(index, 1)
-    }
+    // 房间层已处理删除，这里无需重复修改数据
   },
   onFileUpload: () => {
     console.log('📁 收到文件上传事件')
@@ -445,32 +458,34 @@ const {
     console.log('👋 收到成员离开事件')
     loadRoomMembers()
   },
-  onCallStart: (data: any) => {
-    console.log('📞 收到 call_start:', data)
-    voiceCallPanelRef.value?.onCallStart(data)
+  onCallStart: (callId: number, initiatorId: number) => {
+    console.log('received call_start:', callId, initiatorId)
+    notifyCallStart(callId)
   },
-  onCallEnd: (data: any) => {
-    console.log('📞 收到 call_end:', data)
-    voiceCallPanelRef.value?.onCallEnd(data)
+  onCallEnd: (callId: number) => {
+    console.log('received call_end:', callId)
+    notifyCallEnd(callId)
   },
-  onVoiceRosterUpdate: (data: any) => {
-    console.log('📞 收到 voice_roster_update:', data)
-    voiceCallPanelRef.value?.onRosterUpdate(data)
+  onSignaling: (data: any) => {
+    handleSignaling(data)
   },
-  onSignaling: (message: any) => {
-    voiceCallPanelRef.value?.onSignaling(message)
+  onVoiceRosterUpdate: (callId: number) => {
+    handleRosterUpdate(callId)
+  },
+  onEmojiReceived: (emoji: string, senderNickname: string) => {
+    spawnEmojiParticle(emoji, senderNickname)
   }
 })
 
 // 用户信息
 const currentUser = computed(() => authStore.user)
-const isOwner = computed(() => 
-  currentRoom.value && currentUser.value && 
+const isOwner = computed(() =>
+  currentRoom.value && currentUser.value &&
   currentRoom.value.ownerId === currentUser.value.userId
 )
 
 // 聊天相关状态
-const messages = ref<MessageVO[]>([])  // 确保永远是数组
+const messages = computed(() => roomState.value.messages as MessageVO[])  // 单一数据源
 const unreadCount = ref(0)
 const replyMessage = ref<MessageVO | null>(null)
 const newMessage = ref('')
@@ -479,8 +494,37 @@ const newMessage = ref('')
 const fileCount = ref(0)
 const fileListRefresh = ref(false)
 
-// 语音通话状态
-const callState = ref<'idle' | 'calling' | 'in-call'>('idle')
+// Emoji 漂浮动画状态
+const emojiParticles = ref<EmojiParticle[]>([])
+const MAX_PARTICLES = 15
+
+// 语音通话状态 - 通过 useVoiceCall composable 管理
+const voiceRoomId = computed(() => currentRoom.value?.roomId ?? 0)
+const voiceCurrentUserId = computed(() => currentUser.value?.userId ?? 0)
+const voiceIsOwner = computed(() => !!(
+  currentRoom.value && currentUser.value &&
+  currentRoom.value.ownerId === currentUser.value.userId
+))
+
+const {
+  callState,
+  currentCall,
+  loading: voiceLoading,
+  actionLoading,
+  isMuted,
+  isSpeakerOff,
+  handleOpen,
+  handleJoin,
+  handleLeave,
+  handleEnd,
+  handleToggleMute,
+  handleToggleSpeaker,
+  notifyCallStart,
+  notifyCallEnd,
+  handleSignaling,
+  handleRosterUpdate,
+  handleLeaveBeforeUnmount
+} = useVoiceCall(voiceRoomId, voiceCurrentUserId, voiceIsOwner)
 
 // 成员相关状态
 const roomMembers = ref<RoomMember[]>([])
@@ -583,12 +627,13 @@ const expireText = computed(() => {
 })
 
 const callStateText = computed(() => {
-  const stateMap = {
+  const stateMap: Record<string, string> = {
+    locked: '未开启',
     idle: '空闲',
-    calling: '通话中',
-    'in-call': '进行中'
+    active: '通话进行中',
+    'in-call': '通话中'
   }
-  return stateMap[callState.value]
+  return stateMap[callState.value] ?? callState.value
 })
 
 /**
@@ -629,9 +674,6 @@ const loadRoomInfo = async () => {
         throw new Error('房间不存在或您没有权限访问')
       }
       
-      // 使用房间码重新获取最新的房间信息
-      const response = await getRoomByCode(roomInfo.roomCode)
-      roomInfo = response.data
       roomStore.setCurrentRoom(roomInfo)
     }
     
@@ -673,27 +715,35 @@ const loadMessages = async () => {
   serviceStates.value.messages.error = null
   
   try {
-    const response = await MessageAPI.getRoomMessages({
-      roomId: currentRoom.value.roomId,
-      pageNum: 1,
-      pageSize: 50
+    // 使用“最新N条后再升序”的接口，后端已保证顺序；前端仍做兜底排序
+    const response = await MessageAPI.getLatestMessages(currentRoom.value.roomId, 50)
+    const messagesData = response.data || []
+
+    // 兜底：按 createTime 升序
+    const sorted = [...messagesData].sort((a: any, b: any) => {
+      const ta = new Date(a.createTime as any).getTime()
+      const tb = new Date(b.createTime as any).getTime()
+      return ta - tb
     })
-    
-    // 现在使用正确的数据路径: response.data.records
-    const messagesData = response.data.records || []
-    
-    // 为消息数据添加isOwn字段
-    const messagesWithOwnership = messagesData.map((message: any) => ({
+
+    // 为消息数据添加 isOwn 字段
+    const messagesWithOwnership = sorted.map((message: any) => ({
       ...message,
       isOwn: message.senderId === currentUser.value?.userId
     }))
-    
-    messages.value = messagesWithOwnership
+
+    // 以房间层为单一数据源
+    // 过滤掉 EMOJI 消息，不在聊天气泡中展示
+    const filteredMessages = messagesWithOwnership.filter((m: any) => m.messageType !== 5)
+    replaceMessages(filteredMessages)
     serviceStates.value.messages.retryCount = 0
+
+    // 初次加载滚动到底部
+    scrollToBottom()
   } catch (error: any) {
     console.error('加载消息失败:', error)
     // 确保消息状态重置为空数组而不是undefined
-    messages.value = []
+    replaceMessages([])
     serviceStates.value.messages.error = '消息服务暂时不可用，请稍后重试'
     serviceStates.value.messages.retryCount++
     throw error  // 重新抛出错误，用于上层catch处理
@@ -786,8 +836,6 @@ const initRoomSubscription = async () => {
     // 所有订阅逻辑已通过useRoomWebSocket composable自动处理
     // 无需手动管理事件处理器和清理逻辑
     console.log('✅ 房间订阅初始化完成（自动管理）')
-    // 注入信令发送函数给 VoiceCallPanel
-    voiceCallPanelRef.value?.setSignalingSender((data: any) => sendSignaling(data))
   } catch (error) {
     console.error('❌ 房间订阅初始化失败:', error)
   }
@@ -798,12 +846,15 @@ const initRoomSubscription = async () => {
  */
 const handleSendMessage = async (messageData: any) => {
   try {
-    // 使用新的WebSocket发送机制
-    const success = sendRoomMessage(messageData)
-    if (!success) {
-      // 如果WebSocket发送失败，回退到HTTP API
-      await MessageAPI.sendMessage(messageData)
+    if (!currentRoom.value) {
+      throw new Error('房间信息不存在')
     }
+    // 始终通过HTTP发送，由后端持久化并通过WebSocket广播
+    const payload = {
+      roomId: currentRoom.value.roomId,
+      ...messageData
+    }
+    await MessageAPI.sendMessage(payload)
   } catch (error: any) {
     antMessage.error(error.response?.data?.msg || '发送消息失败')
   }
@@ -928,12 +979,7 @@ const handleFileDeleted = (fileId: number) => {
   fileCount.value = Math.max(0, fileCount.value - 1)
 }
 
-/**
- * 处理通话状态变化
- */
-const handleCallStateChanged = (state: 'idle' | 'calling' | 'in-call') => {
-  callState.value = state
-}
+// 通话状态变化现在由 useVoiceCall composable 直接管理
 
 /**
  * 踢出成员
@@ -971,15 +1017,29 @@ const copyRoomCode = async () => {
 /**
  * 返回上一页
  */
-const goBack = () => {
+/**
+ * 返回大厅：若正在通话则先退出通话，再导航
+ */
+const goBack = async () => {
+  await handleLeaveBeforeUnmount()
   router.push('/rooms')
 }
 
 /**
  * 格式化时间
  */
-const formatTime = (timeStr: string) => {
-  return dayjs(timeStr).format('MM-DD HH:mm')
+const formatTime = (timeInput: any) => {
+  if (!timeInput) return ''
+  let d
+  if (typeof timeInput === 'number') {
+    d = dayjs(timeInput)
+  } else if (typeof timeInput === 'string' && /^\d+$/.test(timeInput)) {
+    d = dayjs(Number(timeInput))
+  } else {
+    d = dayjs(timeInput)
+  }
+  if (!d.isValid()) return ''
+  return d.format('MM-DD HH:mm')
 }
 
 /**
@@ -997,6 +1057,46 @@ const getStatusText = (status: string): string => {
 /**
  * 滚动到底部
  */
+/**
+ * 生成一个 Emoji 漂浮粒子
+ */
+function spawnEmojiParticle(emoji: string, senderNickname: string) {
+  if (emojiParticles.value.length >= MAX_PARTICLES) {
+    emojiParticles.value = emojiParticles.value.slice(1)
+  }
+  emojiParticles.value = [...emojiParticles.value, {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    emoji,
+    senderNickname,
+    x: Math.random() * 80 + 5,
+    size: Math.floor(Math.random() * 24) + 32,
+    duration: Math.floor(Math.random() * 1500) + 2500
+  }]
+}
+
+/**
+ * 移除已完成动画的粒子
+ */
+function removeParticle(id: string) {
+  emojiParticles.value = emojiParticles.value.filter(p => p.id !== id)
+}
+
+/**
+ * 发送 Emoji 互动消息
+ */
+async function sendEmoji(emoji: string) {
+  try {
+    if (!currentRoom.value) return
+    await MessageAPI.sendMessage({
+      roomId: currentRoom.value.roomId,
+      messageType: 5,
+      content: emoji
+    })
+  } catch (error: any) {
+    antMessage.error(error.response?.data?.msg || 'Emoji 发送失败')
+  }
+}
+
 const scrollToBottom = () => {
   nextTick(() => {
     const messageContainer = document.querySelector('.message-list-container')
@@ -1326,11 +1426,6 @@ onUnmounted(() => {
         display: flex;
         flex-direction: column;
         
-        .file-upload-section {
-          border-bottom: 1px solid #f0f0f0;
-          padding: 16px;
-        }
-        
         .file-list-section {
           flex: 1;
           overflow: hidden;
@@ -1515,4 +1610,8 @@ onUnmounted(() => {
     }
   }
 }
-</style> 
+
+.message-header {
+  .message-time { margin-left: 8px; }
+}
+</style>

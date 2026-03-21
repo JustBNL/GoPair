@@ -1,364 +1,244 @@
 <template>
   <div class="voice-call-panel">
-    <div class="voice-panel-content">
-      <!-- 状态显示 -->
-      <div class="call-status-section">
-        <div class="status-display">
-          <div class="status-icon" :class="statusIconClass">
-            <PhoneOutlined v-if="callState === 'idle'" />
-            <AudioOutlined v-else />
-          </div>
-          <div class="status-text">
-            <h3>语音通话</h3>
-            <p>{{ callStateText }}</p>
-          </div>
+    <!-- 加载中 -->
+    <div v-if="loading" class="state-center">
+      <a-spin size="large" />
+      <p>加载中...</p>
+    </div>
+
+    <!-- 锁定状态：房主尚未开启（非房主视角） -->
+    <div v-else-if="callState === 'locked'" class="state-center">
+      <div class="voice-icon locked">
+        <LockOutlined />
+      </div>
+      <h3>语音频道</h3>
+      <p class="desc">语音功能未开启</p>
+      <p class="desc-sub">请联系房主开启语音通话</p>
+    </div>
+
+    <!-- 空闲状态：房主视角，可开启 -->
+    <div v-else-if="callState === 'idle'" class="state-center">
+      <div class="voice-icon idle">
+        <PhoneOutlined />
+      </div>
+      <h3>语音频道</h3>
+      <p class="desc">语音频道已准备就绪</p>
+      <a-button type="primary" size="large" :loading="actionLoading" @click="emit('open')">
+        <PhoneOutlined /> 开启语音通话
+      </a-button>
+    </div>
+
+    <!-- 通话进行中，当前用户未加入 -->
+    <div v-else-if="callState === 'active'" class="state-center">
+      <div class="voice-icon active"><PhoneOutlined /></div>
+      <h3>语音频道</h3>
+      <p class="desc">{{ (currentCall?.participants ?? []).length }} 人正在通话中</p>
+      <div class="participant-avatars">
+        <a-tooltip
+          v-for="p in (currentCall?.participants ?? []).slice(0, 5)"
+          :key="p.userId"
+          :title="p.nickname || ('用户 ' + p.userId)"
+        >
+          <a-avatar :size="36" class="participant-avatar">
+            {{ (p.nickname || String(p.userId)).charAt(0).toUpperCase() }}
+          </a-avatar>
+        </a-tooltip>
+        <span v-if="(currentCall?.participants ?? []).length > 5" class="more-count">
+          +{{ (currentCall?.participants ?? []).length - 5 }}
+        </span>
+      </div>
+      <a-button type="primary" size="large" :loading="actionLoading" @click="emit('join')">
+        <PhoneOutlined /> 加入通话
+      </a-button>
+    </div>
+
+    <!-- 通话中 -->
+    <div v-else-if="callState === 'in-call'" class="state-in-call">
+      <div class="call-header">
+        <div class="voice-icon in-call"><PhoneOutlined /></div>
+        <div>
+          <h3>通话中</h3>
+          <p class="desc">{{ (currentCall?.participants ?? []).length }} 人参与</p>
         </div>
       </div>
 
-      <!-- 参与者列表 -->
-      <div v-if="callState !== 'idle'" class="participants-section">
-        <div class="participant-item" v-for="p in participants" :key="p.userId">
-          <a-avatar :size="36">{{ p.nickname?.charAt(0) || 'U' }}</a-avatar>
-          <span class="participant-name">{{ p.nickname }}</span>
-          <span v-if="p.isSpeaking" class="speaking-dot">●</span>
+      <div class="participants-list">
+        <div v-for="p in (currentCall?.participants ?? [])" :key="p.userId" class="participant-row">
+          <a-avatar :size="32">{{ (p.nickname || String(p.userId)).charAt(0).toUpperCase() }}</a-avatar>
+          <span class="participant-id">{{ p.nickname || ('用户 ' + p.userId) }}</span>
+          <a-tag v-if="p.isInitiator" color="blue" size="small">发起人</a-tag>
+          <AudioMutedOutlined v-if="p.muted" class="muted-icon" />
         </div>
       </div>
 
-      <!-- 操作按钮 -->
+      <div class="call-controls">
+        <a-button shape="circle" size="large" @click="emit('toggle-mute')" :class="{ 'ctrl-btn--off': isMuted }">
+          <AudioMutedOutlined v-if="isMuted" />
+          <AudioOutlined v-else />
+        </a-button>
+        <a-button shape="circle" size="large" @click="emit('toggle-speaker')" :class="{ 'ctrl-btn--off': isSpeakerOff }">
+          <SoundOutlined v-if="!isSpeakerOff" />
+          <AudioMutedOutlined v-else />
+        </a-button>
+      </div>
+
       <div class="call-actions">
-        <a-button
-          v-if="callState === 'idle' && isOwner"
-          type="primary"
-          size="large"
-          @click="initiateCall"
-          :loading="loading"
-        >
-          <PhoneOutlined />
-          发起通话
+        <a-button size="large" :loading="actionLoading" @click="emit('leave')">
+          离开通话
         </a-button>
-
+        <!-- 房主专属：强制结束所有人的通话 -->
         <a-button
-          v-else-if="callState === 'calling' && !isOwner"
-          type="primary"
-          size="large"
-          @click="joinCall"
-          :loading="loading"
-        >
-          <PhoneOutlined />
-          加入通话
-        </a-button>
-
-        <template v-if="callState === 'in-call'">
-          <a-button
-            :type="isMuted ? 'default' : 'primary'"
-            size="large"
-            @click="toggleMute"
-          >
-            <AudioMutedOutlined v-if="isMuted" />
-            <AudioOutlined v-else />
-            {{ isMuted ? '取消静音' : '静音' }}
-          </a-button>
-          <a-button danger size="large" @click="leaveCall" :loading="loading">
-            <PhoneOutlined />
-            离开通话
-          </a-button>
-        </template>
-
-        <a-button
-          v-if="callState !== 'idle' && isOwner"
+          v-if="isOwner"
           danger
           size="large"
-          @click="endCall"
-          :loading="loading"
-          style="margin-left: 8px"
+          :loading="actionLoading"
+          @click="emit('end')"
         >
           结束通话
         </a-button>
-      </div>
-
-      <!-- 空闲状态说明 -->
-      <div v-if="callState === 'idle'" class="feature-description">
-        <a-alert
-          :message="isOwner ? '你是房主，可以发起语音通话' : '等待房主发起语音通话'"
-          type="info"
-          show-icon
-        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from 'vue'
-import { message as antMessage } from 'ant-design-vue'
-import { PhoneOutlined, AudioOutlined, AudioMutedOutlined } from '@ant-design/icons-vue'
-import { VoiceAPI } from '@/api/voice'
-import { WebRTCManager } from '@/utils/webrtc/WebRTCManager'
-import type { CallParticipant } from '@/utils/webrtc/WebRTCManager'
+import {
+  PhoneOutlined,
+  AudioOutlined,
+  AudioMutedOutlined,
+  SoundOutlined,
+  LockOutlined
+} from '@ant-design/icons-vue'
+import type { CallVO } from '@/types/api'
+import type { CallState } from '@/composables/useVoiceCall'
 
 interface Props {
-  roomId: number
-  currentUserId: number
-  isOwner?: boolean
+  callState: CallState
+  isOwner: boolean
+  currentCall: CallVO | null
+  loading: boolean
+  actionLoading: boolean
+  isMuted: boolean
+  isSpeakerOff: boolean
 }
 
 interface Emits {
-  (e: 'call-state-changed', state: 'idle' | 'calling' | 'in-call'): void
+  (e: 'open'): void
+  (e: 'join'): void
+  (e: 'leave'): void
+  (e: 'end'): void
+  (e: 'toggle-mute'): void
+  (e: 'toggle-speaker'): void
 }
 
-const props = withDefaults(defineProps<Props>(), { isOwner: false })
+defineProps<Props>()
 const emit = defineEmits<Emits>()
-
-// 状态
-const callState = ref<'idle' | 'calling' | 'in-call'>('idle')
-const loading = ref(false)
-const isMuted = ref(false)
-const currentCallId = ref<number | null>(null)
-const participants = ref<CallParticipant[]>([])
-
-// WebRTC 管理器
-const rtcManager = new WebRTCManager()
-
-// 设置信令发送函数（由父组件通过 sendSignaling 方法注入）
-let signalingFn: ((data: any) => void) | null = null
-
-rtcManager.setSignalingSender((msg) => {
-  if (signalingFn) signalingFn(msg)
-  else console.warn('[VoiceCallPanel] No signalingFn set, dropping:', msg)
-})
-
-rtcManager.setCurrentUserIdGetter(() => props.currentUserId)
-
-rtcManager.callbacks = {
-  ...rtcManager.callbacks,
-  onParticipantJoined: (p) => {
-    participants.value = Array.from(rtcManager.getCallState().participants.values())
-  },
-  onParticipantLeft: () => {
-    participants.value = Array.from(rtcManager.getCallState().participants.values())
-  },
-  onParticipantSpeaking: (userId, isSpeaking) => {
-    const p = participants.value.find(x => x.userId === userId)
-    if (p) p.isSpeaking = isSpeaking
-  }
-}
-
-// 计算属性
-const callStateText = computed(() => {
-  const map = { idle: '空闲', calling: '通话进行中（等待加入）', 'in-call': '通话中' }
-  return map[callState.value]
-})
-
-const statusIconClass = computed(() => ({
-  'status-idle': callState.value === 'idle',
-  'status-active': callState.value === 'in-call',
-  'status-calling': callState.value === 'calling'
-}))
-
-// 发起通话（房主）
-const initiateCall = async () => {
-  try {
-    loading.value = true
-    const res = await VoiceAPI.initiateCall({ roomId: props.roomId, callType: 'VOICE' as any })
-    currentCallId.value = res.data.callId
-    await rtcManager.initiateCall(res.data.callId, [])
-    callState.value = 'in-call'
-    emit('call-state-changed', 'in-call')
-    antMessage.success('通话已发起')
-  } catch (e: any) {
-    antMessage.error(e?.response?.data?.msg || '发起通话失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-// 加入通话（非房主，收到 call_start 后可调用）
-const joinCall = async () => {
-  if (!currentCallId.value) return
-  try {
-    loading.value = true
-    await VoiceAPI.joinCall(currentCallId.value)
-    await rtcManager.joinCall(currentCallId.value)
-    callState.value = 'in-call'
-    emit('call-state-changed', 'in-call')
-    antMessage.success('已加入通话')
-  } catch (e: any) {
-    antMessage.error(e?.response?.data?.msg || '加入通话失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-// 静音切换
-const toggleMute = () => {
-  isMuted.value = !rtcManager.toggleMute()
-}
-
-// 离开通话
-const leaveCall = async () => {
-  if (!currentCallId.value) return
-  try {
-    loading.value = true
-    await VoiceAPI.leaveCall(currentCallId.value)
-    rtcManager.leaveCall()
-    participants.value = []
-    callState.value = 'idle'
-    currentCallId.value = null
-    emit('call-state-changed', 'idle')
-  } catch (e: any) {
-    antMessage.error(e?.response?.data?.msg || '离开通话失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-// 结束通话（房主）
-const endCall = async () => {
-  if (!currentCallId.value) return
-  try {
-    loading.value = true
-    await VoiceAPI.endCall(currentCallId.value)
-    rtcManager.leaveCall()
-    participants.value = []
-    callState.value = 'idle'
-    currentCallId.value = null
-    emit('call-state-changed', 'idle')
-  } catch (e: any) {
-    antMessage.error(e?.response?.data?.msg || '结束通话失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-// ---- 供父组件调用的方法（通过 defineExpose）----
-
-/**
- * 注入信令发送函数（由 RoomDetailView 传入 WebSocket send 方法）
- */
-const setSignalingSender = (fn: (data: any) => void) => {
-  signalingFn = fn
-}
-
-/**
- * 收到 call_start 事件（后端推送）
- */
-const onCallStart = (data: any) => {
-  currentCallId.value = data.callId
-  if (!props.isOwner) {
-    callState.value = 'calling'
-    emit('call-state-changed', 'calling')
-  }
-}
-
-/**
- * 收到 voice_roster_update 事件
- */
-const onRosterUpdate = async (data: any) => {
-  if (!currentCallId.value) return
-  const roster: number[] = data.participants || []
-  for (const userId of roster) {
-    if (userId !== props.currentUserId) {
-      await rtcManager.addParticipant(userId)
-    }
-  }
-  participants.value = Array.from(rtcManager.getCallState().participants.values())
-}
-
-/**
- * 收到 signaling 事件（WebRTC 信令）
- */
-const onSignaling = async (message: any) => {
-  const sigData = message.data || message
-  await rtcManager.handleSignalingMessage(sigData)
-}
-
-/**
- * 收到 call_end 事件
- */
-const onCallEnd = () => {
-  rtcManager.leaveCall()
-  participants.value = []
-  callState.value = 'idle'
-  currentCallId.value = null
-  emit('call-state-changed', 'idle')
-}
-
-// 组件销毁时清理
-onBeforeUnmount(() => {
-  rtcManager.destroy()
-})
-
-defineExpose({
-  setSignalingSender,
-  onCallStart,
-  onRosterUpdate,
-  onSignaling,
-  onCallEnd
-})
 </script>
 
 <style scoped lang="scss">
 .voice-call-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
   padding: 24px;
-  background: white;
-  border-radius: 8px;
 
-  .voice-panel-content {
+  .state-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 12px;
     text-align: center;
 
-    .call-status-section {
-      margin-bottom: 24px;
+    h3 { margin: 0; font-size: 20px; color: #262626; }
+    .desc { margin: 0; color: #8c8c8c; font-size: 14px; }
+    .desc-sub { margin: 0; color: #bfbfbf; font-size: 13px; }
+  }
 
-      .status-display {
+  .voice-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    font-size: 32px;
+
+    &.locked  { background: #f5f5f5; color: #bfbfbf; }
+    &.idle    { background: #f0f5ff; color: #1890ff; }
+    &.active  { background: #fff7e6; color: #fa8c16; animation: pulse 1.5s ease-in-out infinite; }
+    &.in-call { background: #f6ffed; color: #52c41a; }
+  }
+
+  .participant-avatars {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 0;
+
+    .participant-avatar { border: 2px solid #fff; }
+    .more-count { font-size: 12px; color: #8c8c8c; margin-left: 4px; }
+  }
+
+  .state-in-call {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    .call-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      h3 { margin: 0; font-size: 18px; color: #262626; }
+      .desc { margin: 0; color: #8c8c8c; font-size: 13px; }
+    }
+
+    .participants-list {
+      border: 1px solid #f0f0f0;
+      border-radius: 8px;
+      overflow: hidden;
+
+      .participant-row {
         display: flex;
-        flex-direction: column;
         align-items: center;
         gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #f0f0f0;
 
-        .status-icon {
-          font-size: 48px;
-          transition: color 0.3s;
-          &.status-idle { color: #8c8c8c; }
-          &.status-calling { color: #faad14; }
-          &.status-active { color: #52c41a; }
-        }
-
-        .status-text {
-          h3 { margin: 0; font-size: 20px; color: #262626; }
-          p { margin: 4px 0 0; color: #8c8c8c; font-size: 14px; }
-        }
+        &:last-child { border-bottom: none; }
+        .participant-id { flex: 1; font-size: 14px; color: #262626; }
+        .muted-icon { color: #ff4d4f; font-size: 14px; }
       }
     }
 
-    .participants-section {
+    .call-controls {
       display: flex;
-      flex-wrap: wrap;
       justify-content: center;
       gap: 16px;
-      margin-bottom: 24px;
 
-      .participant-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        .participant-name { font-size: 12px; color: #595959; }
-        .speaking-dot { color: #52c41a; font-size: 10px; }
+      .ctrl-btn--off {
+        background: #ff4d4f;
+        border-color: #ff4d4f;
+        color: #fff;
+
+        &:hover {
+          background: #ff7875;
+          border-color: #ff7875;
+        }
       }
     }
 
     .call-actions {
       display: flex;
-      justify-content: center;
       gap: 12px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
-
-    .feature-description {
-      max-width: 400px;
-      margin: 0 auto;
     }
   }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.08); }
 }
 </style>
