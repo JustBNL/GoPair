@@ -41,17 +41,23 @@ export interface UseVoiceCallReturn {
  * - locked  —[call_start WS]→  active
  * - idle    —[房主点开启]→  in-call
  * - active  —[任何人加入]→  in-call
- * - in-call —[退出]→  active 或 idle/locked（后端广播 call_end 后）
+ * - in-call —[成员退出]→  active（通话继续，可重新加入）
+ * - in-call —[房主退出通话]→  active（房主只断本地WebRTC，通话继续，其他人不受影响）
  * - call_end WS → locked（非房主）| idle（房主）
  *
  * Bug 修复说明：
- * 1. 使用 watch(roomId) 替代 onMounted，确保 roomId 有效（> 0）后才查询活跃通话，
- *    避免父组件数据未就绪时发出无效请求。
- * 2. 初始化时如果已被 WS 事件（notifyCallStart）驱动到 active/in-call，则不覆盖。
- * 3. notifyCallStart 修正：只要不是 in-call 就过渡到 active。
- *    原逻辑仅检查 locked|idle，当初始化竞争失败导致状态异常时无法恢复。
- * 4. leaveAndCleanup 增加防重入标记，防止 handleLeave 和 onBeforeUnmount 同时触发。
- * 5. handleLeave 使用 leaveAndCleanup 统一处理，消除重复代码。
+ * ① handleRosterUpdate 的 callId 校验改为直接使用传入参数 callId，不再依赖 currentCall.value.callId。
+ *    原因：leaveAndCleanup 会将 currentCall 置为 null，若 roster_update WS 事件在
+ *    refreshCallStateAfterLeave 完成之前到达，currentCall.value 为 null，
+ *    导致 handleRosterUpdate 提前 return，重新加入者的 PeerConnection 永远无法重建。
+ * ② handleRosterUpdate 修复 localIds 快照时机：先执行所有 removeParticipant，
+ *    再重新获取当前活跃 PC 列表作为 localIds，然后对 latestParticipants 做 add 判断。
+ *    原因：remove 之前的 localIds 快照包含即将被删除的 userId，导致 add 判断时
+ *    认为该用户「已存在」而跳过重建。
+ * ③ 房主执行 handleLeave 时，仅断开本地 WebRTC 并将状态变为 active，不调用后端 leaveCall API。
+ *    原因：后端 leaveCall 在剩余参与者为空时会自动 terminateCall + 广播 call_end，
+ *    强制所有人退出，违背「房主退出不关闭通话」的需求。
+ * ④ notifyCallStart 中 getCall 失败时用 getActiveCall 兜底，确保 currentCall 总能填充。
  */
 export function useVoiceCall(
   roomId: Ref<number>,
@@ -71,6 +77,9 @@ export function useVoiceCall(
   // 防重入 / 防竞争标记
   let initialized = false
   let leavingInProgress = false
+  // roster update serial mutex
+  let rosterUpdating = false
+  let rosterPendingCallId = null
 
   // ---------------------------------------------------------------------------
   // 初始化：watch roomId，有效时查询当前活跃通话
@@ -85,6 +94,7 @@ export function useVoiceCall(
       // 若此时已因 WS 事件（notifyCallStart）驱动到 active/in-call，不覆盖
       if (callState.value === 'locked' || callState.value === 'idle') {
         if (res.data) {
+          if (!Array.isArray(res.data.participants)) res.data.participants = []
           currentCall.value = res.data
           callState.value = 'active'
         } else {
@@ -125,7 +135,7 @@ export function useVoiceCall(
     }
   }
 
-  // 仅在 roomId 有效后注册 beforeunload，避免无意义注册
+  // 仅在 roomId 有效后注册 beforeunload
   const stopBeaconWatch = watch(
     roomId,
     (newId) => {
@@ -167,7 +177,12 @@ export function useVoiceCall(
   }
 
   /**
-   * 安全退出并清理 WebRTC，带防重入保护
+   * 安全退出并清理 WebRTC，带防重入保护。
+   *
+   * [Bug 修复③] 区分房主与成员：
+   * - 成员退出：调用后端 leaveCall API，后端更新参与者状态并广播 roster_update
+   * - 房主退出：仅断开本地 WebRTC，状态变为 active（通话继续），不调用 leaveCall API
+   *   防止后端因剩余参与者为空时自动 terminateCall + 广播 call_end
    */
   async function leaveAndCleanup(): Promise<void> {
     if (leavingInProgress) return
@@ -177,21 +192,30 @@ export function useVoiceCall(
     }
     leavingInProgress = true
     const callId = currentCall.value.callId
-    // 先重置本地状态再调 API，防止 UI 闪烁
+
+    // 先清理本地 WebRTC 资源
     cleanupWebRTC()
-    currentCall.value = null
-    // Bug 修复：退出后应显示 active（通话仍在进行，可重新加入），
-    // 而非 locked（仅在通话不存在时才用）
-    // 退出后重新拉取活跃通话，若通话仍在则 active，否则 idle/locked
-    try {
-      await VoiceAPI.leaveCall(callId)
-    } catch (e) {
-      console.warn('[WebRTC] leaveCall API failed (may be ok on unload):', e)
-    } finally {
+
+    if (isOwner.value) {
+      // --- 房主：只断开本地连接，通话继续存在 ---
+      // 不调用后端 leaveCall，避免触发 terminateCall + call_end 广播
+      // 状态恢复为 active，保留 currentCall 以便重新加入
       leavingInProgress = false
+      // 重新拉取最新通话状态（其他参与者可能已发生变化）
+      await refreshCallStateAfterLeave()
+    } else {
+      // --- 成员：调用后端 leaveCall，通知其他人 ---
+      currentCall.value = null
+      try {
+        await VoiceAPI.leaveCall(callId)
+      } catch (e) {
+        console.warn('[WebRTC] leaveCall API failed (may be ok on unload):', e)
+      } finally {
+        leavingInProgress = false
+      }
+      // 退出后刷新通话状态
+      await refreshCallStateAfterLeave()
     }
-    // 退出后刷新通话状态
-    await refreshCallStateAfterLeave()
   }
 
   /**
@@ -265,16 +289,10 @@ export function useVoiceCall(
     isMuted.value = false
     isSpeakerOff.value = false
 
-    // -----------------------------------------------------------------------
-    // 关键修复：主动为已在通话中的参与者建立 PeerConnection
-    //
-    // 使用 joinOrCreateCall 返回的 CallVO.participants 数据；
-    // 若 participants 为空但 participantCount > 0，说明后端未填充参与者列表，
-    // 则回退到 getCall 重新拉取完整数据。
-    // -----------------------------------------------------------------------
+    // 主动为已在通话中的参与者建立 PeerConnection
     if (webrtcManager) {
       let existingParticipants = currentCall.value?.participants ?? []
-      // 若 participants 为空但 participantCount > 0，重新拉取
+      // 若 participants 为空但 participantCount > 0，重新拉取完整数据
       if (existingParticipants.length === 0 && (currentCall.value?.participantCount ?? 0) > 0) {
         console.log('[WebRTC] participants array empty but participantCount > 0, fetching full call data...')
         try {
@@ -286,6 +304,17 @@ export function useVoiceCall(
           }
         } catch (e) {
           console.warn('[WebRTC] Failed to fetch full call data for participant setup:', e)
+          // 兜底：用 getActiveCall
+          try {
+            const activeRes = await VoiceAPI.getActiveCall(roomId.value)
+            if (activeRes.data) {
+              if (!Array.isArray(activeRes.data.participants)) activeRes.data.participants = []
+              currentCall.value = activeRes.data
+              existingParticipants = activeRes.data.participants
+            }
+          } catch (e2) {
+            console.warn('[WebRTC] Fallback getActiveCall also failed:', e2)
+          }
         }
       }
       if (existingParticipants.length > 0) {
@@ -301,8 +330,27 @@ export function useVoiceCall(
     await VoiceAPI.notifyReady(resolvedCallId)
     console.log('[WebRTC] notifyReady sent, callId:', resolvedCallId)
 
-    // notifyReady 之后服务端会广播 participant-join 给已有成员，
-    // 同时本地可能已缓冲了来自已有成员的信令，统一在此处理
+    // Refresh currentCall after notifyReady so VoiceCallPanel shows the
+    // complete participant list including the current user.
+    try {
+      const refreshed = await VoiceAPI.getCall(resolvedCallId)
+      if (refreshed.data) {
+        if (!Array.isArray(refreshed.data.participants)) refreshed.data.participants = []
+        currentCall.value = refreshed.data
+        console.log('[WebRTC] currentCall refreshed, participants:',
+          refreshed.data.participants.map((p) => p.userId))
+      }
+    } catch (e) {
+      console.warn('[WebRTC] post-notifyReady getCall failed, trying getActiveCall:', e)
+      try {
+        const ar = await VoiceAPI.getActiveCall(roomId.value)
+        if (ar.data) {
+          if (!Array.isArray(ar.data.participants)) ar.data.participants = []
+          currentCall.value = ar.data
+        }
+      } catch {}
+    }
+
     await drainPendingSignals()
   }
 
@@ -312,7 +360,6 @@ export function useVoiceCall(
 
   /**
    * 房主开启语音通话（从 idle 状态触发）
-   * 调用 joinOrCreateCall，后端广播 call_start，其他人经 notifyCallStart 过渡到 active
    */
   async function handleOpen(): Promise<void> {
     actionLoading.value = true
@@ -354,14 +401,15 @@ export function useVoiceCall(
   }
 
   /**
-   * 退出通话（仅自己离开，其他人通话继续）
+   * 退出通话
+   * [Bug 修复③] 房主退出时不调用后端 leaveCall，只断开本地 WebRTC
    */
   async function handleLeave(): Promise<void> {
     if (!currentCall.value || leavingInProgress) return
     actionLoading.value = true
     try {
       await leaveAndCleanup()
-      antMessage.success('已离开通话')
+      antMessage.success(isOwner.value ? '已退出通话（通话仍在进行中）' : '已离开通话')
     } catch (error: any) {
       antMessage.error(error.response?.data?.msg || '操作失败')
     } finally {
@@ -418,24 +466,12 @@ export function useVoiceCall(
 
   /**
    * 收到 call_start 事件：通话已开启
-   *
-   * [核心 Bug 修复]
-   * 原逻辑：只检查 callState === 'locked' || callState === 'idle'
-   * 问题：
-   *   - 当 roomId 就绪时，initCallState 和 WS 事件存在竞争。若 WS 事件先到达，
-   *     状态已经变为 active；若 initCallState 稍晚完成且 getActiveCall 偶发返回空，
-   *     则状态会被重置为 locked/idle，导致其他用户看不到通话进行中的状态。
-   *   - 更严重的情况：非房主用户的初始状态默认是 locked，WS 事件到达时已是 locked，
-   *     看似能处理，但若 initCallState 在 WS 事件后完成且返回空（竞争窗口内），
-   *     就会把 active 覆盖回 locked。
-   * 新逻辑：只要不是 in-call（自己已在通话中），收到 call_start 都过渡到 active。
-   * 这同时修复了：房主开启后，其他已在页面的用户状态不更新的 bug。
+   * [Bug 修复④] getCall 失败时用 getActiveCall 兜底，确保 currentCall 总能填充
    */
   async function notifyCallStart(callId: number): Promise<void> {
     if (callState.value === 'in-call') return
     try {
       const res = await VoiceAPI.getCall(callId)
-      // 确保 participants 字段始终为数组，防止后端返回 null 导致渲染崩溃
       const callData = res.data
       if (callData && !Array.isArray(callData.participants)) {
         callData.participants = []
@@ -443,6 +479,16 @@ export function useVoiceCall(
       currentCall.value = callData
       callState.value = 'active'
     } catch {
+      // getCall 失败（如 500）时，用 getActiveCall 兜底
+      try {
+        const activeRes = await VoiceAPI.getActiveCall(roomId.value)
+        if (activeRes.data) {
+          if (!Array.isArray(activeRes.data.participants)) activeRes.data.participants = []
+          currentCall.value = activeRes.data
+        }
+      } catch {
+        // 兜底也失败，至少把状态设为 active，让用户可以尝试加入
+      }
       callState.value = 'active'
     }
   }
@@ -453,7 +499,7 @@ export function useVoiceCall(
    * - 非房主回到 locked（等待房主开启）
    */
   function notifyCallEnd(_callId: number): void {
-    if (callState.value === 'locked') return // 已是最终状态，忽略
+    if (callState.value === 'locked') return
     cleanupWebRTC()
     currentCall.value = null
     callState.value = isOwner.value ? 'idle' : 'locked'
@@ -461,7 +507,6 @@ export function useVoiceCall(
 
   // ---------------------------------------------------------------------------
   // 信令处理（纯 WebRTC 媒体协商：offer / answer / ice-candidate）
-  // 参与者名单管理已迁移到 handleRosterUpdate，不再在此处理。
   // ---------------------------------------------------------------------------
 
   async function handleSignalingInternal(data: any): Promise<void> {
@@ -514,7 +559,6 @@ export function useVoiceCall(
 
   async function handleSignaling(data: any): Promise<void> {
     if (!webrtcManager || callState.value !== 'in-call') {
-      // 信令仅用于 P2P 协商，in-call 之前的信令直接丢弃（名单变更由 handleRosterUpdate 处理）
       console.log('[WebRTC] Not in-call, dropping signal:', data?.type)
       return
     }
@@ -522,13 +566,41 @@ export function useVoiceCall(
   }
 
   // ---------------------------------------------------------------------------
-  // 名单刷新（由 voice_roster_update WS 事件触发，后端权威数据驱动 WebRTC diff）
+  // 名单刷新（由 voice_roster_update WS 事件触发）
+  //
+  // [Bug 修复①②]
+  // ① 移除对 currentCall.value.callId 的依赖校验：改为直接使用传入参数 callId。
+  //    leaveAndCleanup 会将 currentCall 置为 null，若 roster_update 在
+  //    refreshCallStateAfterLeave 完成前到达，currentCall 为 null 会导致提前 return，
+  //    重新加入者的 PeerConnection 永远无法重建。
+  // ② 修复 localIds 快照时机：先执行所有 removeParticipant，再重新获取 localIds，
+  //    然后对 latestParticipants 做 add 判断。
+  //    原快照在 remove 之前获取，导致被删除的 userId 仍在 localIds 中，
+  //    add 判断时认为该用户「已存在」而跳过重建。
   // ---------------------------------------------------------------------------
 
   async function handleRosterUpdate(callId: number): Promise<void> {
     if (!webrtcManager || callState.value !== 'in-call') return
-    if (!currentCall.value?.callId || currentCall.value.callId !== callId) return
+    if (rosterUpdating) {
+      rosterPendingCallId = callId
+      return
+    }
+    rosterUpdating = true
+    try {
+      await executeRosterUpdate(callId)
+      while (rosterPendingCallId !== null) {
+        const nextId = rosterPendingCallId
+        rosterPendingCallId = null
+        if (webrtcManager && callState.value === 'in-call') {
+          await executeRosterUpdate(nextId)
+        }
+      }
+    } finally {
+      rosterUpdating = false
+    }
+  }
 
+  async function executeRosterUpdate(callId: number): Promise<void> {
     let latestParticipants: any[] = []
     try {
       const res = await VoiceAPI.getCall(callId)
@@ -537,38 +609,45 @@ export function useVoiceCall(
       currentCall.value = res.data
       latestParticipants = res.data.participants
     } catch (e) {
-      console.warn('[WebRTC] handleRosterUpdate: failed to fetch participants:', e)
-      return
+      console.warn('[WebRTC] executeRosterUpdate: getCall failed:', e)
+      try {
+        const activeRes = await VoiceAPI.getActiveCall(roomId.value)
+        if (!activeRes.data) return
+        if (!Array.isArray(activeRes.data.participants)) activeRes.data.participants = []
+        currentCall.value = activeRes.data
+        latestParticipants = activeRes.data.participants
+      } catch (e2) {
+        console.warn('[WebRTC] executeRosterUpdate: fallback also failed:', e2)
+        return
+      }
     }
+
+    if (!webrtcManager) return
 
     const activeIds = new Set(
       latestParticipants
-        .filter((p: any) => p.userId !== currentUserId.value)
-        .map((p: any) => Number(p.userId))
+        .filter((p) => p.userId !== currentUserId.value)
+        .map((p) => Number(p.userId))
     )
-    const localIds = new Set(webrtcManager.getParticipantIds())
 
-    // 1. 移除已离开的 PC
-    for (const id of localIds) {
+    const localIdsBefore = new Set(webrtcManager.getParticipantIds())
+    for (const id of localIdsBefore) {
       if (!activeIds.has(id)) {
         console.log('[WebRTC] roster: removing departed userId:', id)
         webrtcManager.removeParticipant(id)
       }
     }
 
-    // 2. 为新加入的参与者建立 PC（重新加入者强制重建）
+    const localIdsAfterRemove = new Set(webrtcManager.getParticipantIds())
     for (const p of latestParticipants) {
       if (p.userId === currentUserId.value) continue
       const uid = Number(p.userId)
-      if (!localIds.has(uid)) {
-        // 新增：直接 add（addParticipant 内部已有 already-exists 保护）
+      if (!localIdsAfterRemove.has(uid)) {
         console.log('[WebRTC] roster: adding new userId:', uid)
         await webrtcManager.addParticipant(uid, p.nickname)
       }
-      // 已有连接的参与者不做任何操作，保持现有 PC
     }
   }
-
   async function handleLeaveBeforeUnmount(): Promise<void> {
     await leaveAndCleanup()
   }
@@ -592,5 +671,4 @@ export function useVoiceCall(
     handleRosterUpdate,
     handleLeaveBeforeUnmount
   }
-}
- 
+} 

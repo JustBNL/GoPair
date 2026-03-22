@@ -452,10 +452,16 @@ const {
   },
   onMemberJoin: () => {
     console.log('👋 收到成员加入事件')
+    if (currentRoom.value) {
+      currentRoom.value = { ...currentRoom.value, currentMembers: currentRoom.value.currentMembers + 1 }
+    }
     loadRoomMembers()
   },
   onMemberLeave: () => {
     console.log('👋 收到成员离开事件')
+    if (currentRoom.value) {
+      currentRoom.value = { ...currentRoom.value, currentMembers: Math.max(0, currentRoom.value.currentMembers - 1) }
+    }
     loadRoomMembers()
   },
   onCallStart: (callId: number, initiatorId: number) => {

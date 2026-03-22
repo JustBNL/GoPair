@@ -256,11 +256,16 @@ public class VoiceCallServiceImpl implements VoiceCallService {
         );
 
         if (existing != null) {
-            // 重新激活：清空 leaveTime，更新 joinTime 和状态
-            existing.setJoinTime(LocalDateTime.now());
-            existing.setLeaveTime(null);
-            existing.setConnectionStatus(1);
-            participantMapper.updateById(existing);
+            // 重新激活：必须用 update+Wrapper 显式将 leave_time 设为 NULL。
+            // updateById 默认忽略 null 字段（NOT_NULL 策略），导致 leave_time 永远无法被清除。
+            participantMapper.update(
+                    null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<VoiceCallParticipant>()
+                            .eq(VoiceCallParticipant::getId, existing.getId())
+                            .set(VoiceCallParticipant::getJoinTime, LocalDateTime.now())
+                            .set(VoiceCallParticipant::getLeaveTime, null)
+                            .set(VoiceCallParticipant::getConnectionStatus, 1)
+            );
         } else {
             VoiceCallParticipant p = new VoiceCallParticipant();
             p.setCallId(callId);

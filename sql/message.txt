@@ -1,2 +1,0 @@
-"message_id"	"room_id"	"sender_id"	"message_type"	"content"	"file_url"	"file_name"	"file_size"	"reply_to_id"	"create_time"	"update_time"
-"1"	"5"	"8"	"1"	"你好"					"1/9/2025 12:02:47"	
