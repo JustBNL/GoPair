@@ -197,11 +197,17 @@ export function useVoiceCall(
     cleanupWebRTC()
 
     if (isOwner.value) {
-      // --- 房主：只断开本地连接，通话继续存在 ---
-      // 不调用后端 leaveCall，避免触发 terminateCall + call_end 广播
-      // 状态恢复为 active，保留 currentCall 以便重新加入
-      leavingInProgress = false
-      // 重新拉取最新通话状态（其他参与者可能已发生变化）
+      // --- 房主：标记为已离开，但通话继续存在 ---
+      // 调用专用 ownerLeave 接口：后端只更新 leaveTime，不 terminateCall，
+      // 广播 voice_roster_update 让其他成员移除房主的 PeerConnection。
+      try {
+        await VoiceAPI.ownerLeaveCall(callId)
+      } catch (e) {
+        console.warn('[WebRTC] ownerLeaveCall API failed:', e)
+      } finally {
+        leavingInProgress = false
+      }
+      // 重新拉取最新通话状态（房主已不在参与者列表中）
       await refreshCallStateAfterLeave()
     } else {
       // --- 成员：调用后端 leaveCall，通知其他人 ---

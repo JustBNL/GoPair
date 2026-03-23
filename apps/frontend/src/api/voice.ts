@@ -44,6 +44,14 @@ export class VoiceAPI {
   }
 
   /**
+   * 房主退出通话（不终止通话，通话继续对其他成员有效）
+   * 后端仅将房主标记为已离开并广播 voice_roster_update。
+   */
+  static async ownerLeaveCall(callId: number): Promise<ApiResponse<boolean>> {
+    return http.post(API_ENDPOINTS.VOICE_OWNER_LEAVE(callId))
+  }
+
+  /**
    * 结束通话
    */
   static async endCall(callId: number): Promise<ApiResponse<boolean>> {

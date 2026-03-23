@@ -37,10 +37,10 @@
         <a-tooltip
           v-for="p in (currentCall?.participants ?? []).slice(0, 5)"
           :key="p.userId"
-          :title="p.nickname || ('用户 ' + p.userId)"
+          :title="resolveNickname(p)"
         >
           <a-avatar :size="36" class="participant-avatar">
-            {{ (p.nickname || String(p.userId)).charAt(0).toUpperCase() }}
+            {{ resolveNickname(p).charAt(0).toUpperCase() }}
           </a-avatar>
         </a-tooltip>
         <span v-if="(currentCall?.participants ?? []).length > 5" class="more-count">
@@ -64,8 +64,8 @@
 
       <div class="participants-list">
         <div v-for="p in (currentCall?.participants ?? [])" :key="p.userId" class="participant-row">
-          <a-avatar :size="32">{{ (p.nickname || String(p.userId)).charAt(0).toUpperCase() }}</a-avatar>
-          <span class="participant-id">{{ p.nickname || ('用户 ' + p.userId) }}</span>
+          <a-avatar :size="32">{{ resolveNickname(p).charAt(0).toUpperCase() }}</a-avatar>
+          <span class="participant-id">{{ resolveNickname(p) }}</span>
           <a-tag v-if="p.isInitiator" color="blue" size="small">发起人</a-tag>
           <AudioMutedOutlined v-if="p.muted" class="muted-icon" />
         </div>
@@ -120,6 +120,7 @@ interface Props {
   actionLoading: boolean
   isMuted: boolean
   isSpeakerOff: boolean
+  memberNicknames?: Record<number, string>
 }
 
 interface Emits {
@@ -131,8 +132,14 @@ interface Emits {
   (e: 'toggle-speaker'): void
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+function resolveNickname(p: { userId: number; nickname?: string }): string {
+  if (p.nickname) return p.nickname
+  if (props.memberNicknames?.[p.userId]) return props.memberNicknames[p.userId]
+  return `用户 ${p.userId}`
+}
 </script>
 
 <style scoped lang="scss">

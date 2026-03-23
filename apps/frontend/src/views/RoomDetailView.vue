@@ -237,6 +237,7 @@
                 :action-loading="actionLoading"
                 :is-muted="isMuted"
                 :is-speaker-off="isSpeakerOff"
+                :member-nicknames="memberNicknameMap"
                 @open="handleOpen"
                 @join="handleJoin"
                 @leave="handleLeave"
@@ -534,6 +535,15 @@ const {
 
 // 成员相关状态
 const roomMembers = ref<RoomMember[]>([])
+
+// userId -> nickname 映射，供语音面板解析参与者昵称
+const memberNicknameMap = computed<Record<number, string>>(() => {
+  const map: Record<number, string> = {}
+  for (const m of roomMembers.value) {
+    if (m.userId && m.displayName) map[m.userId] = m.displayName
+  }
+  return map
+})
 
 // 微服务状态管理
 interface ServiceState {

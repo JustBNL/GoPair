@@ -190,8 +190,12 @@ export class WebRTCManager {
     }
 
     // 处理远程音频流
+    // [Bug Fix] event.streams 可能为空数组（某些浏览器在 unified-plan 下 track 先于 stream 到达）
+    // 若 streams[0] 不存在，则用 event.track 手动构造 MediaStream
     peerConnection.ontrack = (event) => {
-      const [remoteStream] = event.streams
+      const remoteStream = (event.streams && event.streams.length > 0)
+        ? event.streams[0]
+        : new MediaStream([event.track])
       this.handleRemoteStream(userId, remoteStream)
     }
 
@@ -217,6 +221,10 @@ export class WebRTCManager {
   private handleRemoteStream(userId: number, stream: MediaStream): void {
     const participant = this.callState.participants.get(userId)
     if (!participant) return
+    if (!stream) {
+      console.warn('[WebRTC] handleRemoteStream: stream is null for userId:', userId)
+      return
+    }
 
     participant.audioStream = stream
 
@@ -410,45 +418,30 @@ export class WebRTCManager {
     if (participant.audioElement) {
       participant.audioElement.srcObject = null
       participant.audioElement.remove()
-    }
+        }
 
     this.callState.participants.delete(userId)
-    // 清理该用户的缓冲数据
     this.pendingCandidates.delete(userId)
     this.pendingOffers.delete(userId)
     this.callbacks.onParticipantLeft?.(userId)
   }
 
-  /**
-   * 处理信令消息
-   */
   async handleSignalingMessage(message: any): Promise<void> {
     try {
       const { type, fromUserId, targetUserId, sdp, candidate } = message
-
-      if (targetUserId && targetUserId !== this.getCurrentUserId()) {
-        return // 消息不是发给当前用户的
-      }
-
+      if (targetUserId && targetUserId !== this.getCurrentUserId()) return
       const participant = this.callState.participants.get(fromUserId)
       if (!participant?.peerConnection) {
         if (type === 'offer') {
-          // offer 比 participant-join 触发的 addParticipant 更早到达时，缓冲它。
-          // addParticipant 完成后（shouldSendOffer=false 分支）会自动冲刷。
           console.log('[WebRTC] Buffering early offer from userId:', fromUserId)
           this.pendingOffers.set(fromUserId, sdp)
           return
         }
-        // answer / ice-candidate 在 PeerConnection 不存在时直接丢弃。
-        // PC 的创建由 participant-join → addParticipant 统一负责，
-        // 避免 ice-candidate 先到时提前建 PC，与 participant-join 产生竞争。
         console.warn('[WebRTC] No PC for', type, 'from userId:', fromUserId, '- dropping')
         return
       }
-
       const peerConnection = this.callState.participants.get(fromUserId)?.peerConnection
       if (!peerConnection) return
-
       switch (type) {
         case 'offer':
           await this.handleOffer(peerConnection, fromUserId, sdp)
@@ -466,46 +459,25 @@ export class WebRTCManager {
     }
   }
 
-  /**
-   * 处理Offer
-   */
   private async handleOffer(peerConnection: RTCPeerConnection, fromUserId: number, offer: RTCSessionDescription): Promise<void> {
-    // Glare 处理：如果本地已经发出了 offer（have-local-offer），需要先 rollback
     if (peerConnection.signalingState === 'have-local-offer') {
       console.log('[WebRTC] Glare detected, rolling back local offer for userId:', fromUserId)
       await peerConnection.setLocalDescription({ type: 'rollback' })
     }
-
     await peerConnection.setRemoteDescription(offer)
-    
     const answer = await peerConnection.createAnswer()
     await peerConnection.setLocalDescription(answer)
-    
-    // 冲刷在 remoteDescription 设置前缓冲的 ICE candidate
     await this.flushPendingCandidates(peerConnection, fromUserId)
-
-    this.sendSignalingMessage({
-      type: 'answer',
-      targetUserId: fromUserId,
-      sdp: answer
-    })
+    this.sendSignalingMessage({ type: 'answer', targetUserId: fromUserId, sdp: answer })
   }
 
-  /**
-   * 处理Answer
-   */
   private async handleAnswer(peerConnection: RTCPeerConnection, answer: RTCSessionDescription, fromUserId: number): Promise<void> {
     await peerConnection.setRemoteDescription(answer)
-    // 冲刷在 remoteDescription 设置前缓冲的 ICE candidate
     await this.flushPendingCandidates(peerConnection, fromUserId)
   }
 
-  /**
-   * 处理ICE候选
-   */
   private async handleIceCandidate(peerConnection: RTCPeerConnection, candidate: RTCIceCandidate, fromUserId: number): Promise<void> {
     if (!peerConnection.remoteDescription) {
-      // remoteDescription 尚未设置，缓冲 candidate
       const pending = this.pendingCandidates.get(fromUserId) ?? []
       pending.push(candidate)
       this.pendingCandidates.set(fromUserId, pending)
@@ -515,9 +487,6 @@ export class WebRTCManager {
     await peerConnection.addIceCandidate(candidate)
   }
 
-  /**
-   * 冲刷指定用户的待处理 ICE candidate
-   */
   private async flushPendingCandidates(peerConnection: RTCPeerConnection, userId: number): Promise<void> {
     const pending = this.pendingCandidates.get(userId)
     if (!pending || pending.length === 0) return
@@ -532,25 +501,15 @@ export class WebRTCManager {
     }
   }
 
-  /**
-   * 静音/取消静音
-   */
   toggleMute(): boolean {
     if (!this.callState.localStream) return false
-
     const audioTracks = this.callState.localStream.getAudioTracks()
-    const isMuted = !audioTracks[0]?.enabled
-
-    audioTracks.forEach(track => {
-      track.enabled = isMuted
-    })
-
+    if (audioTracks.length === 0) return false
+    const isMuted = !audioTracks[0].enabled
+    audioTracks.forEach(track => { track.enabled = isMuted })
     return !isMuted
   }
 
-  /**
-   * 设置音量
-   */
   setVolume(userId: number, volume: number): void {
     const participant = this.callState.participants.get(userId)
     if (participant?.audioElement) {
@@ -558,120 +517,65 @@ export class WebRTCManager {
     }
   }
 
-  /**
-   * 离开通话
-   */
   leaveCall(): void {
-    // 停止说话检测
     this.stopSpeakingDetection()
-
-    // 关闭所有连接
-    this.callState.participants.forEach((participant, userId) => {
-      this.removeParticipant(userId)
-    })
-
-    // 停止本地流
+    this.callState.participants.forEach((_, userId) => { this.removeParticipant(userId) })
     if (this.callState.localStream) {
       this.callState.localStream.getTracks().forEach(track => track.stop())
       this.callState.localStream = null
     }
-
-    // 关闭音频上下文
     if (this.localAudioContext && this.localAudioContext.state !== 'closed') {
       this.localAudioContext.close()
       this.localAudioContext = null
     }
-
-    // 重置状态
     this.callState = {
-      callId: null,
-      isInCall: false,
-      isInitiator: false,
-      participants: new Map(),
-      localStream: null,
-      callStartTime: null,
-      callDuration: 0
+      callId: null, isInCall: false, isInitiator: false,
+      participants: new Map(), localStream: null,
+      callStartTime: null, callDuration: 0
     }
-
     this.callbacks.onCallStateChanged?.(this.callState)
   }
 
-  /**
-   * 处理连接失败
-   */
   private handleConnectionFailure(userId: number): void {
     console.error(`与用户 ${userId} 的连接失败`)
-    // 可以尝试重新连接或移除参与者
-    // this.removeParticipant(userId)
   }
 
-  /**
-   * 发送信令消息（需要外部实现）
-   */
   private sendSignalingMessage(message: any): void {
-    // 这个方法需要被外部WebSocket客户端重写
     console.log('发送信令消息:', message)
   }
 
-  /**
-   * 获取当前用户ID（需要外部实现）
-   */
   private getCurrentUserId(): number {
-    // 这个方法需要被外部重写
     return 0
   }
 
-  /**
-   * 设置信令发送函数
-   */
   setSignalingSender(sender: (message: any) => void): void {
     this.sendSignalingMessage = sender
   }
 
-  /**
-   * 设置当前用户ID获取函数
-   */
   setCurrentUserIdGetter(getter: () => number): void {
     this.getCurrentUserId = getter
   }
 
-  /**
-   * 检查参与者是否已有 PeerConnection
-   */
   hasParticipant(userId: number): boolean {
     return this.callState.participants.has(userId)
   }
 
-  /**
-   * 获取当前所有参与者的 userId 列表
-   */
   getParticipantIds(): number[] {
     return Array.from(this.callState.participants.keys())
   }
 
-  /**
-   * 获取当前通话状态
-   */
   getCallState(): CallState {
     return { ...this.callState }
   }
 
-  /**
-   * 获取网络质量统计
-   */
   async getNetworkStats(userId?: number): Promise<RTCStatsReport | null> {
     const participant = userId
       ? this.callState.participants.get(userId)
       : Array.from(this.callState.participants.values())[0]
-
     if (!participant?.peerConnection) return null
-
     return await participant.peerConnection.getStats()
   }
 
-  /**
-   * 销毁实例
-   */
   destroy(): void {
     this.leaveCall()
   }

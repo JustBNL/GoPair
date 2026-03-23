@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
   VOICE_GET: (callId: number) => `/voice/${callId}`,
   VOICE_ROOM_JOIN: (roomId: number) => `/voice/room/${roomId}/join`,
   VOICE_READY: (callId: number) => `/voice/${callId}/ready`,
+  VOICE_OWNER_LEAVE: (callId: number) => `/voice/${callId}/owner-leave`,
   VOICE_ROOM_ACTIVE: (roomId: number) => `/voice/room/${roomId}/active`,
   VOICE_ROOM_HISTORY: (roomId: number) => `/voice/room/${roomId}/history`,
   VOICE_PARTICIPANTS: (callId: number) => `/voice/${callId}/participants`,

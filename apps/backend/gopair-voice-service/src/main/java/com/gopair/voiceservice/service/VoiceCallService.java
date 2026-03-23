@@ -32,6 +32,13 @@ public interface VoiceCallService {
     /** 离开通话 */
     void leaveCall(Long callId, Long userId);
 
+    /**
+     * 房主退出通话（不终止通话，仅将房主标记为已离开并广播 roster_update）
+     * 区别于 leaveCall：普通 leaveCall 在最后一人离开时会 terminateCall + 广播 call_end，
+     * 但房主退出时通话应继续存在（其他成员仍在通话中）。
+     */
+    void ownerLeave(Long callId, Long userId);
+
     /** 结束通话（任意参与者可操作） */
     void endCall(Long callId, Long userId);
 

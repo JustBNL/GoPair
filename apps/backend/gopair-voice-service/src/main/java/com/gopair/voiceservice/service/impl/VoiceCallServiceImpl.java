@@ -193,6 +193,33 @@ public class VoiceCallServiceImpl implements VoiceCallService {
         log.info("[语音] 用户离开通话: callId={}, userId={}", callId, userId);
     }
 
+    /**
+     * 房主退出通话：仅标记房主为已离开，不触发 terminateCall。
+     * 广播 voice_roster_update，其他客户端收到后移除房主的 PeerConnection。
+     */
+    @Override
+    @Transactional
+    public void ownerLeave(Long callId, Long userId) {
+        VoiceCallParticipant participant = participantMapper.selectOne(
+                new LambdaQueryWrapper<VoiceCallParticipant>()
+                        .eq(VoiceCallParticipant::getCallId, callId)
+                        .eq(VoiceCallParticipant::getUserId, userId)
+                        .isNull(VoiceCallParticipant::getLeaveTime)
+        );
+        if (participant != null) {
+            participant.setLeaveTime(LocalDateTime.now());
+            participant.setConnectionStatus(2);
+            participantMapper.updateById(participant);
+        }
+
+        // 通话继续，广播 roster_update 让其他人移除房主的 PC
+        VoiceCall call = getCallOrThrow(callId);
+        wsProducer.sendEventToRoom(call.getRoomId(), "voice_roster_update", Map.of(
+                "callId", callId
+        ));
+        log.info("[语音] 房主退出通话（通话继续）: callId={}, ownerId={}", callId, userId);
+    }
+
     @Override
     @Transactional
     public void endCall(Long callId, Long userId) {

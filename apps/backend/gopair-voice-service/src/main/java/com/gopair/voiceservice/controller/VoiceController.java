@@ -74,6 +74,19 @@ public class VoiceController {
     }
 
     /**
+     * 房主退出通话（不终止通话）
+     * 将房主标记为已离开并广播 voice_roster_update，通话继续对其他成员有效。
+     */
+    @Operation(summary = "房主退出通话（不终止通话）")
+    @PostMapping("/{callId}/owner-leave")
+    public R<Boolean> ownerLeave(
+            @Parameter(description = "通话ID") @PathVariable Long callId) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        voiceCallService.ownerLeave(callId, userId);
+        return R.ok(true);
+    }
+
+    /**
      * 结束通话
      */
     @Operation(summary = "结束通话")
