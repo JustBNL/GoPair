@@ -1,0 +1,74 @@
+# ============================================================
+# GoPair 共享基础设施配置
+# 适用范围：所有业务服务（user / room / message / file / voice / websocket）
+# 不适用：gateway（无需 DB/Redis/MQ）
+# ============================================================
+
+spring:
+  # MySQL 数据源配置（通过环境变量覆盖）
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:gopair}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 610692
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # Redis 连接配置（统一连接池，通过环境变量覆盖）
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 0
+          max-wait: 2000ms
+
+  # RabbitMQ 连接配置（通过环境变量覆盖）
+  # 未引入 spring-boot-starter-amqp 的服务（如 user-service）此配置自动忽略
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: AUTO
+        prefetch: 50
+        concurrency: 1
+        max-concurrency: 8
+
+# MyBatis-Plus 通用配置（各服务本地只需配置 type-aliases-package）
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# Knife4j API 文档配置
+# gateway 不导入本文件，业务服务按需生效
+knife4j:
+  # 全局开关
+  enable: ${KNIFE4J_ENABLE:true}
+  # 是否为生产环境
+  production: ${KNIFE4J_PRODUCTION:false}
+  setting:
+    # UI 显示语言
+    language: zh-CN
+    # 是否显示 Models 模块
+    enable-swagger-models: true
+    # 是否开启搜索框
+    enable-search: true
+server:
+  port: ${SERVER_PORT:0}
