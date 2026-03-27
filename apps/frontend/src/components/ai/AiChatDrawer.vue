@@ -80,7 +80,9 @@
             placeholder="输入消息，Enter 发送，Shift+Enter 换行..."
             :disabled="isStreaming"
             rows="1"
-            @keydown.enter.exact.prevent="handleSend"
+            @keydown.enter.exact.prevent="handleEnterKey"
+            @compositionstart="isComposing = true"
+            @compositionend="isComposing = false"
             @input="autoResize"
           />
           <button
@@ -109,6 +111,7 @@ import type { AiMessage, GlmChatMessage } from '@/types/ai'
 const open = ref(false)
 const inputText = ref('')
 const isStreaming = ref(false)
+const isComposing = ref(false)
 const messages = ref<AiMessage[]>([])
 const messagesEl = ref<HTMLElement | null>(null)
 const inputEl = ref<HTMLTextAreaElement | null>(null)
@@ -189,6 +192,11 @@ function stopStreaming() {
 
 function sendQuickQuestion(q: string) {
   inputText.value = q
+  handleSend()
+}
+
+function handleEnterKey() {
+  if (isComposing.value) return
   handleSend()
 }
 
@@ -324,4 +332,4 @@ watch(open, (val) => {
 .send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .send-btn--stop { background: linear-gradient(135deg, #ef4444, #dc2626); }
 .send-btn--stop:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(239,68,68,0.5); }
-</style>
+</style> 

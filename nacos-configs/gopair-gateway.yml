@@ -1,13 +1,13 @@
-# GoPair网关专用配置
-# Data ID: gopair-gateway.yml
-# Group: DEFAULT_GROUP
-# 说明: 网关服务专用配置，基于WebFlux架构，不包含AOP和数据库相关配置
+# ============================================================
+# GoPair 网关专属配置
+# 适用范围：仅 gateway-service
+# ============================================================
 
-# Nacos连接和服务发现配置
+# Nacos 连接和服务发现配置
 spring:
   cloud:
     nacos:
-      # Nacos服务地址
+      # Nacos 服务地址
       server-addr: ${NACOS_ADDR:127.0.0.1:8848}
       # 配置中心
       config:
@@ -31,8 +31,8 @@ spring:
           enabled: true
         instance-enabled: true
         ephemeral: true
-    
-    # Spring Cloud LoadBalancer配置
+
+    # Spring Cloud LoadBalancer 配置
     loadbalancer:
       configurations: default
       health-check:
@@ -40,16 +40,11 @@ spring:
       retry:
         enabled: true
 
-# 网关固定端口配置
-server:
-  port: 8081
-
-# 网关特定Actuator配置（不包含链路追踪端点）
+# 网关专属 Actuator 配置（含 gateway 端点）
 management:
   endpoints:
     web:
       exposure:
-        # 网关专用监控端点，包含gateway端点
         include: "health,info,metrics,prometheus,gateway"
   endpoint:
     health:
@@ -59,12 +54,12 @@ management:
       prometheus:
         enabled: true
 
-# JWT验证配置（网关层面，仅验证功能，无过期时间）
+# JWT 验证配置（网关层面，仅用于验证令牌）
 gopair:
   jwt:
-    # JWT密钥，用于验证令牌
+    # JWT 密钥，与 user-service 保持一致（通过环境变量统一注入）
     secret: ${JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}
-  
-  # 网关认证配置
+
+  # 网关认证白名单（kebab-case，统一命名规范）
   gateway:
-    skipAuthPaths: ${GATEWAY_SKIP_AUTH_PATHS:/user/login,/user,/doc.html,/swagger-ui.html,/v3/api-docs} 
+    skip-auth-paths: ${GATEWAY_SKIP_AUTH_PATHS:/user/login,/user,/user/sendCode,/user/forgotPassword,/doc.html,/swagger-ui.html,/v3/api-docs}

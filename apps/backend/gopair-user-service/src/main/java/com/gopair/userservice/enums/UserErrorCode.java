@@ -35,7 +35,22 @@ public enum UserErrorCode implements ErrorCode {
     /**
      * 昵称已存在
      */
-    NICKNAME_ALREADY_EXISTS(20103, "昵称已存在");
+    NICKNAME_ALREADY_EXISTS(20103, "昵称已存在"),
+
+    /**
+     * 验证码无效或已过期
+     */
+    VERIFICATION_CODE_INVALID(20104, "验证码无效或已过期"),
+
+    /**
+     * 发送验证码过于频繁
+     */
+    VERIFICATION_CODE_SEND_TOO_FREQUENT(20105, "发送验证码过于频繁，请稍后再试"),
+
+    /**
+     * 邮箱未注册
+     */
+    EMAIL_NOT_EXISTS(20106, "该邮箱未注册");
 
     /**
      * 错误码

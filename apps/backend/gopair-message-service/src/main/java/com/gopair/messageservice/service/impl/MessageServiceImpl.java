@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.common.util.BeanCopyUtils;
+import com.gopair.messageservice.config.MessageProperties;
 import com.gopair.messageservice.domain.dto.MessageQueryDto;
 import com.gopair.messageservice.domain.dto.SendMessageDto;
 import com.gopair.messageservice.domain.event.MessageSentEvent;
@@ -37,11 +38,15 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final MessageMapper messageMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final WebSocketMessageProducer webSocketMessageProducer;
+    private final MessageProperties messageProperties;
 
-    public MessageServiceImpl(MessageMapper messageMapper, ApplicationEventPublisher eventPublisher, WebSocketMessageProducer webSocketMessageProducer) {
+    public MessageServiceImpl(MessageMapper messageMapper, ApplicationEventPublisher eventPublisher,
+                              WebSocketMessageProducer webSocketMessageProducer,
+                              MessageProperties messageProperties) {
         this.messageMapper = messageMapper;
         this.eventPublisher = eventPublisher;
         this.webSocketMessageProducer = webSocketMessageProducer;
+        this.messageProperties = messageProperties;
     }
 
     @Override
@@ -210,6 +215,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             case TEXT:
                 if (dto.getContent() == null || dto.getContent().trim().isEmpty()) {
                     throw new MessageException(MessageErrorCode.MESSAGE_CONTENT_EMPTY);
+                }
+                if (dto.getContent().length() > messageProperties.getMaxContentLength()) {
+                    throw new MessageException(MessageErrorCode.MESSAGE_CONTENT_TOO_LONG);
                 }
                 break;
             case IMAGE:

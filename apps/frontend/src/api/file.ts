@@ -29,6 +29,17 @@ export interface RoomFileStats {
 export class FileAPI {
 
   /**
+   * 上传用户头像
+   */
+  static async uploadAvatar(file: File): Promise<ApiResponse<string>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    return http.post<string>(API_ENDPOINTS.FILE_AVATAR, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    } as any)
+  }
+
+  /**
    * 上传文件
    */
   static async uploadFile(

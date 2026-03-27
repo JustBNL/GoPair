@@ -1,10 +1,7 @@
 package com.gopair.roomservice.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.entity.BaseQuery;
 
@@ -115,9 +112,27 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         String roomCode = RoomCodeUtils.generateWithRetry(this::isRoomCodeUnique);
         room.setRoomCode(roomCode);
 
-        // 保存房间
+        // 预设密码模式与可见性（insert 前先写入，insert 后再补充 passwordHash）
+        int passwordMode = roomDto.getPasswordMode() != null ? roomDto.getPasswordMode() : 0;
+        room.setPasswordMode(passwordMode);
+        room.setPasswordVisible(roomDto.getPasswordVisible() != null ? roomDto.getPasswordVisible() : 1);
+        if (passwordMode == 1 && !StringUtils.hasText(roomDto.getRawPassword())) {
+            throw new RoomException(RoomErrorCode.PASSWORD_REQUIRED);
+        }
+
+        // 保存房间（insert 后 MyBatis-Plus 自动回填 roomId）
         if (roomMapper.insert(room) <= 0) {
             throw new RoomException(RoomErrorCode.ROOM_CREATION_FAILED);
+        }
+
+        // insert 后使用真实 roomId 计算密码 Hash 并更新
+        String masterKey = roomConfig.getPassword().getMasterKey();
+        if (passwordMode == 1) {
+            room.setPasswordHash(PasswordUtils.encryptPassword(roomDto.getRawPassword(), room.getRoomId(), masterKey));
+            roomMapper.updateById(room);
+        } else if (passwordMode == 2) {
+            room.setPasswordHash(PasswordUtils.generateTotpSecret());
+            roomMapper.updateById(room);
         }
 
         // 创建者自动加入房间（房主角色）
@@ -179,6 +194,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.ROOM_EXPIRED);
         }
 
+        // 验证房间密码
+        verifyRoomPassword(room, joinRoomDto.getPassword());
+
         // 检查是否已在房间中
         if (roomMemberService.isMemberInRoom(room.getRoomId(), userId)) {
             throw new RoomException(RoomErrorCode.ALREADY_IN_ROOM);
@@ -226,6 +244,10 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (room == null) {
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
         }
+
+        // 验证房间密码（异步路径同样需要校验）
+        verifyRoomPassword(room, joinRoomDto.getPassword());
+
         if (log.isDebugEnabled()) {
             // 记录异步入口，便于排查是否真正触发预占
             log.debug("[房间服务][join-async] 异步加入入口 房间码={} 房间ID={} 用户={}", joinRoomDto.getRoomCode(), room.getRoomId(), userId);
@@ -329,7 +351,10 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
         }
         
-        return BeanCopyUtils.copyBean(room, RoomVO.class);
+        RoomVO roomVO = BeanCopyUtils.copyBean(room, RoomVO.class);
+        // 填充房主昵称
+        fillOwnerNickname(roomVO, room.getRoomId(), room.getOwnerId());
+        return roomVO;
     }
 
     @Override
@@ -363,7 +388,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 检查权限（只有房主可以关闭房间）
         if (!room.getOwnerId().equals(userId)) {
-            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
         }
 
         // 关闭房间
@@ -469,7 +494,30 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             }
         }
         
+        // 补充每个房间的房主昵称
+        for (RoomVO room : rooms) {
+            fillOwnerNickname(room, room.getRoomId(), room.getOwnerId());
+        }
+
         log.info("[房间服务] 为用户{}增强了{}个房间的关系信息", userId, rooms.size());
+    }
+
+    /**
+     * 填充房间VO中的房主昵称
+     * 从 room_member 表查询房主成员记录的 displayName
+     */
+    private void fillOwnerNickname(RoomVO roomVO, Long roomId, Long ownerId) {
+        if (roomVO == null || roomId == null || ownerId == null) return;
+        try {
+            LambdaQueryWrapper<RoomMember> qw = new LambdaQueryWrapper<>();
+            qw.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, ownerId);
+            RoomMember ownerMember = roomMemberMapper.selectOne(qw);
+            if (ownerMember != null && StringUtils.hasText(ownerMember.getDisplayName())) {
+                roomVO.setOwnerNickname(ownerMember.getDisplayName());
+            }
+        } catch (Exception e) {
+            log.warn("[房间服务] 查询房主昵称失败 roomId={} ownerId={}", roomId, ownerId);
+        }
     }
 
     /**
@@ -557,7 +605,11 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (room == null) {
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
         }
-        if (!room.getOwnerId().equals(userId)) {
+        boolean isOwner = room.getOwnerId().equals(userId);
+        boolean isMember = roomMemberService.isMemberInRoom(roomId, userId);
+        boolean visibleToMembers = Integer.valueOf(1).equals(room.getPasswordVisible());
+        // 房主始终可查；成员仅在 passwordVisible=1 时可查
+        if (!isOwner && !(isMember && visibleToMembers)) {
             throw new RoomException(RoomErrorCode.NO_PERMISSION);
         }
         RoomVO vo = new RoomVO();
@@ -603,14 +655,24 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
+                // 1. 向房间内所有成员广播成员被踢出事件
                 try {
                     wsProducer.sendEventToRoom(roomId, "member_kick", Map.of(
                             "targetUserId", targetUserId,
                             "roomId", roomId
                     ));
+                } catch (Exception e) {
+                    log.warn("[房间服务] 发送 member_kick 房间事件失败: roomId={}, targetUserId={}", roomId, targetUserId);
+                }
+                // 2. 向被踢用户的个人频道发送专属踢出通知，确保其必然收到并触发断开逻辑
+                try {
+                    wsProducer.sendEventToUser(targetUserId, "kicked", Map.of(
+                            "roomId", roomId,
+                            "operatorId", operatorId
+                    ));
                     log.info("[房间服务] 房主{}已将用户{}踢出房间{}", operatorId, targetUserId, roomId);
                 } catch (Exception e) {
-                    log.warn("[房间服务] 发送 member_kick 事件失败: roomId={}, targetUserId={}", roomId, targetUserId);
+                    log.warn("[房间服务] 发送 kicked 用户事件失败: roomId={}, targetUserId={}", roomId, targetUserId);
                 }
             }
         });

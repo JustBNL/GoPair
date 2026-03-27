@@ -81,6 +81,18 @@
             <artifactId>spring-cloud-context</artifactId>
             <optional>true</optional>
         </dependency>
+
+        <!-- Micrometer Tracing (optional，有 Brave 时启用追踪增强) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
     
     <build>

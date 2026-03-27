@@ -1,6 +1,8 @@
 package com.gopair.common.config;
 
+import com.gopair.common.constants.MessageConstants;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessagePostProcessor;
@@ -13,6 +15,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.util.StringUtils;
 
 // 新增导入
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,7 +56,10 @@ public class RabbitMQAutoConfiguration {
     }
 
     /**
-     * 全局消息持久化处理器：将deliveryMode设置为PERSISTENT
+     * 全局消息处理器：设置消息持久化并注入追踪上下文消息头
+     *
+     * 在发送前从 MDC 读取 traceId/userId/nickname，写入 AMQP 消息头，
+     * 供消费端通过 TracingAmqpConsumerSupport 恢复追踪上下文，实现跨 MQ 的全链路追踪。
      */
     @Bean
     public MessagePostProcessor persistentMessagePostProcessor() {
@@ -62,6 +68,25 @@ public class RabbitMQAutoConfiguration {
                 message.getMessageProperties().setDeliveryMode(MessageDeliveryMode.PERSISTENT);
             } catch (Exception e) {
                 log.warn("[RabbitMQ] 设置消息持久化属性失败，将继续发送（非致命）：{}", e.getMessage());
+            }
+            // 注入追踪上下文到消息头
+            try {
+                String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
+                String userId = MDC.get(MessageConstants.MDC_USER_ID);
+                String nickname = MDC.get(MessageConstants.MDC_NICKNAME);
+                if (StringUtils.hasText(traceId)) {
+                    message.getMessageProperties().setHeader("X-Trace-Id", traceId);
+                }
+                if (StringUtils.hasText(userId)) {
+                    message.getMessageProperties().setHeader("X-User-Id", userId);
+                }
+                if (StringUtils.hasText(nickname)) {
+                    message.getMessageProperties().setHeader("X-Nickname", nickname);
+                }
+                log.debug("[RabbitMQ] 已注入追踪消息头 - traceId={}, userId={}, nickname={}",
+                        traceId, userId, nickname);
+            } catch (Exception e) {
+                log.debug("[RabbitMQ] 注入追踪消息头失败（非致命）：{}", e.getMessage());
             }
             return message;
         };

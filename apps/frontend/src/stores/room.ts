@@ -221,10 +221,10 @@ export const useRoomStore = defineStore('room', () => {
     await RoomAPI.updateRoomPassword(roomId, data)
     const idx = roomList.value.findIndex(r => r.roomId === roomId)
     if (idx !== -1) {
-      roomList.value[idx] = { ...roomList.value[idx], passwordMode: data.mode, passwordVisible: data.visible ?? 1 }
+      roomList.value[idx] = { ...roomList.value[idx], passwordMode: data.mode, passwordVisible: data.visible ?? 1, currentPassword: undefined, remainingSeconds: undefined }
     }
     if (currentRoom.value?.roomId === roomId) {
-      currentRoom.value = { ...currentRoom.value, passwordMode: data.mode, passwordVisible: data.visible ?? 1 }
+      currentRoom.value = { ...currentRoom.value, passwordMode: data.mode, passwordVisible: data.visible ?? 1, currentPassword: undefined, remainingSeconds: undefined }
     }
   }
 

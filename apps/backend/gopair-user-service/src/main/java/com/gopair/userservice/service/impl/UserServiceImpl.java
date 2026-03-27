@@ -14,14 +14,17 @@ import com.gopair.common.util.JwtUtils;
 import com.gopair.userservice.util.PasswordUtils;
 import com.gopair.userservice.config.JwtConfig;
 import com.gopair.userservice.domain.dto.UserDto;
+import com.gopair.userservice.domain.dto.auth.ForgotPasswordRequest;
 import com.gopair.userservice.domain.dto.auth.LoginRequest;
 import com.gopair.userservice.domain.dto.auth.RegisterRequest;
+import com.gopair.userservice.domain.dto.auth.SendCodeRequest;
 import com.gopair.userservice.domain.po.User;
 import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.domain.vo.auth.LoginResponse;
 import com.gopair.userservice.domain.vo.auth.RegisterResponse;
 import com.gopair.userservice.mapper.UserMapper;
 import com.gopair.userservice.service.UserService;
+import com.gopair.userservice.service.VerificationCodeService;
 import com.gopair.framework.logging.annotation.LogRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,11 +46,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     private final UserMapper userMapper;
     private final PasswordUtils passwordUtils;
     private final JwtConfig jwtConfig;
+    private final VerificationCodeService verificationCodeService;
 
-    public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils, JwtConfig jwtConfig) {
+    public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils, JwtConfig jwtConfig,
+                           VerificationCodeService verificationCodeService) {
         this.userMapper = userMapper;
         this.passwordUtils = passwordUtils;
         this.jwtConfig = jwtConfig;
+        this.verificationCodeService = verificationCodeService;
     }
     
     /**
@@ -72,6 +78,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "用户注册", module = "用户管理")
     public RegisterResponse register(RegisterRequest registerRequest) {
+        // 校验注册验证码
+        verificationCodeService.verifyCode(registerRequest.getEmail(), "register", registerRequest.getCode());
+
         // 检查昵称是否已存在
         if (StringUtils.hasText(registerRequest.getNickname()) && getUserByNickname(registerRequest.getNickname()) != null) {
             throw new UserException(UserErrorCode.NICKNAME_ALREADY_EXISTS);
@@ -133,6 +142,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         User user = BeanCopyUtils.copyBean(userDto, User.class);
         user.setUpdateTime(LocalDateTime.now());
         if (StringUtils.hasText(user.getPassword())) {
+            // 修改密码时必须验证当前密码
+            if (!StringUtils.hasText(userDto.getCurrentPassword())) {
+                throw new UserException(UserErrorCode.PASSWORD_ERROR);
+            }
+            User currentUser = userMapper.selectById(userDto.getUserId());
+            if (!passwordUtils.matches(userDto.getCurrentPassword(), currentUser.getPassword())) {
+                throw new UserException(UserErrorCode.PASSWORD_ERROR);
+            }
             user.setPassword(passwordUtils.encode(user.getPassword()));
         }
         return userMapper.updateById(user) > 0;
@@ -181,6 +198,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
         List<UserVO> userVOList = BeanCopyUtils.copyBeanList(pageInfo.getList(), UserVO.class);
         return new PageResult<>(userVOList, pageInfo.getTotal(), (long) pageInfo.getPageNum(), (long) pageInfo.getPageSize());
+    }
+
+    @Override
+    @LogRecord(operation = "发送验证码", module = "用户认证")
+    public void sendVerificationCode(SendCodeRequest request) {
+        // 忘记密码场景需校验邮箱已注册
+        if ("resetPassword".equals(request.getType())) {
+            if (getUserByEmail(request.getEmail()) == null) {
+                throw new UserException(UserErrorCode.EMAIL_NOT_EXISTS);
+            }
+        }
+        verificationCodeService.sendCode(request.getEmail(), request.getType());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "忘记密码", module = "用户认证")
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // 校验验证码
+        verificationCodeService.verifyCode(request.getEmail(), "resetPassword", request.getCode());
+        // 查询用户
+        User user = getUserByEmail(request.getEmail());
+        if (user == null) {
+            throw new UserException(UserErrorCode.EMAIL_NOT_EXISTS);
+        }
+        // 更新密码
+        user.setPassword(passwordUtils.encode(request.getNewPassword()));
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
     }
 
     @Override

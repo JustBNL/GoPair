@@ -114,11 +114,15 @@ public class GlobalWebSocketHandler implements WebSocketHandler {
                 }
 
                 Long userId = sessionInfo.getUserId();
-                
-                // 使用BasicRateLimitService进行频率限制检查
-                if (!basicRateLimitService.checkMessageRateLimit(userId)) {
-                    log.warn("[全局处理器] 消息发送频率超限: userId={}, sessionId={}", userId, session.getId());
-                    errorHandler.sendErrorMessage(session, WebSocketErrorCode.MESSAGE_PROCESSING_ERROR, 
+
+                // 提取消息类型，用于差异化令牌桶消耗（仅 CHANNEL_MESSAGE 类型参与差异化计费）
+                Integer messageType = extractMessageType(((TextMessage) message).getPayload());
+
+                // 使用BasicRateLimitService进行令牌桶频率限制检查
+                if (!basicRateLimitService.checkMessageRateLimit(userId, messageType)) {
+                    log.warn("[全局处理器] 消息发送频率超限: userId={}, sessionId={}, messageType={}",
+                            userId, session.getId(), messageType);
+                    errorHandler.sendErrorMessage(session, WebSocketErrorCode.MESSAGE_PROCESSING_ERROR,
                             "消息发送频率超限，请稍后再试");
                     return;
                 }
@@ -250,6 +254,44 @@ public class GlobalWebSocketHandler implements WebSocketHandler {
             return (headerValues != null && !headerValues.isEmpty()) ? headerValues.get(0) : null;
         } catch (Exception e) {
             log.error("[全局处理器] 获取请求头失败: sessionId={}, headerName={}", session.getId(), headerName, e);
+            return null;
+        }
+    }
+
+    /**
+     * 从原始 JSON 字符串中提取消息类型字段。
+     *
+     * <p>仅对 CHANNEL_MESSAGE（type="room_message"）类型的消息有意义；
+     * SUBSCRIBE、HEARTBEAT 等控制消息返回 null，限流层将以默认 cost=1 处理（实际不计费）。
+     *
+     * @param rawPayload 原始 JSON 字符串
+     * @return messageType 数值，解析失败或不存在时返回 null
+     */
+    @SuppressWarnings("unchecked")
+    private Integer extractMessageType(String rawPayload) {
+        try {
+            Map<String, Object> map = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(rawPayload, Map.class);
+            // 顶层 type 为控制类型（subscribe/heartbeat 等），messageType 在 data 或 payload 层
+            String topType = (String) map.get("type");
+            if ("subscribe".equals(topType) || "heartbeat".equals(topType)) {
+                return null;
+            }
+            // 尝试从 data.messageType 或顶层 messageType 获取
+            Object mt = null;
+            Map<String, Object> data = (Map<String, Object>) map.get("data");
+            if (data != null) {
+                mt = data.get("messageType");
+            }
+            if (mt == null) {
+                mt = map.get("messageType");
+            }
+            if (mt instanceof Number) {
+                return ((Number) mt).intValue();
+            }
+            return null;
+        } catch (Exception e) {
+            log.debug("[全局处理器] 提取消息类型失败，使用默认 cost: {}", e.getMessage());
             return null;
         }
     }

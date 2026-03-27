@@ -117,6 +117,29 @@ public class WebSocketMessageProducer {
     }
 
     /**
+     * 发送自定义事件到指定用户的个人频道
+     * 供业务服务向特定用户推送专属事件（如被踢出房间通知）
+     *
+     * @param userId    目标用户ID
+     * @param eventType 事件类型（如 kicked）
+     * @param payload   事件载荷
+     */
+    public void sendEventToUser(Long userId, String eventType, Map<String, Object> payload) {
+        WebSocketMessageDto message = WebSocketMessageDto.builder()
+                .messageId(UUID.randomUUID().toString())
+                .timestamp(LocalDateTime.now())
+                .type("system")
+                .channel("user:" + userId)
+                .eventType(eventType)
+                .payload(payload)
+                .source(getServiceName())
+                .build();
+
+        rabbitTemplate.convertAndSend(WEBSOCKET_EXCHANGE, "system.user", message);
+        log.debug("发送自定义事件给用户: userId={}, eventType={}, messageId={}", userId, eventType, message.getMessageId());
+    }
+
+    /**
      * 发送自定义事件到房间频道
      * 供语音等业务服务向房间内所有订阅者推送事件
      *

@@ -8,46 +8,16 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import:
-      - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
+      # 共享基础设施配置（Redis、MySQL、RabbitMQ、MyBatis-Plus、Knife4j）
+      - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
+      # 统一日志与可观测性配置
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
-  # Redis与RabbitMQ基础配置（可被Nacos覆盖）
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DB:0}
-      lettuce:
-        pool:
-          max-active: 16
-          max-idle: 8
-          min-idle: 0
-          max-wait: 2000ms
-      timeout: 3000ms
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-    virtual-host: ${RABBITMQ_VHOST:/}
-    publisher-confirm-type: correlated
-    publisher-returns: true
-    template:
-      mandatory: true
-    listener:
-      simple:
-        acknowledge-mode: AUTO
-        prefetch: 50
-        concurrency: 1
-        max-concurrency: 8
-
-# 仅保留服务特定的MyBatis Plus配置
+# MyBatis-Plus 服务专属配置（通用配置由 gopair-shared.yml 提供）
 mybatis-plus:
-  # 实体类包路径，用于类型别名
   type-aliases-package: com.gopair.roomservice.domain.po
 
-# GoPair自定义配置
+# 业务配置（room-service 专属）
 gopair:
   room:
     # 房间默认最大成员数
@@ -56,24 +26,27 @@ gopair:
     default-expire-hours: 24
     # 房间码长度
     code-length: 8
-    # Redis预占参数（毫秒/秒）
+    # Redis 预占参数
     reservation:
+      # 加入令牌有效期（秒）
       join-token-ttl-seconds: 30
+      # 预占位有效期（秒）
       pending-ttl-seconds: 30
+      # 超时清理任务执行间隔（毫秒）
       reaper-interval-ms: 60000
       # 单房间入队限流（每毫秒最多受理数）
       rate-limit-per-ms: 100
-  
+
   password:
     # AES 主密钥，用于派生每个房间的加密密钥（生产环境请通过环境变量覆盖）
     master-key: ${ROOM_PASSWORD_MASTER_KEY:gopair-room-secret-key-2024}
 
   # 定时任务配置
   schedule:
-    # 房间清理任务执行间隔（毫秒）
-    room-cleanup-interval: 900000  # 15分钟
+    # 房间清理任务执行间隔（毫秒，默认 15 分钟）
+    room-cleanup-interval: 900000
 
-# 业务消息队列配置
+# 业务消息队列交换机与路由配置（room-service 专属）
 mq:
   room-join:
     exchange: room.join.exchange

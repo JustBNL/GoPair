@@ -47,6 +47,36 @@ public class FileServiceImpl implements FileService {
     @Value("${gopair.file.allowed-types:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,json,xml,csv,jpg,jpeg,png,gif,bmp,webp,svg,mp4,avi,mov,mp3,wav,flac,aac,zip,rar,7z,tar,gz}")
     private String allowedTypes;
     private static final List<String> IMAGE_TYPES = List.of("jpg","jpeg","png","gif","bmp","webp");
+    private static final List<String> AVATAR_IMAGE_TYPES = List.of("jpg","jpeg","png","gif","webp");
+    private static final long AVATAR_MAX_SIZE = 5 * 1024 * 1024L;
+
+    // ==================== avatar ====================
+    @Override
+    public String uploadAvatar(MultipartFile file, Long userId) {
+        String fn = file.getOriginalFilename();
+        String ft = extractExtension(fn);
+        long fs = file.getSize();
+        log.info("[file-service] start op:uploadAvatar userId:{} file:{} size:{}B", userId, fn, fs);
+        if (!AVATAR_IMAGE_TYPES.contains(ft)) {
+            throw new FileException(FileErrorCode.FILE_TYPE_NOT_ALLOWED, "仅支持图片格式: jpg/jpeg/png/gif/webp");
+        }
+        if (fs > AVATAR_MAX_SIZE) {
+            throw new FileException(FileErrorCode.FILE_TOO_LARGE, "头像文件不能超过 5MB");
+        }
+        String objectKey = "avatar/" + userId + "/profile.jpg";
+        try {
+            byte[] compressed = generateThumbnail(file.getInputStream(), ft);
+            uploadToMinio(new ByteArrayInputStream(compressed), objectKey, "image/jpeg", compressed.length);
+            String url = minioProperties.getEndpoint() + "/" + minioProperties.getBucketName() + "/" + objectKey;
+            log.info("[file-service] success op:uploadAvatar userId:{} url:{}", userId, url);
+            return url;
+        } catch (FileException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[file-service] failed op:uploadAvatar userId:{} err:{}", userId, e.getMessage(), e);
+            throw new FileException(FileErrorCode.FILE_UPLOAD_FAILED, e.getMessage());
+        }
+    }
 
     // ==================== upload ====================
     @Override

@@ -12,6 +12,16 @@ import org.springframework.web.multipart.MultipartFile;
 public interface FileService {
 
     /**
+     * 上传用户头像到MinIO avatar路径，返回永久直链URL
+     * 图片会被压缩为 200x200 jpg 格式
+     *
+     * @param file   头像图片文件（仅限 jpg/jpeg/png/gif/webp，≤5MB）
+     * @param userId 当前用户ID
+     * @return 永久可访问的头像直链 URL
+     */
+    String uploadAvatar(MultipartFile file, Long userId);
+
+    /**
      * 上传文件到MinIO，保存元数据到DB，并推送WebSocket事件
      *
      * @param file     上传的文件

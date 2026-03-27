@@ -86,6 +86,38 @@
           </div>
         </div>
 
+        <!-- 密码卡片（有密码时显示） -->
+        <div class="info-card password-card" v-if="showPasswordArea">
+          <div class="card-header">
+            <LockOutlined class="card-icon" />
+            <h3>房间密码</h3>
+          </div>
+          <div class="card-content password-card-content">
+            <div class="password-display">
+              <span v-if="!passwordHidden" class="password-value">
+                {{ currentPasswordDisplay || '••••••' }}
+                <span v-if="currentRoom.passwordMode === 2 && remainingSeconds > 0" class="totp-timer">({{ remainingSeconds }}s)</span>
+              </span>
+              <span v-else class="password-value hidden">••••••</span>
+              <span class="password-toggle" @click.stop="togglePasswordVisibility" :title="passwordHidden ? '查看密码' : '隐藏密码'">
+                <EyeOutlined v-if="passwordHidden" />
+                <EyeInvisibleOutlined v-else />
+              </span>
+            </div>
+            <div v-if="isOwner" class="password-visibility-control">
+              <a-tooltip :title="currentRoom.passwordVisible === 1 ? '成员可查看密码，点击关闭' : '成员不可查看密码，点击开启'">
+                <a-switch
+                  :checked="currentRoom.passwordVisible === 1"
+                  @change="togglePasswordVisible"
+                  size="small"
+                  checked-children="成员可见"
+                  un-checked-children="成员隐藏"
+                />
+              </a-tooltip>
+            </div>
+          </div>
+        </div>
+
         <!-- 新增通话状态卡片 -->
         <div class="info-card" :class="{ 'active-call': callState === 'active' || callState === 'in-call' }">
           <div class="card-header">
@@ -382,11 +414,14 @@ import {
   PhoneOutlined,
   ReloadOutlined,
   MoreOutlined,
-  UserDeleteOutlined
+  UserDeleteOutlined,
+  LockOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined
 } from '@ant-design/icons-vue'
 
 // API和工具导入
-import { getRoomMembers } from '@/api/room'
+import { getRoomMembers, updateRoomPassword, getRoomCurrentPassword } from '@/api/room'
 import { MessageAPI } from '@/api/message'
 import { FileAPI } from '@/api/file'
 import { VoiceAPI } from '@/api/voice'
@@ -500,6 +535,112 @@ const newMessage = ref('')
 // 文件相关状态
 const fileCount = ref(0)
 const fileListRefresh = ref(false)
+
+// 密码相关状态
+const passwordHidden = ref(true)
+const currentPasswordDisplay = ref('')
+const remainingSeconds = ref(0)
+let totpTimer: ReturnType<typeof setInterval> | null = null
+
+// 密码区域是否显示
+const showPasswordArea = computed(() => {
+  if (!currentRoom.value) return false
+  const mode = currentRoom.value.passwordMode
+  if (!mode || mode === 0) return false
+  if (isOwner.value) return true
+  return currentRoom.value.passwordVisible === 1
+})
+
+/**
+ * 加载当前密码（房主或 passwordVisible=1 的成员可调用）
+ */
+const loadCurrentPassword = async () => {
+  if (!currentRoom.value) return
+  try {
+    const data = await getRoomCurrentPassword(currentRoom.value.roomId)
+    if (data?.data) {
+      currentPasswordDisplay.value = data.data.currentPassword || ''
+      remainingSeconds.value = data.data.remainingSeconds || 0
+    }
+  } catch (e) {
+    console.warn('[密码] 获取当前密码失败', e)
+  }
+}
+
+/**
+ * 启动 TOTP 倒计时（仅 mode=2 时）
+ */
+const startTotpTimer = () => {
+  stopTotpTimer()
+  if (!isOwner.value || currentRoom.value?.passwordMode !== 2) return
+  loadCurrentPassword()
+  totpTimer = setInterval(() => {
+    if (remainingSeconds.value > 0) {
+      remainingSeconds.value--
+    }
+    if (remainingSeconds.value <= 0) {
+      loadCurrentPassword()
+    }
+  }, 1000)
+}
+
+/**
+ * 停止 TOTP 倒计时
+ */
+const stopTotpTimer = () => {
+  if (totpTimer) {
+    clearInterval(totpTimer)
+    totpTimer = null
+  }
+}
+
+/**
+ * 切换密码明文/遮罩显示（不改后端）
+ */
+const togglePasswordVisibility = async () => {
+  passwordHidden.value = !passwordHidden.value
+  if (!passwordHidden.value && !currentPasswordDisplay.value) {
+    // 无论房主还是成员，只要展开且没有缓存密码，就调接口获取
+    await loadCurrentPassword()
+  }
+}
+
+/**
+ * 房主切换密码是否对成员可见（调后端接口）
+ */
+const togglePasswordVisible = async () => {
+  if (!currentRoom.value || !isOwner.value) return
+  const newVisible = currentRoom.value.passwordVisible === 1 ? 0 : 1
+  try {
+    await updateRoomPassword(currentRoom.value.roomId, {
+      mode: currentRoom.value.passwordMode ?? 0,
+      visible: newVisible
+    })
+    currentRoom.value = { ...currentRoom.value, passwordVisible: newVisible }
+    antMessage.success(newVisible === 1 ? '已允许成员查看密码' : '已禁止成员查看密码')
+  } catch (e: any) {
+    antMessage.error(e?.response?.data?.msg || '操作失败')
+  }
+}
+
+/**
+ * 初始化密码状态
+ */
+const initPasswordState = () => {
+  if (!currentRoom.value) return
+  const mode = currentRoom.value.passwordMode
+  if (!mode || mode === 0) return
+  if (isOwner.value) {
+    if (mode === 2) {
+      startTotpTimer()
+    } else if (mode === 1) {
+      loadCurrentPassword()
+    }
+  } else if (currentRoom.value.passwordVisible === 1) {
+    // 非房主：使用列表接口已返回的 currentPassword（若有）
+    currentPasswordDisplay.value = currentRoom.value.currentPassword || ''
+  }
+}
 
 // Emoji 漂浮动画状态
 const emojiParticles = ref<EmojiParticle[]>([])
@@ -1134,12 +1275,14 @@ onMounted(async () => {
   await loadRoomInfo()
   if (currentRoom.value) {
     await initRoomSubscription() // 改为房间订阅
+    initPasswordState()
   }
 })
 
 onUnmounted(() => {
   // 新架构：自动清理已通过useRoomWebSocket composable处理
   console.log('🧹 房间组件卸载（自动清理）')
+  stopTotpTimer()
 })
 </script>
 
@@ -1277,6 +1420,72 @@ onUnmounted(() => {
             
             .copy-icon {
               font-size: 14px;
+            }
+          }
+          
+          // 独立密码卡片内容
+          &.password-card {
+            border: 1px solid rgba(24, 144, 255, 0.2);
+            
+            &:hover {
+              border-color: #1890ff;
+            }
+            
+            .card-icon {
+              color: #1890ff;
+            }
+          }
+          
+          .password-card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            
+            .password-display {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              
+              .password-value {
+                font-family: 'Courier New', monospace;
+                font-size: 16px;
+                font-weight: 700;
+                color: #1890ff;
+                letter-spacing: 1.5px;
+                flex: 1;
+                
+                &.hidden {
+                  color: #bbb;
+                  letter-spacing: 3px;
+                }
+                
+                .totp-timer {
+                  font-size: 12px;
+                  color: #faad14;
+                  margin-left: 6px;
+                  font-weight: 400;
+                  letter-spacing: 0;
+                }
+              }
+              
+              .password-toggle {
+                cursor: pointer;
+                color: #bbb;
+                font-size: 16px;
+                transition: color 0.2s;
+                flex-shrink: 0;
+                
+                &:hover {
+                  color: #1890ff;
+                }
+              }
+            }
+            
+            .password-visibility-control {
+              display: flex;
+              align-items: center;
+              padding-top: 8px;
+              border-top: 1px solid #f0f0f0;
             }
           }
           

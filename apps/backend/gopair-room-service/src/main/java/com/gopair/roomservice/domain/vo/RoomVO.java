@@ -101,4 +101,9 @@ public class RoomVO {
      * 动态令牌剩余有效秒数（仅 passwordMode=2 时有值）
      */
     private Integer remainingSeconds;
+
+    /**
+     * 房主昵称
+     */
+    private String ownerNickname;
 } 

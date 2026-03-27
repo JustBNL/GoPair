@@ -4,8 +4,8 @@
       <h2 class="form-title">欢迎来到 GoPair</h2>
     </div>
 
-    <a-tabs 
-      v-model:activeKey="activeTab" 
+    <a-tabs
+      v-model:activeKey="activeTab"
       centered
       class="login-tabs"
       @change="handleTabChange"
@@ -94,6 +94,28 @@
             />
           </a-form-item>
 
+          <a-form-item name="code" label="邮箱验证码">
+            <div class="code-input-row">
+              <a-input
+                v-model:value="registerForm.code"
+                size="large"
+                placeholder="请输入6位验证码"
+                :prefix="h(SafetyOutlined)"
+                maxlength="6"
+                class="code-input"
+              />
+              <a-button
+                size="large"
+                :disabled="registerCodeCooldown > 0 || !registerForm.email"
+                :loading="sendingRegisterCode"
+                class="send-code-btn"
+                @click="sendRegisterCode"
+              >
+                {{ registerCodeCooldown > 0 ? `${registerCodeCooldown}s后重发` : '获取验证码' }}
+              </a-button>
+            </div>
+          </a-form-item>
+
           <a-form-item name="password" label="密码">
             <a-input-password
               v-model:value="registerForm.password"
@@ -117,6 +139,71 @@
           </a-form-item>
         </a-form>
       </a-tab-pane>
+
+      <!-- 忘记密码标签页 -->
+      <a-tab-pane key="forgot" tab="忘记密码">
+        <a-form
+          ref="forgotFormRef"
+          :model="forgotForm"
+          :rules="forgotRules"
+          layout="vertical"
+          @finish="handleForgotPassword"
+          @finishFailed="handleForgotFailed"
+        >
+          <a-form-item name="email" label="注册邮箱">
+            <a-input
+              v-model:value="forgotForm.email"
+              size="large"
+              placeholder="请输入注册时使用的邮箱"
+              :prefix="h(MailOutlined)"
+              autocomplete="email"
+            />
+          </a-form-item>
+
+          <a-form-item name="code" label="邮箱验证码">
+            <div class="code-input-row">
+              <a-input
+                v-model:value="forgotForm.code"
+                size="large"
+                placeholder="请输入6位验证码"
+                :prefix="h(SafetyOutlined)"
+                maxlength="6"
+                class="code-input"
+              />
+              <a-button
+                size="large"
+                :disabled="forgotCodeCooldown > 0 || !forgotForm.email"
+                :loading="sendingForgotCode"
+                class="send-code-btn"
+                @click="sendForgotCode"
+              >
+                {{ forgotCodeCooldown > 0 ? `${forgotCodeCooldown}s后重发` : '获取验证码' }}
+              </a-button>
+            </div>
+          </a-form-item>
+
+          <a-form-item name="newPassword" label="新密码">
+            <a-input-password
+              v-model:value="forgotForm.newPassword"
+              size="large"
+              placeholder="请输入新密码 (6-50个字符)"
+              :prefix="h(LockOutlined)"
+              autocomplete="new-password"
+            />
+          </a-form-item>
+
+          <a-form-item>
+            <a-button
+              type="primary"
+              html-type="submit"
+              size="large"
+              block
+            >
+              重置密码
+            </a-button>
+          </a-form-item>
+        </a-form>
+      </a-tab-pane>
     </a-tabs>
   </div>
 </template>
@@ -126,13 +213,14 @@ import { ref, reactive, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
-import { 
-  UserOutlined, 
-  LockOutlined, 
-  MailOutlined 
+import {
+  UserOutlined,
+  LockOutlined,
+  MailOutlined,
+  SafetyOutlined
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import type { LoginFormData, RegisterFormData } from '@/types/auth'
+import type { LoginFormData, RegisterFormData, ForgotPasswordFormData } from '@/types/auth'
 
 // ==================== 组件状态 ====================
 
@@ -141,7 +229,7 @@ const authStore = useAuthStore()
 
 // 表单引用
 const loginFormRef = ref<FormInstance>()
-const registerFormRef = ref<FormInstance>()
+const forgotFormRef = ref<FormInstance>()
 
 // 当前活跃标签
 const activeTab = ref('login')
@@ -157,8 +245,25 @@ const loginForm = reactive<LoginFormData>({
 const registerForm = reactive<RegisterFormData>({
   nickname: '',
   email: '',
-  password: ''
+  password: '',
+  code: ''
 })
+
+// 忘记密码表单数据
+const forgotForm = reactive<ForgotPasswordFormData>({
+  email: '',
+  code: '',
+  newPassword: ''
+})
+
+// 验证码发送状态
+const sendingRegisterCode = ref(false)
+const sendingForgotCode = ref(false)
+const registerCodeCooldown = ref(0)
+const forgotCodeCooldown = ref(0)
+
+let registerTimer: ReturnType<typeof setInterval> | null = null
+let forgotTimer: ReturnType<typeof setInterval> | null = null
 
 // ==================== 表单验证规则 ====================
 
@@ -181,10 +286,76 @@ const registerRules = {
     { required: true, message: '请输入邮箱地址' },
     { type: 'email', message: '请输入有效的邮箱地址' }
   ],
+  code: [
+    { required: true, message: '请输入邮箱验证码' },
+    { len: 6, message: '验证码为6位数字' }
+  ],
   password: [
     { required: true, message: '请输入密码' },
     { min: 6, max: 50, message: '密码长度必须在6-50个字符之间' }
   ]
+}
+
+const forgotRules = {
+  email: [
+    { required: true, message: '请输入注册邮箱' },
+    { type: 'email', message: '请输入有效的邮箱地址' }
+  ],
+  code: [
+    { required: true, message: '请输入邮箱验证码' },
+    { len: 6, message: '验证码为6位数字' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码' },
+    { min: 6, max: 50, message: '密码长度必须在6-50个字符之间' }
+  ]
+}
+
+// ==================== 验证码倒计时 ====================
+
+function startCooldown(type: 'register' | 'forgot') {
+  const cooldown = type === 'register' ? registerCodeCooldown : forgotCodeCooldown
+  const timer = type === 'register' ? registerTimer : forgotTimer
+  if (timer) clearInterval(timer)
+  cooldown.value = 60
+  const interval = setInterval(() => {
+    cooldown.value--
+    if (cooldown.value <= 0) clearInterval(interval)
+  }, 1000)
+  if (type === 'register') registerTimer = interval
+  else forgotTimer = interval
+}
+
+async function sendRegisterCode() {
+  if (!registerForm.email) {
+    message.warning('请先输入邮箱地址')
+    return
+  }
+  sendingRegisterCode.value = true
+  try {
+    await authStore.sendVerificationCode(registerForm.email, 'register')
+    startCooldown('register')
+  } catch {
+    // 错误已在 store/request 层处理
+  } finally {
+    sendingRegisterCode.value = false
+  }
+}
+
+async function sendForgotCode() {
+  if (!forgotForm.email) {
+    message.warning('请先输入邮箱地址')
+    return
+  }
+  sendingForgotCode.value = true
+  try {
+    await authStore.sendVerificationCode(forgotForm.email, 'resetPassword')
+    startCooldown('forgot')
+  } catch {
+    // 错误已在 store/request 层处理
+  } finally {
+    sendingForgotCode.value = false
+  }
 }
 
 // ==================== 事件处理 ====================
@@ -194,12 +365,14 @@ const registerRules = {
  */
 function handleTabChange(key: string) {
   authStore.switchMode(key as 'login' | 'register')
-  
+
   // 切换时保留邮箱信息
   if (key === 'register' && loginForm.email) {
     registerForm.email = loginForm.email
   } else if (key === 'login' && registerForm.email) {
     loginForm.email = registerForm.email
+  } else if (key === 'forgot' && loginForm.email) {
+    forgotForm.email = loginForm.email
   }
 }
 
@@ -208,39 +381,18 @@ function handleTabChange(key: string) {
  */
 async function handleLogin(values: LoginFormData) {
   try {
-    console.group('🔐 LOGIN PROCESS')
-    console.log('Login request:', { email: values.email })
-    
     await authStore.login({
       email: values.email,
       password: values.password
     })
-    
-    console.log('✅ Login API success')
-    console.log('Auth state after login:', {
-      user: authStore.user?.nickname || null,
-      token: authStore.token ? '***' + authStore.token.slice(-6) : null,
-      isLoggedIn: authStore.isLoggedIn
-    })
-    
-    // 处理记住邮箱
     authStore.setRememberEmail(values.remember || false, values.email)
-    
-    // 登录成功后直接跳转 - Vue Router官方推荐模式
-    console.log('🚀 Attempting navigation to /rooms')
     router.push('/rooms')
-    console.log('✅ router.push(/rooms) called')
-    console.groupEnd()
   } catch (error) {
-    console.error('❌ Login failed:', error)
-    console.groupEnd()
+    console.error('登录失败:', error)
   }
 }
 
-/**
- * 登录失败处理
- */
-function handleLoginFailed(errorInfo: any) {
+function handleLoginFailed(errorInfo: unknown) {
   console.error('登录表单验证失败:', errorInfo)
   message.error('请检查输入信息')
 }
@@ -253,36 +405,51 @@ async function handleRegister(values: RegisterFormData) {
     await authStore.register({
       nickname: values.nickname,
       email: values.email,
-      password: values.password
+      password: values.password,
+      code: values.code
     })
-    
-    // 注册成功后自动切换到登录页面，并填充邮箱
     activeTab.value = 'login'
     loginForm.email = values.email
     loginForm.password = ''
-    
-    // 清空注册表单
     registerFormRef.value?.resetFields()
   } catch (error) {
     console.error('注册失败:', error)
   }
 }
 
-/**
- * 注册失败处理
- */
-function handleRegisterFailed(errorInfo: any) {
+function handleRegisterFailed(errorInfo: unknown) {
   console.error('注册表单验证失败:', errorInfo)
+  message.error('请检查输入信息')
+}
+
+/**
+ * 忘记密码提交处理
+ */
+async function handleForgotPassword(values: ForgotPasswordFormData) {
+  try {
+    await authStore.forgotPassword({
+      email: values.email,
+      code: values.code,
+      newPassword: values.newPassword
+    })
+    activeTab.value = 'login'
+    loginForm.email = values.email
+    loginForm.password = ''
+    forgotFormRef.value?.resetFields()
+  } catch (error) {
+    console.error('重置密码失败:', error)
+  }
+}
+
+function handleForgotFailed(errorInfo: unknown) {
+  console.error('忘记密码表单验证失败:', errorInfo)
   message.error('请检查输入信息')
 }
 
 // ==================== 生命周期 ====================
 
 onMounted(() => {
-  // 初始化认证状态
   authStore.initAuth()
-  
-  // 如果有保存的邮箱，自动填充
   const savedEmail = authStore.getSavedEmail()
   if (savedEmail) {
     loginForm.email = savedEmail
@@ -292,24 +459,17 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ==================== 表单容器布局 ==================== */
-
-/* 登录表单主容器：居中布局，自适应宽度 */
 .login-form-container {
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
 }
 
-/* ==================== 表单头部样式 ==================== */
-
-/* 表单头部：标题和副标题区域，居中对齐 */
 .form-header {
   text-align: center;
   margin-bottom: 32px;
 }
 
-/* 表单主标题：大字体，深色，强调品牌 */
 .form-title {
   font-size: 28px;
   font-weight: 600;
@@ -317,102 +477,88 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 
-/* 表单副标题：中等字体，灰色，说明功能 */
-.form-subtitle {
-  font-size: 16px;
-  color: #718096;
-  margin: 0;
-}
-
-/* ==================== 标签页样式 ==================== */
-
-/* 登录标签页容器：登录/注册切换 */
 .login-tabs {
   margin-bottom: 24px;
 }
 
-/* 标签页导航区域：增加底部间距 */
 .login-tabs :deep(.ant-tabs-nav) {
   margin-bottom: 32px;
 }
 
-/* 单个标签页：字体大小，字重，内边距 */
 .login-tabs :deep(.ant-tabs-tab) {
   font-size: 16px;
   font-weight: 500;
   padding: 12px 24px;
 }
 
-/* ==================== 表单选项区域 ==================== */
-
-/* 表单选项容器：记住密码等功能的布局 */
 .form-options {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-/* ==================== 过渡动画效果 ==================== */
+.code-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 
-/* 滑动下拉动画：注册时昵称字段的显示/隐藏效果 */
+.code-input {
+  flex: 1;
+}
+
+.send-code-btn {
+  flex-shrink: 0;
+  min-width: 110px;
+}
+
 .slide-down-enter-active,
 .slide-down-leave-active {
   transition: all 0.3s ease;
 }
 
-/* 滑动下拉进入状态：从上方20px位置淡入 */
 .slide-down-enter-from {
   opacity: 0;
   transform: translateY(-20px);
 }
 
-/* 滑动下拉离开状态：向上方20px位置淡出 */
 .slide-down-leave-to {
   opacity: 0;
   transform: translateY(-20px);
 }
 
-/* ==================== 两段式响应式布局 ==================== */
-
-/* 精简竖屏模式：当不满足宽屏条件时 */
 @media not ((min-aspect-ratio: 6/5) and (min-width: 1024px)) {
-  /* 表单容器：紧凑布局，适配小屏 */
   .login-form-container {
     max-width: 100%;
     padding: 0;
   }
 
-  /* 精简模式表头：减小边距 */
   .form-header {
     margin-bottom: 0px;
     margin-top: 8px;
   }
-  
-  /* 精简模式标题：减小字体，突出简洁性 */
+
   .form-title {
     font-size: 22px;
     margin-bottom: 0px;
   }
-  
-  /* 精简模式副标题：保持可读性的小字体 */
-  .form-subtitle {
-    font-size: 14px;
-  }
-  
-  /* 精简模式标签页导航：紧凑间距 */
+
   .login-tabs :deep(.ant-tabs-nav) {
     margin-bottom: 24px;
   }
-  
-  /* 精简模式标签页：小字体，紧凑内边距，适合触摸 */
+
   .login-tabs :deep(.ant-tabs-tab) {
     font-size: 14px;
-    padding: 10px 20px;
+    padding: 10px 16px;
   }
-  
-  /* 精简模式表单项：减少底部间距，紧凑布局 */
+
   .login-tabs :deep(.ant-form-item) {
     margin-bottom: 12px;
- }
+  }
+
+  .send-code-btn {
+    min-width: 90px;
+    font-size: 13px;
+  }
 }
-</style> 
+</style>

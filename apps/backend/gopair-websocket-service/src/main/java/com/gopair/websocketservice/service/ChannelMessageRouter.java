@@ -13,18 +13,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 频道消息路由服务。
  *
- * 职责：
- * - 基于订阅关系，将频道消息路由到对应的 WebSocket 会话
- * - 负责单条与批量消息的分发
+ * <p>职责：
+ * <ul>
+ *   <li>基于订阅关系，将频道消息路由到对应的 WebSocket 会话</li>
+ *   <li>负责单条与批量消息的分发</li>
+ * </ul>
  *
- * 设计：
- * - 仅依赖订阅管理与连接管理服务，不关心底层存储实现
- * - 保持与原 ConnectionManagerService 中路由逻辑等价
+ * <p>性能优化：
+ * <ul>
+ *   <li>序列化复用：每条消息仅序列化一次，所有接收者共享同一 {@link TextMessage} 实例（不可变，线程安全）。</li>
+ *   <li>并行分发：使用有界线程池并发向多个 session 发送，降低尾延迟。</li>
+ *   <li>串行写保护：同一 session 仍通过 {@code sessionLocks} 保证串行写，防止并发写导致的 IllegalStateException。</li>
+ * </ul>
  */
 @Slf4j
 @Service
@@ -36,15 +46,32 @@ public class ChannelMessageRouter {
     private final ObjectMapper objectMapper;
 
     /**
-     * 每个 WebSocket session 独立的发送锁，防止多个 RabbitMQ 消费线程并发写同一个 session
+     * 每个 WebSocket session 独立的发送锁，防止多个线程并发写同一个 session
      * 导致 TEXT_PARTIAL_WRITING IllegalStateException。
-     * <p>
-     * WebSocketSession.sendMessage() 不是线程安全的：Tomcat 的 WsRemoteEndpointImplBase
-     * 内部维护状态机，若两个线程同时调用 sendText() 则抛出
-     * "The remote endpoint was in state [TEXT_PARTIAL_WRITING]"。
-     * 使用 computeIfAbsent 保证每个 sessionId 只有一个锁对象，synchronized 块保证串行发送。
      */
     private final ConcurrentHashMap<String, Object> sessionLocks = new ConcurrentHashMap<>();
+
+    /**
+     * 有界线程池，用于并行向多个 session 分发消息。
+     *
+     * <ul>
+     *   <li>核心线程数 4：覆盖常规并发负载。</li>
+     *   <li>最大线程数 16：应对短时高并发房间。</li>
+     *   <li>队列容量 2000：有界队列防止内存溢出，超出时直接在调用线程执行（CallerRunsPolicy）。</li>
+     *   <li>空闲线程存活 60s。</li>
+     * </ul>
+     */
+    private final ThreadPoolExecutor dispatchExecutor = new ThreadPoolExecutor(
+            4, 16,
+            60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(2000),
+            r -> {
+                Thread t = new Thread(r, "ws-dispatch-" + r.hashCode());
+                t.setDaemon(true);
+                return t;
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy()
+    );
 
     public void processChannelMessage(UnifiedWebSocketMessage message) {
         try {
@@ -73,25 +100,52 @@ public class ChannelMessageRouter {
                 return;
             }
 
-            int successCount = 0;
-            int failCount = 0;
+            // 性能优化：仅序列化一次，所有接收者复用同一 TextMessage 实例
+            // TextMessage 是不可变值对象，多线程共享安全
+            final TextMessage textMsg;
+            try {
+                textMsg = new TextMessage(objectMapper.writeValueAsString(message));
+            } catch (Exception e) {
+                log.error("[消息代理] 消息序列化失败: messageId={}", message.getMessageId(), e);
+                return;
+            }
+
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failCount = new AtomicInteger(0);
+
+            // 并行分发：为每个 session 创建异步任务
+            List<CompletableFuture<Void>> futures = new ArrayList<>(subscriberSessions.size());
 
             for (String sessionId : subscriberSessions) {
                 WebSocketSession session = connectionManagerService.getSession(sessionId);
                 if (session != null && session.isOpen()) {
-                    sendMessageToSession(session, message);
-                    successCount++;
-                    ConnectionManagerService.SessionInfo sessionInfo = connectionManagerService.getSessionInfo(sessionId);
-                    if (sessionInfo != null) {
-                        subscriptionManager.updateSubscriptionActivity(sessionInfo.getUserId(), channel);
-                    }
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        sendTextMessageToSession(session, textMsg, message.getMessageId());
+                        successCount.incrementAndGet();
+                        // 更新订阅活跃时间
+                        ConnectionManagerService.SessionInfo sessionInfo =
+                                connectionManagerService.getSessionInfo(sessionId);
+                        if (sessionInfo != null) {
+                            subscriptionManager.updateSubscriptionActivity(
+                                    sessionInfo.getUserId(), channel);
+                        }
+                    }, dispatchExecutor).exceptionally(ex -> {
+                        failCount.incrementAndGet();
+                        log.error("[消息代理] 并行分发任务异常: sessionId={}, messageId={}",
+                                sessionId, message.getMessageId(), ex);
+                        return null;
+                    });
+                    futures.add(future);
                 } else {
-                    failCount++;
+                    failCount.incrementAndGet();
                 }
             }
 
+            // 等待所有分发任务完成
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
             log.debug("[消息代理] 频道消息分发完成: channel={}, success={}, fail={}",
-                    channel, successCount, failCount);
+                    channel, successCount.get(), failCount.get());
 
         } catch (Exception e) {
             log.error("[消息代理] 频道消息路由失败: channel={}", channel, e);
@@ -124,26 +178,48 @@ public class ChannelMessageRouter {
                 messages.size(), channelGroups.size());
     }
 
-    private void sendMessageToSession(WebSocketSession session, UnifiedWebSocketMessage message) {
-        // 同一个 session 可能被多个 RabbitMQ 消费线程并发调用，
-        // WebSocketSession.sendMessage() 非线程安全，必须串行化。
+    /**
+     * 向指定 session 发送已序列化好的 {@link TextMessage}。
+     *
+     * <p>同一 session 可能被多个分发线程并发调用，
+     * {@link org.springframework.web.socket.WebSocketSession#sendMessage} 非线程安全，
+     * 必须通过 {@code sessionLocks} 串行化。
+     *
+     * @param session   目标 WebSocket 会话
+     * @param textMsg   已序列化的不可变文本消息（所有接收者复用）
+     * @param messageId 消息 ID（仅用于日志）
+     */
+    private void sendTextMessageToSession(WebSocketSession session, TextMessage textMsg, String messageId) {
         Object lock = sessionLocks.computeIfAbsent(session.getId(), id -> new Object());
         synchronized (lock) {
             try {
                 if (!session.isOpen()) {
                     log.warn("[消息代理] Session已关闭，跳过发送: sessionId={}, messageId={}",
-                            session.getId(), message.getMessageId());
+                            session.getId(), messageId);
                     sessionLocks.remove(session.getId());
                     return;
                 }
-                String jsonMessage = objectMapper.writeValueAsString(message);
-                session.sendMessage(new TextMessage(jsonMessage));
+                session.sendMessage(textMsg);
                 log.debug("[消息代理] WebSocket消息发送成功: sessionId={}, messageId={}",
-                        session.getId(), message.getMessageId());
+                        session.getId(), messageId);
             } catch (Exception e) {
                 log.error("[消息代理] 发送WebSocket消息失败: sessionId={}, messageId={}",
-                        session.getId(), message.getMessageId(), e);
+                        session.getId(), messageId, e);
             }
+        }
+    }
+
+    /**
+     * 向指定 session 发送消息对象（内部先序列化，供单独调用场景使用）。
+     * 保留此方法以兼容可能存在的单独调用场景。
+     */
+    private void sendMessageToSession(WebSocketSession session, UnifiedWebSocketMessage message) {
+        try {
+            TextMessage textMsg = new TextMessage(objectMapper.writeValueAsString(message));
+            sendTextMessageToSession(session, textMsg, message.getMessageId());
+        } catch (Exception e) {
+            log.error("[消息代理] 发送WebSocket消息失败（序列化）: sessionId={}, messageId={}",
+                    session.getId(), message.getMessageId(), e);
         }
     }
 }

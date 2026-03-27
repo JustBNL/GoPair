@@ -10,19 +10,26 @@
     <div class="profile-content">
       <!-- 头像区域 -->
       <div class="avatar-section">
-        <div class="avatar-wrapper">
-          <img v-if="avatarPreview" :src="avatarPreview" class="avatar-img" alt="avatar" />
-          <div v-else class="avatar-placeholder">{{ nicknameInitial }}</div>
-        </div>
-        <div class="avatar-actions">
-          <a-input
-            v-model:value="form.avatar"
-            placeholder="粘贴头像图片 URL"
-            size="small"
-            class="avatar-url-input"
-            @change="onAvatarUrlChange"
-          />
-          <div class="avatar-hint">输入图片链接以更换头像</div>
+        <a-upload
+          :show-upload-list="false"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          :before-upload="beforeAvatarUpload"
+          :custom-request="handleAvatarUpload"
+        >
+          <div class="avatar-wrapper">
+            <a-spin :spinning="avatarUploading">
+              <img v-if="avatarPreview" :src="avatarPreview" class="avatar-img" alt="avatar" />
+              <div v-else class="avatar-placeholder">{{ nicknameInitial }}</div>
+            </a-spin>
+            <div class="avatar-overlay">
+              <span class="avatar-overlay-text">更换头像</span>
+            </div>
+          </div>
+        </a-upload>
+        <div class="avatar-tips">
+          <p class="avatar-tip-title">点击头像更换</p>
+          <p class="avatar-tip-desc">支持 JPG / PNG / GIF / WebP</p>
+          <p class="avatar-tip-desc">文件大小不超过 5MB</p>
         </div>
       </div>
 
@@ -57,6 +64,13 @@
           </div>
 
           <div v-if="showPassword" class="password-fields">
+            <a-form-item label="当前密码" v-bind="validateInfos.currentPassword">
+              <a-input-password
+                v-model:value="form.currentPassword"
+                placeholder="请输入当前密码"
+                :maxlength="50"
+              />
+            </a-form-item>
             <a-form-item label="新密码" v-bind="validateInfos.password">
               <a-input-password
                 v-model:value="form.password"
@@ -93,9 +107,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Form } from 'ant-design-vue'
+import { Form, message } from 'ant-design-vue'
 import { DownOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { FileAPI } from '@/api/file'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ (e: 'update:visible', v: boolean): void }>()
@@ -103,11 +118,13 @@ const emit = defineEmits<{ (e: 'update:visible', v: boolean): void }>()
 const authStore = useAuthStore()
 const loading = ref(false)
 const showPassword = ref(false)
+const avatarUploading = ref(false)
 
 const form = ref({
   nickname: '',
   email: '',
   avatar: '',
+  currentPassword: '',
   password: '',
   confirmPassword: ''
 })
@@ -126,27 +143,66 @@ watch(
   (val) => {
     if (val) {
       form.value.nickname = authStore.user?.nickname || ''
-      form.value.email = ''
-      form.value.avatar = ''
+      form.value.email = authStore.user?.email || ''
+      form.value.avatar = authStore.user?.avatar || ''
+      form.value.currentPassword = ''
       form.value.password = ''
       form.value.confirmPassword = ''
-      avatarPreview.value = ''
+      avatarPreview.value = authStore.user?.avatar || ''
       showPassword.value = false
     }
   }
 )
 
-function onAvatarUrlChange() {
-  avatarPreview.value = form.value.avatar
+// 上传前校验
+function beforeAvatarUpload(file: File): boolean {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    message.error('仅支持 JPG / PNG / GIF / WebP 格式的图片')
+    return false
+  }
+  const maxSize = 5 * 1024 * 1024
+  if (file.size > maxSize) {
+    message.error('头像文件不能超过 5MB')
+    return false
+  }
+  return true
+}
+
+// 自定义上传头像
+async function handleAvatarUpload({ file }: { file: File }) {
+  avatarUploading.value = true
+  try {
+    const res = await FileAPI.uploadAvatar(file)
+    form.value.avatar = res.data
+    avatarPreview.value = res.data
+    message.success('头像上传成功')
+  } catch {
+    message.error('头像上传失败，请重试')
+  } finally {
+    avatarUploading.value = false
+  }
 }
 
 // 表单验证规则
 const { validate, validateInfos } = Form.useForm(form, {
   nickname: [
+    { required: true, message: '昵称不能为空', trigger: 'blur' },
     { min: 1, max: 20, message: '昵称长度为 1-20 个字符', trigger: 'blur' }
   ],
   email: [
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
+  currentPassword: [
+    {
+      validator: (_: any, value: string) => {
+        if (form.value.password && !value) {
+          return Promise.reject('修改密码时必须输入当前密码')
+        }
+        return Promise.resolve()
+      },
+      trigger: 'blur'
+    }
   ],
   password: [
     {
@@ -163,7 +219,7 @@ const { validate, validateInfos } = Form.useForm(form, {
   confirmPassword: [
     {
       validator: (_: any, value: string) => {
-        if (!value && !form.value.password) return Promise.resolve()
+        if (!form.value.password) return Promise.resolve()
         if (value !== form.value.password) {
           return Promise.reject('两次密码输入不一致')
         }
@@ -180,10 +236,14 @@ async function handleSubmit() {
   const payload: Record<string, string> = {}
   if (form.value.nickname) payload.nickname = form.value.nickname
   if (form.value.email) payload.email = form.value.email
-  if (form.value.avatar) payload.avatar = form.value.avatar
-  if (form.value.password) payload.password = form.value.password
+  if (form.value.avatar !== undefined) payload.avatar = form.value.avatar
+  if (form.value.password) {
+    payload.password = form.value.password
+    payload.currentPassword = form.value.currentPassword
+  }
 
   if (Object.keys(payload).length === 0) {
+    message.info('没有检测到任何修改')
     handleClose()
     return
   }
@@ -216,7 +276,13 @@ function handleClose() {
 }
 
 .avatar-wrapper {
+  position: relative;
   flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
 }
 
 .avatar-img {
@@ -225,6 +291,7 @@ function handleClose() {
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid #667eea;
+  display: block;
 }
 
 .avatar-placeholder {
@@ -241,17 +308,47 @@ function handleClose() {
   border: 3px solid #667eea;
 }
 
-.avatar-actions {
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatar-wrapper:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-overlay-text {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+.avatar-tips {
   flex: 1;
 }
 
-.avatar-url-input {
-  margin-bottom: 4px;
+.avatar-tip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 4px;
 }
 
-.avatar-hint {
+.avatar-tip-desc {
   font-size: 12px;
   color: #9ca3af;
+  margin: 0;
+  line-height: 1.6;
 }
 
 /* 密码折叠区 */

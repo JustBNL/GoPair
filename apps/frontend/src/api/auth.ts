@@ -1,5 +1,5 @@
 import { http } from '@/utils/request'
-import type { ApiResponse, UserInfo, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse } from '@/types/api'
+import type { ApiResponse, UserInfo, LoginRequest, RegisterRequest, RegisterResponse, LoginResponse, SendCodeRequest, ForgotPasswordRequest } from '@/types/api'
 import { API_ENDPOINTS } from './index'
 
 /**
@@ -40,6 +40,22 @@ export class AuthAPI {
    */
   static async updateUser(userData: Partial<UserInfo>): Promise<ApiResponse<boolean>> {
     return http.put<boolean>(API_ENDPOINTS.UPDATE_USER, userData)
+  }
+
+  /**
+   * 发送邮箱验证码
+   * @param data 邮箱和场景类型
+   */
+  static async sendVerificationCode(data: SendCodeRequest): Promise<ApiResponse<void>> {
+    return http.post<void>(API_ENDPOINTS.SEND_CODE, data)
+  }
+
+  /**
+   * 忘记密码（验证码重置）
+   * @param data 邮箱、验证码和新密码
+   */
+  static async forgotPassword(data: ForgotPasswordRequest): Promise<ApiResponse<void>> {
+    return http.post<void>(API_ENDPOINTS.FORGOT_PASSWORD, data)
   }
 
   /**

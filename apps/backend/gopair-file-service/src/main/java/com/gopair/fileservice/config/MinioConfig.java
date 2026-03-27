@@ -40,7 +40,7 @@ public class MinioConfig {
     }
 
     /**
-     * 确保桶存在，不存在则创建（私有桶）
+     * 确保桶存在，不存在则创建，并设置 avatar/* 路径公开读策略
      */
     private void ensureBucketExists(MinioClient client, String bucketName) {
         try {
@@ -53,6 +53,24 @@ public class MinioConfig {
             } else {
                 log.info("[文件服务] MinIO存储桶已就绪 - 桶名: {}", bucketName);
             }
+            // 设置 avatar/* 路径允许匿名 GET（永久直链访问头像）
+            String policy = String.format("""
+                    {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Principal": {"AWS": ["*"]},
+                          "Action": ["s3:GetObject"],
+                          "Resource": ["arn:aws:s3:::%s/avatar/*"]
+                        }
+                      ]
+                    }""", bucketName);
+            client.setBucketPolicy(SetBucketPolicyArgs.builder()
+                    .bucket(bucketName)
+                    .config(policy)
+                    .build());
+            log.info("[文件服务] MinIO avatar/* 公开读策略已设置 - 桶名: {}", bucketName);
         } catch (Exception e) {
             log.error("[文件服务] MinIO存储桶初始化失败 - 桶名: {}, 错误: {}", bucketName, e.getMessage(), e);
             throw new RuntimeException("MinIO桶初始化失败: " + e.getMessage(), e);

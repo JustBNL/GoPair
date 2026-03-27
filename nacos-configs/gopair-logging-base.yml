@@ -1,8 +1,3 @@
-# GoPair基础日志配置
-# Data ID: gopair-logging-base.yml
-# Group: DEFAULT_GROUP
-# 说明: 所有服务共用的基础日志配置，包含日志格式、级别、链路追踪等
-
 # 统一日志配置
 logging:
   # 日志格式配置
@@ -11,7 +6,7 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [traceId=%X{traceId:-},spanId=%X{spanId:-}] [userId=%X{userId:-},nickname=%X{nickname:-}] %-40.40logger{39} : %m%n"
     # 文件日志格式（如果需要）
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [traceId=%X{traceId:-},spanId=%X{spanId:-}] [userId=%X{userId:-},nickname=%X{nickname:-}] %-40.40logger{39} : %m%n"
-  
+
   # 统一日志级别配置
   level:
     # 设置根日志级别
@@ -58,7 +53,7 @@ management:
   endpoint:
     health:
       show-details: ${HEALTH_SHOW_DETAILS:when-authorized}
-  
+
   # 链路追踪配置
   tracing:
     # 采样配置
@@ -68,21 +63,64 @@ management:
     # Baggage配置（用于在span之间传播自定义数据）
     baggage:
       remote-fields: ${TRACING_BAGGAGE_FIELDS:userId,nickname}
-  
+      # correlation-fields 使 Brave 自动将 Baggage 同步到 MDC
+      # 与 TracingMdcConfiguration 的 MDCScopeDecorator 协同工作
+      correlation-fields: ${TRACING_BAGGAGE_FIELDS:userId,nickname}
+
   # Zipkin配置
   zipkin:
     tracing:
-      # Zipkin服务端点，如果不配置ZIPKIN_URL环境变量则留空
-      endpoint: "${ZIPKIN_URL:}"
-  
+      # Zipkin服务端点，本地开发默认上报到 localhost:9411，生产环境通过 ZIPKIN_URL 环境变量覆盖
+      endpoint: "${ZIPKIN_URL:http://localhost:9411/api/v2/spans}"
+
   # OTLP配置 (OpenTelemetry Protocol)
   otlp:
     tracing:
       # OTLP服务端点
       endpoint: "${OTLP_URL:}"
-  
+
   # Prometheus指标配置
   metrics:
     export:
       prometheus:
-        enabled: ${PROMETHEUS_ENABLED:true} 
+        enabled: ${PROMETHEUS_ENABLED:true}
+
+# ============================================================
+# GoPair 业务框架配置（从 gopair-business.yml 迁入）
+# ============================================================
+
+gopair:
+  # AOP 日志配置
+  logging:
+    # 日志功能总开关
+    enabled: ${GOPAIR_LOGGING_ENABLED:true}
+
+    # AOP 方法日志配置
+    aop:
+      enabled: ${AOP_LOGGING_ENABLED:true}
+      logArgs: ${BUSINESS_LOG_RECORD_PARAMS:true}
+      logResult: ${BUSINESS_LOG_RECORD_RESULT:true}
+      logExecutionTime: ${PERFORMANCE_LOG_ENABLED:true}
+
+    # 运维日志配置
+    ops:
+      enabled: ${LOGGING_OPS_ENABLED:false}
+      mvcEnabled: ${LOGGING_MVC_ENABLED:false}
+      actuatorEnabled: ${LOGGING_ACTUATOR_ENABLED:false}
+      healthEnabled: ${LOGGING_HEALTH_ENABLED:false}
+      metricsEnabled: ${LOGGING_METRICS_ENABLED:false}
+
+  # 用户上下文配置
+  context:
+    # 上下文功能总开关
+    enabled: ${GOPAIR_CONTEXT_ENABLED:true}
+    user:
+      excludedPaths:
+        - /health
+        - /actuator/**
+        - /error
+        - /favicon.ico
+        - /static/**
+        - /webjars/**
+        - /user/login
+        - /user/register

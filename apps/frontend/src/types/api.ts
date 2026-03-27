@@ -37,6 +37,24 @@ export interface RegisterRequest {
   nickname: string
   email: string
   password: string
+  code: string
+}
+
+/**
+ * 发送验证码请求接口
+ */
+export interface SendCodeRequest {
+  email: string
+  type: 'register' | 'resetPassword'
+}
+
+/**
+ * 忘记密码请求接口
+ */
+export interface ForgotPasswordRequest {
+  email: string
+  code: string
+  newPassword: string
 }
 
 /**
@@ -66,6 +84,8 @@ export interface CurrentUser {
   userId: number
   nickname: string
   token: string
+  email?: string
+  avatar?: string
 }
 
 /**

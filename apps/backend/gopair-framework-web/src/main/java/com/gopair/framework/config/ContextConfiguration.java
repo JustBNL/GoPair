@@ -2,7 +2,9 @@ package com.gopair.framework.config;
 
 import com.gopair.framework.config.properties.ContextProperties;
 import com.gopair.framework.context.ContextInitFilter;
+import com.gopair.framework.context.TraceContextSupport;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -10,12 +12,14 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.Nullable;
 
 import jakarta.servlet.Filter;
 
 /**
  * 上下文功能配置类
  *
+ * @author gopair
  */
 @Slf4j
 @Configuration
@@ -26,8 +30,10 @@ import jakarta.servlet.Filter;
 public class ContextConfiguration {
 
     @Bean
-    public ContextInitFilter contextInitFilter(ContextProperties properties) {
-        return new ContextInitFilter(properties);
+    public ContextInitFilter contextInitFilter(
+            ContextProperties properties,
+            @Autowired(required = false) @Nullable TraceContextSupport traceContextSupport) {
+        return new ContextInitFilter(properties, traceContextSupport);
     }
 
     @Bean
@@ -41,4 +47,4 @@ public class ContextConfiguration {
         log.info("[框架配置] 已注册 ContextInitFilter");
         return registration;
     }
-} 
+}

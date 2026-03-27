@@ -9,7 +9,8 @@
         </div>
         <div class="user-section">
           <div class="user-avatar-btn" @click="profileVisible = true" title="编辑个人资料">
-            <div class="user-avatar">{{ nicknameInitial }}</div>
+            <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" class="user-avatar user-avatar-img" alt="avatar" />
+            <div v-else class="user-avatar">{{ nicknameInitial }}</div>
             <span class="welcome-text">{{ authStore.currentNickname }}</span>
           </div>
           <a-button type="text" @click="handleLogout" class="logout-btn">
@@ -558,5 +559,11 @@ onMounted(async () => {
   justify-content: center;
   border: 2px solid rgba(255, 255, 255, 0.6);
   flex-shrink: 0;
+}
+
+.user-avatar-img {
+  background: none;
+  object-fit: cover;
+  display: block;
 }
 </style>

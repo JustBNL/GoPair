@@ -8,22 +8,23 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import:
-      - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
+      # 共享基础设施配置（Redis、MySQL、RabbitMQ、MyBatis-Plus、Knife4j）
+      - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
+      # 统一日志与可观测性配置
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
-# 仅保留服务特定的MyBatis Plus配置
+# MyBatis-Plus 服务专属配置（通用配置由 gopair-shared.yml 提供）
 mybatis-plus:
-  # 实体类包路径，用于类型别名
   type-aliases-package: com.gopair.messageservice.domain.po
 
-# GoPair自定义配置
+# 业务配置（message-service 专属）
 gopair:
   message:
-    # 消息最大长度
+    # 消息最大长度（字符数）
     max-content-length: 2000
-    # WebSocket最大连接数
+    # WebSocket 最大连接数
     max-websocket-connections: 1000
     # 消息历史保留天数
     history-retention-days: 30
-    # Redis消息频道前缀
+    # Redis 消息频道前缀
     redis-channel-prefix: "message"

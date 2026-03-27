@@ -2,8 +2,10 @@ package com.gopair.userservice.service;
 
 import com.gopair.common.core.PageResult;
 import com.gopair.userservice.domain.dto.UserDto;
+import com.gopair.userservice.domain.dto.auth.ForgotPasswordRequest;
 import com.gopair.userservice.domain.dto.auth.LoginRequest;
 import com.gopair.userservice.domain.dto.auth.RegisterRequest;
+import com.gopair.userservice.domain.dto.auth.SendCodeRequest;
 import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.domain.vo.auth.LoginResponse;
 import com.gopair.userservice.domain.vo.auth.RegisterResponse;
@@ -14,6 +16,20 @@ import com.gopair.userservice.domain.vo.auth.RegisterResponse;
  * @author gopair
  */
 public interface UserService {
+
+    /**
+     * 发送邮箱验证码
+     *
+     * @param request 包含邮箱和场景类型
+     */
+    void sendVerificationCode(SendCodeRequest request);
+
+    /**
+     * 忘记密码（通过验证码重置）
+     *
+     * @param request 包含邮箱、验证码和新密码
+     */
+    void forgotPassword(ForgotPasswordRequest request);
 
     /**
      * 用户登录

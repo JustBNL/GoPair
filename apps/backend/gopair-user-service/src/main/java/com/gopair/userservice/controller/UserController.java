@@ -3,8 +3,10 @@ package com.gopair.userservice.controller;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
 import com.gopair.userservice.domain.dto.UserDto;
+import com.gopair.userservice.domain.dto.auth.ForgotPasswordRequest;
 import com.gopair.userservice.domain.dto.auth.LoginRequest;
 import com.gopair.userservice.domain.dto.auth.RegisterRequest;
+import com.gopair.userservice.domain.dto.auth.SendCodeRequest;
 import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.domain.vo.auth.LoginResponse;
 import com.gopair.userservice.domain.vo.auth.RegisterResponse;
@@ -37,6 +39,30 @@ public class UserController {
         this.userService = userService;
     }
     
+    /**
+     * 发送邮箱验证码（注册 / 忘记密码通用）
+     */
+    @Operation(summary = "发送验证码", description = "向指定邮箱发送验证码，type=register(注册)/resetPassword(忘记密码)")
+    @PostMapping("/sendCode")
+    public R<Void> sendVerificationCode(
+            @Parameter(description = "发送验证码请求", required = true)
+            @Validated @RequestBody SendCodeRequest request) {
+        userService.sendVerificationCode(request);
+        return R.ok();
+    }
+
+    /**
+     * 忘记密码（验证码重置）
+     */
+    @Operation(summary = "忘记密码", description = "通过邮箱验证码重置密码")
+    @PostMapping("/forgotPassword")
+    public R<Void> forgotPassword(
+            @Parameter(description = "忘记密码请求", required = true)
+            @Validated @RequestBody ForgotPasswordRequest request) {
+        userService.forgotPassword(request);
+        return R.ok();
+    }
+
     /**
      * 用户登录（邮箱 + 密码）
      */

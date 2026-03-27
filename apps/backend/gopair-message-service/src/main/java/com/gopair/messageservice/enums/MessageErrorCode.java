@@ -55,7 +55,12 @@ public enum MessageErrorCode implements ErrorCode {
     /**
      * 消息发送失败
      */
-    MESSAGE_SEND_FAILED(20407, "消息发送失败");
+    MESSAGE_SEND_FAILED(20407, "消息发送失败"),
+
+    /**
+     * 消息内容超过最大长度限制
+     */
+    MESSAGE_CONTENT_TOO_LONG(20408, "消息内容超过最大长度限制");
 
     /**
      * 错误码

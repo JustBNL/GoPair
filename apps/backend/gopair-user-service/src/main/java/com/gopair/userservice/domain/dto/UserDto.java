@@ -54,4 +54,9 @@ public class UserDto extends BaseQuery {
      * 备注
      */
     private String remark;
+
+    /**
+     * 当前密码（修改密码时用于验证身份）
+     */
+    private String currentPassword;
 } 

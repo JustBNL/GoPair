@@ -1,5 +1,7 @@
 package com.gopair.gateway.filter;
 
+import brave.Tracer;
+import brave.baggage.BaggageField;
 import com.gopair.common.enums.impl.CommonErrorCode;
 import com.gopair.common.util.JwtUtils;
 import com.gopair.common.constants.MessageConstants;
@@ -18,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
@@ -32,7 +35,15 @@ import jakarta.annotation.PostConstruct;
 /**
  * JWT认证网关过滤器
  *
- * 从Cookie中获取JWT令牌并进行验证，将用户信息传递给下游服务
+ * 从Cookie或Authorization头中获取JWT令牌并进行验证，将用户信息传递给下游服务。
+ *
+ * 追踪增强：
+ * JWT验证成功后，将 userId/nickname 注入 Brave BaggageField，
+ * 配合 TracingMdcConfiguration 的 MDCScopeDecorator，
+ * 使下游服务日志中自动携带 userId 和 nickname。
+ *
+ * 注意：使用 brave.Tracer（Brave 原生）确保与 BaggageField.updateValue() 的
+ * brave.propagation.TraceContext 类型兼容。
  *
  * @author gopair
  */
@@ -40,43 +51,39 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
+    private static final BaggageField USER_ID_BAGGAGE = BaggageField.create(MessageConstants.MDC_USER_ID);
+    private static final BaggageField NICKNAME_BAGGAGE = BaggageField.create(MessageConstants.MDC_NICKNAME);
+
     private final JwtProperties jwtProperties;
     private final GatewayAuthProperties gatewayAuthProperties;
 
-    public JwtAuthenticationGatewayFilter(JwtProperties jwtProperties, GatewayAuthProperties gatewayAuthProperties) {
+    /**
+     * Brave Tracer 可选注入，仅在 micrometer-tracing-bridge-brave 存在时有效
+     * 使用 brave.Tracer 而非 io.micrometer.tracing.Tracer，
+     * 确保 span.context() 返回 brave.propagation.TraceContext
+     */
+    @Nullable
+    private final Tracer tracer;
+
+    private static final String JWT_COOKIE_NAME = MessageConstants.JWT_COOKIE_NAME;
+    private static final String AUTHORIZATION_HEADER = MessageConstants.AUTHORIZATION_HEADER;
+    private static final String BEARER_PREFIX = MessageConstants.BEARER_PREFIX;
+    private static final String USER_ID_HEADER = MessageConstants.HEADER_USER_ID;
+    private static final String NICKNAME_HEADER = MessageConstants.HEADER_NICKNAME;
+
+    public JwtAuthenticationGatewayFilter(JwtProperties jwtProperties,
+                                          GatewayAuthProperties gatewayAuthProperties,
+                                          @Nullable Tracer tracer) {
         this.jwtProperties = jwtProperties;
         this.gatewayAuthProperties = gatewayAuthProperties;
+        this.tracer = tracer;
     }
 
     @PostConstruct
     public void init() {
-        log.info("[网关服务] JWT认证过滤器初始化完成");
+        log.info("[网关服务] JWT认证过滤器初始化完成，Baggage追踪增强={}",
+                tracer != null ? "已启用" : "未启用(无Tracer)");
     }
-
-    /**
-     * JWT令牌在Cookie中的名称
-     */
-    private static final String JWT_COOKIE_NAME = MessageConstants.JWT_COOKIE_NAME;
-    
-    /**
-     * Authorization请求头名称
-     */
-    private static final String AUTHORIZATION_HEADER = MessageConstants.AUTHORIZATION_HEADER;
-    
-    /**
-     * Bearer令牌前缀
-     */
-    private static final String BEARER_PREFIX = MessageConstants.BEARER_PREFIX;
-
-    /**
-     * 传递给下游服务的用户ID头名称
-     */
-    private static final String USER_ID_HEADER = MessageConstants.HEADER_USER_ID;
-
-    /**
-     * 传递给下游服务的昵称头名称
-     */
-    private static final String NICKNAME_HEADER = MessageConstants.HEADER_NICKNAME;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -94,13 +101,13 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         // 优先从Authorization请求头获取JWT令牌
         String token = extractTokenFromHeader(request);
         String tokenSource = "Authorization头";
-        
+
         // 如果请求头中没有，再从Cookie中获取
         if (!StringUtils.hasText(token)) {
             token = extractTokenFromCookie(request);
             tokenSource = "Cookie";
         }
-        
+
         // 两处都没有找到token
         if (!StringUtils.hasText(token)) {
             log.warn("[网关认证] 认证失败 - 路径: {}, 原因: 未找到JWT令牌", path);
@@ -127,13 +134,17 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
             log.info("[网关认证] 认证成功 - 用户: {}, ID: {}, 路径: {}", nickname, userId, path);
 
+            // 将用户信息注入 Brave BaggageField
+            // MDCScopeDecorator（TracingMdcConfiguration）会自动将其桥接到 MDC
+            injectUserBaggage(userId, nickname);
+
             // 将用户信息添加到请求头，传递给下游服务
             ServerHttpRequest modifiedRequest = request.mutate()
                     .header(USER_ID_HEADER, userId)
                     .header(NICKNAME_HEADER, nickname)
                     .build();
 
-            // 将用户信息添加到Reactor Context中，Brave会自动将其桥接到MDC
+            // 保留 Reactor Context 写入（双保险，兼容非 Brave 场景）
             return chain.filter(exchange.mutate().request(modifiedRequest).build())
                     .contextWrite(ctx -> ctx
                             .put("userId", userId)
@@ -147,6 +158,30 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     }
 
     /**
+     * 将 userId/nickname 注入 Brave BaggageField
+     *
+     * BaggageField 通过 B3 传播协议随 HTTP 请求头传递到下游服务，
+     * 下游服务的 TracingMdcConfiguration（若已配置）会自动将其写入 MDC。
+     */
+    private void injectUserBaggage(String userId, String nickname) {
+        if (tracer == null) {
+            return;
+        }
+        try {
+            brave.Span span = tracer.currentSpan();
+            if (span != null) {
+                USER_ID_BAGGAGE.updateValue(span.context(), userId);
+                NICKNAME_BAGGAGE.updateValue(span.context(), nickname);
+                log.debug("[网关认证] 已将 userId={}, nickname={} 注入 BaggageField", userId, nickname);
+            } else {
+                log.debug("[网关认证] 当前无活跃 Span，跳过 BaggageField 注入");
+            }
+        } catch (Exception e) {
+            log.debug("[网关认证] 注入 BaggageField 失败（非致命）: {}", e.getMessage());
+        }
+    }
+
+    /**
      * 检查是否为白名单路径
      */
     private boolean isSkipAuthPath(String path) {
@@ -154,7 +189,6 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         if (!StringUtils.hasText(skipAuthPathsStr)) {
             return false;
         }
-
         List<String> skipAuthPaths = Arrays.asList(skipAuthPathsStr.split(","));
         return skipAuthPaths.stream()
                 .map(String::trim)
@@ -168,7 +202,7 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         HttpCookie cookie = request.getCookies().getFirst(JWT_COOKIE_NAME);
         return cookie != null ? cookie.getValue() : null;
     }
-    
+
     /**
      * 从Authorization请求头中提取JWT令牌
      */
@@ -189,13 +223,11 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     private Mono<Void> handleAuthenticationFailure(ServerHttpResponse response, String message) {
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-
         String responseBody = String.format(
-            "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
-            CommonErrorCode.UNAUTHORIZED.getCode(),
-            message
+                "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
+                CommonErrorCode.UNAUTHORIZED.getCode(),
+                message
         );
-
         DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
         return response.writeWith(Mono.just(buffer));
     }
@@ -206,20 +238,18 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     private Mono<Void> handleAuthenticationFailure(ServerHttpResponse response, GatewayErrorCode errorCode) {
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-
         String responseBody = String.format(
-            "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
-            errorCode.getCode(),
-            errorCode.getMessage()
+                "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
+                errorCode.getCode(),
+                errorCode.getMessage()
         );
-
         DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
         return response.writeWith(Mono.just(buffer));
     }
 
     @Override
     public int getOrder() {
-        // 设置为在RequestLoggingGlobalFilter之后执行，确保JWT解析在日志记录之后
+        // 在 RequestLoggingGlobalFilter 之后执行
         return Ordered.HIGHEST_PRECEDENCE + 100;
     }
 }

@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,6 +26,8 @@ public class SubscriptionManagerService {
     private final Map<String, Set<String>> channelSessions = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> sessionSubscriptions = new ConcurrentHashMap<>();
     private final Map<String, LocalDateTime> permissionCache = new ConcurrentHashMap<>();
+    /** sessionId → userId 映射，用于在路由时从 sessionId 反查 userId，精确匹配订阅的 eventTypes */
+    private final Map<String, Long> sessionUserMap = new ConcurrentHashMap<>();
 
     public boolean subscribeChannel(String sessionId, Long userId, String channel, 
                                   Set<String> eventTypes, String source) {
@@ -49,6 +50,7 @@ public class SubscriptionManagerService {
             userSubscriptions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(subscription);
             channelSessions.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet()).add(sessionId);
             sessionSubscriptions.computeIfAbsent(sessionId, k -> ConcurrentHashMap.newKeySet()).add(channel);
+            sessionUserMap.put(sessionId, userId);
 
             Map<String, Object> subscriptionData = Map.of(
                     "channel", channel,
@@ -92,6 +94,7 @@ public class SubscriptionManagerService {
                 sessionSubs.remove(channel);
                 if (sessionSubs.isEmpty()) {
                     sessionSubscriptions.remove(sessionId);
+                    sessionUserMap.remove(sessionId);
                 }
             }
 
@@ -124,6 +127,7 @@ public class SubscriptionManagerService {
     public void cleanupSessionSubscriptions(String sessionId, Long userId) {
         try {
             Set<String> channels = sessionSubscriptions.remove(sessionId);
+            sessionUserMap.remove(sessionId);
             if (channels == null) return;
 
             for (String channel : channels) {
@@ -255,22 +259,29 @@ public class SubscriptionManagerService {
     private boolean isSessionSubscribedToEvent(String sessionId, String channel, String eventType) {
         Set<String> sessionChannels = sessionSubscriptions.get(sessionId);
         if (sessionChannels == null || !sessionChannels.contains(channel)) return false;
-        
+
         Set<String> channelSessions = this.channelSessions.get(channel);
         if (channelSessions == null || !channelSessions.contains(sessionId)) return false;
-        
-        for (Map.Entry<Long, Set<ChannelSubscription>> entry : userSubscriptions.entrySet()) {
-            Set<ChannelSubscription> subscriptions = entry.getValue();
-            for (ChannelSubscription sub : subscriptions) {
-                if (channel.equals(sub.getChannel())) {
-                    Set<String> eventTypes = sub.getEventTypes();
-                    if (eventTypes == null || eventTypes.isEmpty()) return true;
-                    if (eventTypes.contains(eventType)) return true;
-                    break;
-                }
+
+        // 通过 sessionUserMap 精确反查该 session 对应的 userId，避免误用其他用户的订阅配置
+        Long userId = sessionUserMap.get(sessionId);
+        if (userId == null) {
+            // sessionUserMap 中无记录时降级：允许投递，避免因内存状态不一致漏发消息
+            return true;
+        }
+
+        Set<ChannelSubscription> subscriptions = userSubscriptions.get(userId);
+        if (subscriptions == null) return true;
+
+        for (ChannelSubscription sub : subscriptions) {
+            if (channel.equals(sub.getChannel())) {
+                Set<String> eventTypes = sub.getEventTypes();
+                // eventTypes 为空表示订阅全部事件类型
+                if (eventTypes == null || eventTypes.isEmpty()) return true;
+                return eventTypes.contains(eventType);
             }
         }
-        
+
         return false;
     }
 

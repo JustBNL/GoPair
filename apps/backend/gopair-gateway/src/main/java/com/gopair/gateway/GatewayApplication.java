@@ -1,6 +1,7 @@
 package com.gopair.gateway;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Hooks;
  * 
  * @author gopair
  */
+@Slf4j
 @SpringBootApplication(
     exclude = {
         org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class,
@@ -30,6 +32,14 @@ public class GatewayApplication {
     }
 
     public static void main(String[] args) {
-        SpringApplication.run(GatewayApplication.class, args);
+        try {
+            SpringApplication.run(GatewayApplication.class, args);
+            log.info("[网关服务启动] ========================================");
+            log.info("[网关服务启动] GoPair 网关服务启动成功！");
+            log.info("[网关服务启动] ========================================");
+        } catch (Exception e) {
+            log.error("[网关服务启动] 网关服务启动失败", e);
+            System.exit(1);
+        }
     }
-} 
+}

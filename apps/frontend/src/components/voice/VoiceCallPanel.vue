@@ -72,13 +72,15 @@
       </div>
 
       <div class="call-controls">
+        <!-- 麦克风：开启用 AudioOutlined，静音用 AudioMutedOutlined -->
         <a-button shape="circle" size="large" @click="emit('toggle-mute')" :class="{ 'ctrl-btn--off': isMuted }">
           <AudioMutedOutlined v-if="isMuted" />
           <AudioOutlined v-else />
         </a-button>
+        <!-- 扬声器：开启用 SoundOutlined，关闭用带斜线的 SoundOutlined -->
         <a-button shape="circle" size="large" @click="emit('toggle-speaker')" :class="{ 'ctrl-btn--off': isSpeakerOff }">
-          <SoundOutlined v-if="!isSpeakerOff" />
-          <AudioMutedOutlined v-else />
+          <span v-if="isSpeakerOff" class="icon-slash"><SoundOutlined /></span>
+          <SoundOutlined v-else />
         </a-button>
       </div>
 
@@ -241,6 +243,26 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
       display: flex;
       gap: 12px;
     }
+  }
+}
+
+// 扬声器关闭时在图标上叠加斜线
+.icon-slash {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 140%;
+    height: 2px;
+    background: currentColor;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    border-radius: 1px;
   }
 }
 

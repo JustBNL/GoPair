@@ -37,6 +37,16 @@ export interface RegisterFormData {
   nickname: string
   email: string
   password: string
+  code: string
+}
+
+/**
+ * 忘记密码表单数据
+ */
+export interface ForgotPasswordFormData {
+  email: string
+  code: string
+  newPassword: string
 }
 
 /**

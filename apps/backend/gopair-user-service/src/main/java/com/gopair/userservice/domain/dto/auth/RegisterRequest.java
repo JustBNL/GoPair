@@ -34,4 +34,10 @@ public class RegisterRequest {
     @NotBlank(message = MessageConstants.PARAM_MISSING)
     @Size(min = 6, max = 50, message = MessageConstants.PASSWORD_LENGTH_ERROR)
     private String password;
+
+    /**
+     * 邮箱验证码
+     */
+    @NotBlank(message = MessageConstants.PARAM_MISSING)
+    private String code;
 } 

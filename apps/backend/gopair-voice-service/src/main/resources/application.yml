@@ -1,46 +1,28 @@
+# 应用基本配置
 spring:
   application:
+    # 应用名称，用于服务注册与发现
     name: voice-service
   profiles:
+    # 当前环境配置
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import:
-      - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
+      # 共享基础设施配置（Redis、MySQL、RabbitMQ、MyBatis-Plus、Knife4j）
+      - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
+      # 统一日志与可观测性配置
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DB:0}
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 4
-          min-idle: 0
-          max-wait: 2000ms
-      timeout: 3000ms
-
-  datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:gopair}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-    virtual-host: ${RABBITMQ_VHOST:/}
-
+# 服务端口（可通过环境变量 SERVER_PORT 覆盖）
 server:
-  port: 8086
+  port: ${SERVER_PORT:8086}
 
+# MyBatis-Plus 服务专属配置（通用配置由 gopair-shared.yml 提供）
 mybatis-plus:
   type-aliases-package: com.gopair.voiceservice.domain.po
 
+# 业务配置（voice-service 专属）
 gopair:
   security:
+    # 白名单路径，暂无需跳过鉴权的路由
     skip-auth-paths: ""

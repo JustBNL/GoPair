@@ -23,6 +23,17 @@ public class FileController {
 
     private final FileService fileService;
 
+    @Operation(summary = "上传用户头像", description = "上传头像图片到MinIO，返回永久直链URL，图片自动压缩为200x200")
+    @PostMapping("/avatar")
+    public R<String> uploadAvatar(
+            @Parameter(description = "头像图片文件（jpg/jpeg/png/gif/webp，≤5MB）", required = true)
+            @RequestPart("file") MultipartFile file) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        log.info("[文件服务] 上传头像 userId:{}", userId);
+        String url = fileService.uploadAvatar(file, userId);
+        return R.ok(url);
+    }
+
     @Operation(summary = "上传文件", description = "上传文件到房间，图片类型自动生成缩略图")
     @PostMapping("/upload")
     public R<FileVO> uploadFile(

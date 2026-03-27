@@ -237,22 +237,22 @@ const sendMessage = async () => {
   const content = inputText.value.trim()
   if (!content) return
 
+  // 先清空输入框和回复状态，再设置 sending
+  // 避免 a-textarea 在 disabled 状态下 DOM 值无法同步，导致回车后内容不消失
+  inputText.value = ''
+  const replyToId = props.replyMessage?.messageId
+  if (props.replyMessage) {
+    cancelReply()
+  }
+
   try {
     sending.value = true
 
     emit('send-message', {
       content,
       messageType: MessageType.TEXT,
-      replyToId: props.replyMessage?.messageId
+      replyToId
     })
-
-    // 清空输入
-    inputText.value = ''
-    
-    // 取消回复
-    if (props.replyMessage) {
-      cancelReply()
-    }
 
     // 重新聚焦输入框
     await nextTick()

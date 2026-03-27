@@ -1,22 +1,33 @@
-# WebSocket服务配置
+# 应用基本配置
 spring:
   application:
+    # 应用名称，用于服务注册与发现
     name: websocket-service
   profiles:
+    # 当前环境配置
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import:
-      - optional:nacos:gopair-business.yml?group=DEFAULT_GROUP&refresh=true
+      # 共享基础设施配置（Redis、RabbitMQ、MyBatis-Plus、Knife4j）
+      # 注意：websocket-service 无 MySQL 驱动，datasource 配置自动忽略
+      - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
+      # 统一日志与可观测性配置
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
+# 服务端口（可通过环境变量 SERVER_PORT 覆盖）
 server:
-  port: 8085
+  port: ${SERVER_PORT:8085}
 
-# GoPair WebSocket配置
+# 业务配置（websocket-service 专属）
 gopair:
   websocket:
+    # 最大连接数
     max-connections: 10000
+    # 连接超时时间（秒）
     connection-timeout: 60
+    # 心跳间隔（秒）
     heartbeat-interval: 30
+    # RabbitMQ Topic Exchange 名称
     exchange-name: "websocket.topic"
-    session-ttl: 3600 
+    # Session 在 Redis 中的 TTL（秒）
+    session-ttl: 3600

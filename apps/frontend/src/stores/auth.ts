@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { message } from 'ant-design-vue'
-import type { UserInfo, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse, CurrentUser } from '@/types/api'
+import type { UserInfo, LoginRequest, RegisterRequest, LoginResponse, RegisterResponse, CurrentUser, SendCodeRequest, ForgotPasswordRequest } from '@/types/api'
 import type { FormMode } from '@/types/auth'
 import { AuthAPI } from '@/api/auth'
 import { Storage } from '@/utils/storage'
@@ -62,6 +62,15 @@ export const useAuthStore = defineStore('auth', () => {
         nickname: response.data.nickname,
         token: response.data.token
       }
+
+      // 补全 email/avatar（LoginResponse 不含这两个字段，需额外请求）
+      try {
+        const userInfo = await AuthAPI.getCurrentUser(response.data.userId)
+        currentUser.email = userInfo.data.email
+        currentUser.avatar = userInfo.data.avatar
+      } catch {
+        // 补全失败不影响登录流程
+      }
       
       // 先持久化存储，再更新内存状态
       Storage.setToken(response.data.token)
@@ -105,24 +114,39 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * 用户注册
+   * 用户注册（注册成功后自动登录）
    */
   async function register(registerData: RegisterRequest): Promise<void> {
     registerLoading.value = true
     try {
       await AuthAPI.register(registerData)
-      
-      message.success('注册成功')
-      
-      // 注册成功后切换到登录模式，并填充邮箱
-      currentMode.value = 'login'
-      savedEmail.value = registerData.email
+      // 注册成功后直接用相同凭据自动登录
+      await login({
+        email: registerData.email,
+        password: registerData.password
+      })
     } catch (error) {
       console.error('注册失败:', error)
       throw error
     } finally {
       registerLoading.value = false
     }
+  }
+
+  /**
+   * 发送邮箱验证码
+   */
+  async function sendVerificationCode(email: string, type: 'register' | 'resetPassword'): Promise<void> {
+    await AuthAPI.sendVerificationCode({ email, type })
+    message.success('验证码已发送，请查收邮件')
+  }
+
+  /**
+   * 忘记密码（验证码重置）
+   */
+  async function forgotPassword(data: ForgotPasswordRequest): Promise<void> {
+    await AuthAPI.forgotPassword(data)
+    message.success('密码重置成功，请使用新密码登录')
   }
 
   /**
@@ -255,9 +279,12 @@ export const useAuthStore = defineStore('auth', () => {
   async function updateProfile(data: { nickname?: string; email?: string; password?: string; avatar?: string }): Promise<void> {
     if (!user.value?.userId) throw new Error('未登录')
     await AuthAPI.updateUser({ userId: user.value.userId, ...data })
-    // 同步更新本地昵称
-    if (data.nickname && user.value) {
-      const updatedUser = { ...user.value, nickname: data.nickname }
+    // 同步更新本地用户信息（nickname、email、avatar）
+    if (user.value) {
+      const updatedUser = { ...user.value }
+      if (data.nickname) updatedUser.nickname = data.nickname
+      if (data.email) updatedUser.email = data.email
+      if (data.avatar !== undefined) updatedUser.avatar = data.avatar
       user.value = updatedUser
       Storage.setUser(updatedUser)
     }
@@ -275,7 +302,9 @@ export const useAuthStore = defineStore('auth', () => {
         const updatedUser: CurrentUser = {
           userId: response.data.userId,
           nickname: response.data.nickname,
-          token: user.value.token
+          token: user.value.token,
+          email: response.data.email,
+          avatar: response.data.avatar
         }
         user.value = updatedUser
         Storage.setUser(updatedUser)
@@ -307,6 +336,8 @@ export const useAuthStore = defineStore('auth', () => {
     // 方法
     login,
     register,
+    sendVerificationCode,
+    forgotPassword,
     logout,
     switchMode,
     initAuth,

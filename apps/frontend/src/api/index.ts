@@ -10,6 +10,8 @@ export const API_ENDPOINTS = {
   // 用户认证
   LOGIN: '/user/login',
   REGISTER: '/user/register',
+  SEND_CODE: '/user/sendCode',
+  FORGOT_PASSWORD: '/user/forgotPassword',
   
   // 用户管理
   GET_USER: (userId: number) => `/user/${userId}`,
@@ -41,6 +43,7 @@ export const API_ENDPOINTS = {
   
   // 文件管理
   FILE_UPLOAD: '/file/upload',
+  FILE_AVATAR: '/file/avatar',
   FILE_ROOM_LIST: (roomId: number) => `/file/room/${roomId}`,
   FILE_INFO: (fileId: number) => `/file/${fileId}`,
   FILE_DOWNLOAD: (fileId: number) => `/file/${fileId}/download`,
