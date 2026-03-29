@@ -33,11 +33,12 @@ public class AutoFillMetaObjectHandler implements MetaObjectHandler {
     public void insertFill(MetaObject metaObject) {
         try {
             LocalDateTime now = LocalDateTime.now();
-            
-            // 只填充创建时间 - INSERT操作不需要updateTime
+
+            // INSERT 操作同时填充 createTime 和 updateTime
             this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, now);
+            this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, now);
             
-            log.debug("[自动填充] INSERT操作填充createTime: {}", now);
+            log.debug("[自动填充] INSERT操作填充createTime/updateTime: {}", now);
         } catch (Exception e) {
             log.error("[自动填充] INSERT操作自动填充失败", e);
         }

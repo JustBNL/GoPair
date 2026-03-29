@@ -101,6 +101,46 @@
           </a-button>
         </div>
       </a-form>
+
+      <!-- 注销账号区域 -->
+      <a-divider />
+      <div class="cancel-account-section">
+        <div class="cancel-account-info">
+          <p class="cancel-account-title">注销账号</p>
+          <p class="cancel-account-desc">注销后账号将永久停用，原邮箱可重新注册，请谨慎操作。</p>
+        </div>
+        <a-button
+          danger
+          :loading="cancelLoading"
+          @click="showCancelConfirm = true"
+          class="cancel-account-btn"
+        >
+          注销账号
+        </a-button>
+      </div>
+    </div>
+  </a-modal>
+
+  <!-- 注销确认弹窗 -->
+  <a-modal
+    :open="showCancelConfirm"
+    title="确认注销账号"
+    ok-text="确认注销"
+    cancel-text="我再想想"
+    ok-type="danger"
+    :confirm-loading="cancelLoading"
+    @ok="handleCancelAccount"
+    @cancel="showCancelConfirm = false"
+    :width="400"
+  >
+    <div class="cancel-confirm-content">
+      <p>注销后将发生以下情况：</p>
+      <ul>
+        <li>账号立即失效，无法再次登录</li>
+        <li>原邮箱将被释放，可用于重新注册</li>
+        <li>历史数据将被保留但不可访问</li>
+      </ul>
+      <p class="cancel-confirm-warning">此操作<strong>不可撤销</strong>，请确认您已了解上述风险。</p>
     </div>
   </a-modal>
 </template>
@@ -111,14 +151,18 @@ import { Form, message } from 'ant-design-vue'
 import { DownOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { FileAPI } from '@/api/file'
+import { useRouter } from 'vue-router'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ (e: 'update:visible', v: boolean): void }>()
 
 const authStore = useAuthStore()
+const router = useRouter()
 const loading = ref(false)
 const showPassword = ref(false)
 const avatarUploading = ref(false)
+const cancelLoading = ref(false)
+const showCancelConfirm = ref(false)
 
 const form = ref({
   nickname: '',
@@ -254,6 +298,22 @@ async function handleSubmit() {
     handleClose()
   } finally {
     loading.value = false
+  }
+}
+
+// 执行注销账号
+async function handleCancelAccount() {
+  cancelLoading.value = true
+  try {
+    await authStore.cancelAccount()
+    showCancelConfirm.value = false
+    emit('update:visible', false)
+    // 注销成功后跳转到登录页
+    router.push('/login')
+  } catch {
+    // 错误已在 store 层通过 message 提示，此处无需重复
+  } finally {
+    cancelLoading.value = false
   }
 }
 
@@ -405,5 +465,57 @@ function handleClose() {
 
 .save-btn:hover {
   opacity: 0.9;
+}
+
+/* 注销账号区域 */
+.cancel-account-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+
+.cancel-account-info {
+  flex: 1;
+}
+
+.cancel-account-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 4px;
+}
+
+.cancel-account-desc {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.cancel-account-btn {
+  flex-shrink: 0;
+}
+
+/* 注销确认弹窗内容 */
+.cancel-confirm-content p {
+  margin: 0 0 8px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.cancel-confirm-content ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 2;
+}
+
+.cancel-confirm-warning {
+  color: #ef4444;
+  font-size: 13px;
+  margin: 0 !important;
 }
 </style>

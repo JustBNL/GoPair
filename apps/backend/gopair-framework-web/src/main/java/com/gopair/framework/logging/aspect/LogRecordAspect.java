@@ -1,5 +1,6 @@
 package com.gopair.framework.logging.aspect;
 
+import com.gopair.common.exception.BaseException;
 import com.gopair.framework.config.properties.LoggingProperties;
 import com.gopair.framework.logging.annotation.LogRecord;
 import com.gopair.framework.context.UserContextHolder;
@@ -105,7 +106,11 @@ public class LogRecordAspect {
             }
 
             if (exception != null) {
-                log.error("{} - 异常: {}", logMessage.toString(), exception.getMessage(), exception);
+                if (exception instanceof BaseException) {
+                    log.warn("{} - 异常: {}", logMessage.toString(), exception.getMessage());
+                } else {
+                    log.error("{} - 异常: {}", logMessage.toString(), exception.getMessage(), exception);
+                }
             } else {
                 log.info(logMessage.toString());
             }

@@ -92,7 +92,7 @@ public class UserController {
     @PutMapping
     public R<Boolean> updateUser(
             @Parameter(description = "用户信息", required = true) 
-            @RequestBody UserDto userDto) {
+            @Validated @RequestBody UserDto userDto) {
         return R.ok(userService.updateUser(userDto));
     }
 
@@ -125,5 +125,17 @@ public class UserController {
     @GetMapping("/page")
     public R<PageResult<UserVO>> getUserPage(UserDto userDto) {
         return R.ok(userService.getUserPage(userDto));
+    }
+
+    /**
+     * 注销账号
+     */
+    @Operation(summary = "注销账号", description = "注销当前账号，账号将被标记为已注销状态，原邮箱可重新注册")
+    @DeleteMapping("/{userId}/cancel")
+    public R<Void> cancelAccount(
+            @Parameter(description = "用户ID", required = true, example = "1")
+            @PathVariable Long userId) {
+        userService.cancelAccount(userId);
+        return R.ok();
     }
 } 

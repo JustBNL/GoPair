@@ -1,6 +1,8 @@
 package com.gopair.userservice.service.impl;
 
 import com.gopair.userservice.config.EmailConfig;
+import com.gopair.userservice.enums.UserErrorCode;
+import com.gopair.userservice.exception.UserException;
 import com.gopair.userservice.service.EmailService;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -34,7 +36,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(buildContent(code, type), true);
             mailSender.send(message);
         } catch (Exception e) {
-            throw new RuntimeException("邮件发送失败: " + e.getMessage(), e);
+            throw new UserException(UserErrorCode.VERIFICATION_CODE_SEND_FAILED, e);
         }
     }
 

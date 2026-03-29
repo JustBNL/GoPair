@@ -1,5 +1,6 @@
 package com.gopair.framework.logging.aspect;
 
+import com.gopair.common.exception.BaseException;
 import com.gopair.framework.config.properties.LoggingProperties;
 import com.gopair.framework.context.UserContextHolder;
 import com.gopair.framework.logging.ops.LogMetricsCollector;
@@ -78,10 +79,16 @@ public class ExceptionLogAspect {
         safeRecordExceptionLog();
         safePublishEvent(new ExceptionLogEvent(this));
         
-        // 记录异常日志
-        log.error("[异常日志] {}层异常 - 类: {}, 方法: {}, 参数: {}, 用户ID: {}, 昵称: {}, 异常类型: {}, 异常消息: {}", 
-                 layer, className, methodName, argsString, userId, nickname, 
-                 ex.getClass().getSimpleName(), ex.getMessage(), ex);
+        // 业务异常（BaseException）用 WARN，系统异常用 ERROR
+        if (ex instanceof BaseException) {
+            log.warn("[异常日志] {}层业务异常 - 类: {}, 方法: {}, 参数: {}, 用户ID: {}, 昵称: {}, 异常类型: {}, 异常消息: {}",
+                    layer, className, methodName, argsString, userId, nickname,
+                    ex.getClass().getSimpleName(), ex.getMessage());
+        } else {
+            log.error("[异常日志] {}层系统异常 - 类: {}, 方法: {}, 参数: {}, 用户ID: {}, 昵称: {}, 异常类型: {}, 异常消息: {}",
+                    layer, className, methodName, argsString, userId, nickname,
+                    ex.getClass().getSimpleName(), ex.getMessage(), ex);
+        }
     }
     
     private void safeRecordExceptionLog() {

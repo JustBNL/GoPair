@@ -7,14 +7,14 @@ import org.springframework.context.annotation.Import;
 
 /**
  * GoPair框架主自动配置类
- * 
+ *
  * @author gopair
  */
 @Slf4j
 @AutoConfiguration
 @Import({
     MybatisPlusConfiguration.class,    // 数据层配置
-    ContextConfiguration.class,        // 上下文配置  
+    ContextConfiguration.class,        // 上下文配置
     LoggingConfiguration.class         // 日志配置
 })
 @ComponentScan(basePackages = {
@@ -22,8 +22,8 @@ import org.springframework.context.annotation.Import;
     "com.gopair.framework.entity"       // 实体基础
 })
 public class FrameworkAutoConfiguration {
-    
+
     public FrameworkAutoConfiguration() {
         log.info("[框架配置] Framework Web 模块自动配置已启动");
     }
-} 
+}

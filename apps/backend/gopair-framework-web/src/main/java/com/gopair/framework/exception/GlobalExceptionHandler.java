@@ -32,10 +32,9 @@ public class GlobalExceptionHandler {
     public R<Void> handleBaseException(BaseException e) {
         // 根据错误码类型设置不同的HTTP状态码
         if (e.getErrorCode().getCode() >= 800 && e.getErrorCode().getCode() < 900) {
-            // 认证授权相关错误返回401
             log.warn("认证异常: {}", e.getMessage());
         } else {
-            log.error("业务异常: {}", e.getMessage(), e);
+            log.warn("业务异常: {}", e.getMessage());
         }
         return R.fail(e.getErrorCode(), e.getMessage());
     }

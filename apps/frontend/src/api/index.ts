@@ -17,6 +17,7 @@ export const API_ENDPOINTS = {
   GET_USER: (userId: number) => `/user/${userId}`,
   UPDATE_USER: '/user',
   DELETE_USER: (userId: number) => `/user/${userId}`,
+  CANCEL_ACCOUNT: (userId: number) => `/user/${userId}/cancel`,
   GET_USER_PAGE: '/user/page',
   
   // 房间管理

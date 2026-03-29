@@ -5,9 +5,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gopair.common.core.PageResult;
-import com.gopair.common.enums.impl.CommonErrorCode;
 import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.userservice.enums.UserErrorCode;
+import com.gopair.userservice.enums.UserStatus;
 import com.gopair.userservice.exception.LoginException;
 import com.gopair.userservice.exception.UserException;
 import com.gopair.common.util.JwtUtils;
@@ -30,7 +30,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
@@ -96,9 +95,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         
         // 默认状态
         if (user.getStatus() == null) {
-            user.setStatus('0');
+            user.setStatus(UserStatus.NORMAL.getCode());
         }
-        user.setCreateTime(LocalDateTime.now());
 
         // 密码加密
         user.setPassword(passwordUtils.encode(user.getPassword()));
@@ -110,7 +108,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             registerResponse.setMessage("注册成功");
             return registerResponse;
         } else {
-            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+            throw new UserException(UserErrorCode.USER_REGISTER_FAILED);
         }
     }
 
@@ -118,8 +116,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "用户信息更新", module = "用户管理")
     public boolean updateUser(UserDto userDto) {
-        // 存在性
-        if (userDto.getUserId() == null || userMapper.selectById(userDto.getUserId()) == null) {
+        // 存在性校验，同时复用查询结果
+        if (userDto.getUserId() == null) {
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
+        User currentUser = userMapper.selectById(userDto.getUserId());
+        if (currentUser == null) {
             throw new UserException(UserErrorCode.USER_NOT_FOUND);
         }
         
@@ -140,17 +142,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         }
         
         User user = BeanCopyUtils.copyBean(userDto, User.class);
-        user.setUpdateTime(LocalDateTime.now());
-        if (StringUtils.hasText(user.getPassword())) {
+
+        if (StringUtils.hasText(userDto.getPassword())) {
             // 修改密码时必须验证当前密码
             if (!StringUtils.hasText(userDto.getCurrentPassword())) {
                 throw new UserException(UserErrorCode.PASSWORD_ERROR);
             }
-            User currentUser = userMapper.selectById(userDto.getUserId());
             if (!passwordUtils.matches(userDto.getCurrentPassword(), currentUser.getPassword())) {
                 throw new UserException(UserErrorCode.PASSWORD_ERROR);
             }
-            user.setPassword(passwordUtils.encode(user.getPassword()));
+            // 新密码不能与当前密码相同
+            if (passwordUtils.matches(userDto.getPassword(), currentUser.getPassword())) {
+                throw new UserException(UserErrorCode.PASSWORD_SAME_AS_OLD);
+            }
+            user.setPassword(passwordUtils.encode(userDto.getPassword()));
         }
         return userMapper.updateById(user) > 0;
     }
@@ -225,23 +230,45 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         }
         // 更新密码
         user.setPassword(passwordUtils.encode(request.getNewPassword()));
-        user.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(user);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "注销账号", module = "用户管理")
+    public void cancelAccount(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new UserException(UserErrorCode.USER_NOT_FOUND);
+        }
+        // 已注销账号不可重复操作
+        if (UserStatus.CANCELLED.getCode() == user.getStatus()) {
+            throw new UserException(UserErrorCode.USER_ALREADY_CANCELLED);
+        }
+        // 将状态设为已注销，并在邮箱后追加删除标记以释放邮箱供重新注册
+        user.setStatus(UserStatus.CANCELLED.getCode());
+        user.setEmail(user.getEmail() + UserStatus.DELETED_EMAIL_SUFFIX + System.currentTimeMillis());
+        if (userMapper.updateById(user) <= 0) {
+            throw new UserException(UserErrorCode.USER_CANCEL_FAILED);
+        }
     }
 
     @Override
     @LogRecord(operation = "用户登录", module = "用户认证")
     public LoginResponse login(LoginRequest loginRequest) {
-        // 登录：邮箱 + 密码
-        if (!StringUtils.hasText(loginRequest.getEmail()) || !StringUtils.hasText(loginRequest.getPassword())) {
-            throw new LoginException(CommonErrorCode.PARAM_MISSING);
-        }
         User user = getUserByEmail(loginRequest.getEmail());
         if (user == null) {
             throw new LoginException(UserErrorCode.USER_NOT_FOUND);
         }
         if (!passwordUtils.matches(loginRequest.getPassword(), user.getPassword())) {
             throw new LoginException(UserErrorCode.PASSWORD_ERROR);
+        }
+        // 校验账号状态
+        if (UserStatus.DISABLED.getCode() == user.getStatus()) {
+            throw new LoginException(UserErrorCode.USER_DISABLED);
+        }
+        if (UserStatus.CANCELLED.getCode() == user.getStatus()) {
+            throw new LoginException(UserErrorCode.USER_ALREADY_CANCELLED);
         }
         String token = JwtUtils.generateToken(user.getNickname(), user.getUserId().toString(), 
                 jwtConfig.getSecret(), jwtConfig.getExpiration());

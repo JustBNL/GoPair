@@ -59,19 +59,19 @@ management:
     # 采样配置
     sampling:
       # 采样概率：1.0表示100%采样，生产环境建议0.1
-      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+      probability: 1.0
     # Baggage配置（用于在span之间传播自定义数据）
     baggage:
-      remote-fields: ${TRACING_BAGGAGE_FIELDS:userId,nickname}
+      remote-fields: userId,nickname
       # correlation-fields 使 Brave 自动将 Baggage 同步到 MDC
       # 与 TracingMdcConfiguration 的 MDCScopeDecorator 协同工作
-      correlation-fields: ${TRACING_BAGGAGE_FIELDS:userId,nickname}
+      correlation-fields: userId,nickname
 
   # Zipkin配置
   zipkin:
     tracing:
       # Zipkin服务端点，本地开发默认上报到 localhost:9411，生产环境通过 ZIPKIN_URL 环境变量覆盖
-      endpoint: "${ZIPKIN_URL:http://localhost:9411/api/v2/spans}"
+      endpoint: "http://127.0.0.1:9411/api/v2/spans"
 
   # OTLP配置 (OpenTelemetry Protocol)
   otlp:

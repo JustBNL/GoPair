@@ -78,4 +78,11 @@ public interface UserService {
      * @return 分页结果
      */
     PageResult<UserVO> getUserPage(UserDto userDto);
+
+    /**
+     * 注销账号（将账号状态设为已注销，并释放邮箱以便重新注册）
+     *
+     * @param userId 用户ID
+     */
+    void cancelAccount(Long userId);
 } 

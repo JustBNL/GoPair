@@ -274,6 +274,17 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * 注销账号（将账号状态设为已注销并退出登录）
+   */
+  async function cancelAccount(): Promise<void> {
+    if (!user.value?.userId) throw new Error('未登录')
+    await AuthAPI.cancelAccount(user.value.userId)
+    // 注销成功后执行退出登录流程，清理所有本地状态
+    await logout()
+    message.success('账号已注销')
+  }
+
+  /**
    * 更新用户资料（昵称、邮箱、密码、头像）
    */
   async function updateProfile(data: { nickname?: string; email?: string; password?: string; avatar?: string }): Promise<void> {
@@ -344,6 +355,7 @@ export const useAuthStore = defineStore('auth', () => {
     setRememberEmail,
     getSavedEmail,
     refreshUser,
-    updateProfile
+    updateProfile,
+    cancelAccount
   }
 })

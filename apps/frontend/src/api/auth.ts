@@ -66,6 +66,14 @@ export class AuthAPI {
   static async deleteUser(userId: number): Promise<ApiResponse<boolean>> {
     return http.delete<boolean>(API_ENDPOINTS.DELETE_USER(userId))
   }
+
+  /**
+   * 注销账号（软删除，状态改为已注销，释放邮箱）
+   * @param userId 用户ID
+   */
+  static async cancelAccount(userId: number): Promise<ApiResponse<void>> {
+    return http.delete<void>(API_ENDPOINTS.CANCEL_ACCOUNT(userId))
+  }
 }
 
 /**

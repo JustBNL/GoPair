@@ -48,17 +48,25 @@ public class VerificationCodeService {
      */
     public void sendCode(String email, String type) {
         String limitKey = LIMIT_KEY_PREFIX + type + ":" + email;
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(limitKey))) {
+
+        // 限流校验：使用 SETNX 原子操作，避免并发竞态导致频率限制失效
+        Boolean isNew = redisTemplate.opsForValue().setIfAbsent(limitKey, "1", resendIntervalSeconds, TimeUnit.SECONDS);
+        if (Boolean.FALSE.equals(isNew)) {
             throw new UserException(UserErrorCode.VERIFICATION_CODE_SEND_TOO_FREQUENT);
         }
 
         String code = generateCode();
         String codeKey = CODE_KEY_PREFIX + type + ":" + email;
 
-        redisTemplate.opsForValue().set(codeKey, code, expireSeconds, TimeUnit.SECONDS);
-        redisTemplate.opsForValue().set(limitKey, "1", resendIntervalSeconds, TimeUnit.SECONDS);
+        // 先发送邮件，成功后再写入验证码；若发送失败则删除限流 key，允许用户立即重试
+        try {
+            emailService.sendVerificationCode(email, code, type);
+        } catch (UserException e) {
+            redisTemplate.delete(limitKey);
+            throw e;
+        }
 
-        emailService.sendVerificationCode(email, code, type);
+        redisTemplate.opsForValue().set(codeKey, code, expireSeconds, TimeUnit.SECONDS);
     }
 
     /**
