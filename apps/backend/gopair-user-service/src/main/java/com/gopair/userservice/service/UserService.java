@@ -10,6 +10,8 @@ import com.gopair.userservice.domain.vo.UserVO;
 import com.gopair.userservice.domain.vo.auth.LoginResponse;
 import com.gopair.userservice.domain.vo.auth.RegisterResponse;
 
+import java.util.List;
+
 /**
  * 用户服务接口
  * 
@@ -70,7 +72,15 @@ public interface UserService {
      * @return 用户信息
      */
     UserVO getUserById(Long userId);
-    
+
+    /**
+     * 按用户 ID 列表批量查询（用于房间成员等场景；不存在的 ID 会被忽略）
+     *
+     * @param userIds 用户 ID 列表，建议去重；单次最多处理 200 个
+     * @return 在库中存在的用户 VO 列表，顺序不保证与入参一致
+     */
+    List<UserVO> listUsersByIds(List<Long> userIds);
+
     /**
      * 分页查询用户列表
      *

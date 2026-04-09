@@ -62,4 +62,4 @@ gopair:
 
   # 网关认证白名单（kebab-case，统一命名规范）
   gateway:
-    skip-auth-paths: ${GATEWAY_SKIP_AUTH_PATHS:/user/login,/user,/user/sendCode,/user/forgotPassword,/doc.html,/swagger-ui.html,/v3/api-docs}
+    skip-auth-paths: ${GATEWAY_SKIP_AUTH_PATHS:/user/login,/user/register,/user/sendCode,/user/forgotPassword,/user/page,/doc.html,/swagger-ui.html,/v3/api-docs}

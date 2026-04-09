@@ -53,11 +53,6 @@ public enum RoomErrorCode implements ErrorCode {
     ROOM_CODE_GENERATION_FAILED(20206, "房间码生成失败"),
 
     /**
-     * 房间名称不能为空
-     */
-    ROOM_NAME_EMPTY(20207, "房间名称不能为空"),
-
-    /**
      * 昵称不能为空
      */
     NICKNAME_EMPTY(20208, "昵称不能为空"),

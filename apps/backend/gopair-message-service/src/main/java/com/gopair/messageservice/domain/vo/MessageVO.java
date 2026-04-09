@@ -99,6 +99,12 @@ public class MessageVO {
     private String replyToSenderNickname;
 
     /**
+     * 回复的消息发送者ID（用于降级补全，若 JOIN 失败则可调用户服务补拉昵称）
+     */
+    @Schema(description = "回复的消息发送者ID", example = "2")
+    private Long replyToSenderId;
+
+    /**
      * 创建时间
      */
     @Schema(description = "创建时间", example = "2024-12-20T15:30:00")

@@ -30,6 +30,7 @@ public class RabbitMQConfig {
     public static final String SIGNALING_QUEUE = "websocket.signaling";
     public static final String FILE_QUEUE = "websocket.file";
     public static final String SYSTEM_QUEUE = "websocket.system";
+    public static final String USER_OFFLINE_QUEUE = "user.offline.queue";
 
     @PostConstruct
     public void init() {
@@ -96,6 +97,18 @@ public class RabbitMQConfig {
     }
 
     /**
+     * 用户离线队列，供 room-service 消费以更新成员在线状态
+     */
+    @Bean
+    public Queue userOfflineQueue() {
+        return QueueBuilder
+                .durable(USER_OFFLINE_QUEUE)
+                .ttl(300000) // 5分钟TTL
+                .maxLength(50000L)
+                .build();
+    }
+
+    /**
      * 绑定聊天队列到Exchange
      */
     @Bean
@@ -137,6 +150,17 @@ public class RabbitMQConfig {
                 .bind(systemQueue())
                 .to(websocketExchange())
                 .with("system.*");
+    }
+
+    /**
+     * 绑定用户离线队列到Exchange（room-service 消费）
+     */
+    @Bean
+    public Binding userOfflineBinding() {
+        return BindingBuilder
+                .bind(userOfflineQueue())
+                .to(websocketExchange())
+                .with("system.offline");
     }
 
     /**

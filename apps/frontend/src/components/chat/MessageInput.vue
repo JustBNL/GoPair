@@ -202,7 +202,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       // Shift + Enter 换行
       return
     } else {
-      // Enter 发送
+      // Enter 发送：统一走 sendMessage，与按钮点击行为一致
       event.preventDefault()
       sendMessage()
     }
@@ -229,39 +229,41 @@ const handlePaste = async (event: ClipboardEvent) => {
 }
 
 /**
- * 发送文本消息
+ * 统一的消息发送入口（供回车键和按钮点击共用）
+ * 始终从原生 DOM 同步读取输入值，保证时序一致性
  */
-const sendMessage = async () => {
-  if (!canSend.value) return
+const sendMessage = () => {
+  if (sending.value) return
 
-  const content = inputText.value.trim()
-  if (!content) return
+  const nativeEl =
+    textareaRef.value?.$el?.querySelector('textarea') ??
+    textareaRef.value?.resizableTextArea?.textArea
+  const rawText = nativeEl?.value?.trim() ?? ''
 
-  // 先清空输入框和回复状态，再设置 sending
-  // 避免 a-textarea 在 disabled 状态下 DOM 值无法同步，导致回车后内容不消失
+  if (!rawText) return
+
+  sending.value = true
+
+  // 发送后立即清空输入框
   inputText.value = ''
+  if (nativeEl) nativeEl.value = ''
+
   const replyToId = props.replyMessage?.messageId
   if (props.replyMessage) {
     cancelReply()
   }
 
   try {
-    sending.value = true
-
     emit('send-message', {
-      content,
+      content: rawText,
       messageType: MessageType.TEXT,
       replyToId
     })
-
-    // 重新聚焦输入框
-    await nextTick()
-    textareaRef.value?.focus()
-
   } catch (error) {
     antMessage.error('发送失败')
   } finally {
     sending.value = false
+    nextTick(() => textareaRef.value?.focus())
   }
 }
 

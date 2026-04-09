@@ -1,9 +1,9 @@
 package com.gopair.roomservice.service;
 
 import com.gopair.common.core.PageResult;
-import com.gopair.common.entity.BaseQuery;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
+import com.gopair.roomservice.domain.dto.RoomQueryDto;
 
 import java.util.List;
 
@@ -19,11 +19,10 @@ public interface RoomMemberService {
      *
      * @param roomId 房间ID
      * @param userId 用户ID（必须为注册用户）
-     * @param displayName 房间内显示名称
      * @param role 角色（0-普通成员 1-管理员 2-房主）
      * @return 是否成功
      */
-    boolean addMember(Long roomId, Long userId, String displayName, Integer role);
+    boolean addMember(Long roomId, Long userId, Integer role);
 
     /**
      * 移除房间成员
@@ -58,7 +57,7 @@ public interface RoomMemberService {
      * @param query 查询条件
      * @return 分页结果
      */
-    PageResult<RoomVO> getUserRooms(Long userId, BaseQuery query);
+    PageResult<RoomVO> getUserRooms(Long userId, RoomQueryDto query);
 
     /**
      * 根据房间ID删除所有成员
@@ -76,4 +75,14 @@ public interface RoomMemberService {
      * @return 是否成功
      */
     boolean updateLastActiveTime(Long roomId, Long userId);
+
+    /**
+     * 批量更新成员在线状态为离线。
+     * 通常在用户所有 WebSocket 连接断开后，由 UserOfflineConsumer 调用。
+     * 使用 WHERE status = 0 保证幂等，多次调用效果相同。
+     *
+     * @param userId 用户ID
+     * @return 影响的行数
+     */
+    int updateStatusToOffline(Long userId);
 } 

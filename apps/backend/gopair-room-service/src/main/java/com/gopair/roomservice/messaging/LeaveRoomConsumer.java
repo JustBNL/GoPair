@@ -1,11 +1,13 @@
 package com.gopair.roomservice.messaging;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.domain.event.LeaveRoomRequestedEvent;
 import com.gopair.roomservice.domain.po.Room;
 import com.gopair.roomservice.domain.po.RoomMember;
 import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;
+import com.gopair.framework.logging.annotation.LogRecord;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -22,11 +24,9 @@ public class LeaveRoomConsumer {
     private final RoomMemberMapper roomMemberMapper;
     private final StringRedisTemplate stringRedisTemplate;
 
-    private String metaKey(Long roomId){ return "room:" + roomId + ":meta"; }
-    private String membersKey(Long roomId){ return "room:" + roomId + ":members"; }
-
     @Transactional(rollbackFor = Exception.class)
     @RabbitListener(queues = "${mq.room-leave.queue}")
+    @LogRecord(operation = "消费离开房间事件", module = "消息消费")
     public void handle(LeaveRoomRequestedEvent event) {
         Long roomId = event.getRoomId();
         Long userId = event.getUserId();
@@ -35,25 +35,30 @@ public class LeaveRoomConsumer {
             LambdaQueryWrapper<RoomMember> query = new LambdaQueryWrapper<>();
             query.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
             RoomMember existing = roomMemberMapper.selectOne(query);
+            boolean removed = false;
             if (existing != null) {
-                roomMemberMapper.delete(query);
+                removed = roomMemberMapper.delete(query) > 0;
             }
 
-            // 原子减一（仅当 >0）
-            int dec = roomMapper.decrementMembersIfPositive(roomId);
-            if (dec == 1) {
-                try { stringRedisTemplate.opsForHash().increment(metaKey(roomId), "confirmed", -1); } catch (Exception ignore) {}
+            // 仅在真实删除成员后递减人数，避免重复消费导致人数错误递减
+            if (removed) {
+                int dec = roomMapper.decrementMembersIfPositive(roomId);
+                if (dec == 1) {
+                    try { stringRedisTemplate.opsForHash().increment(RoomConst.metaKey(roomId), RoomConst.FIELD_CONFIRMED, -1); } catch (Exception ignore) {}
+                }
             }
 
             // Redis：成员集合移除
-            try { stringRedisTemplate.opsForSet().remove(membersKey(roomId), String.valueOf(userId)); } catch (Exception ignore) {}
+            try { stringRedisTemplate.opsForSet().remove(RoomConst.membersKey(roomId), String.valueOf(userId)); } catch (Exception ignore) {}
 
             // 若房间无人，尝试关闭
             Room room = roomMapper.selectById(roomId);
-            if (room != null && room.getCurrentMembers() != null && room.getCurrentMembers() == 0 && (room.getStatus() == null || room.getStatus() == 0)) {
-                room.setStatus(1);
+            if (room != null && room.getCurrentMembers() != null && room.getCurrentMembers() == 0
+                    && (room.getStatus() == null || room.getStatus() == RoomConst.STATUS_ACTIVE)) {
+                room.setStatus(RoomConst.STATUS_CLOSED);
                 roomMapper.updateById(room);
-                try { stringRedisTemplate.opsForHash().put(metaKey(roomId), "status", "1"); } catch (Exception ignore) {}
+                try { stringRedisTemplate.opsForHash().put(RoomConst.metaKey(roomId), RoomConst.FIELD_STATUS,
+                        String.valueOf(RoomConst.STATUS_CLOSED)); } catch (Exception ignore) {}
                 log.info("[房间服务][leave] 房间{}因无成员自动关闭", roomId);
             }
         } catch (Exception e) {
@@ -61,4 +66,4 @@ public class LeaveRoomConsumer {
             throw e;
         }
     }
-} 
+}

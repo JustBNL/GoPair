@@ -36,10 +36,9 @@ gopair:
       reaper-interval-ms: 60000
       # 单房间入队限流（每毫秒最多受理数）
       rate-limit-per-ms: 100
-
-  password:
-    # AES 主密钥，用于派生每个房间的加密密钥（生产环境请通过环境变量覆盖）
-    master-key: ${ROOM_PASSWORD_MASTER_KEY:gopair-room-secret-key-2024}
+    # 密码加密主密钥
+    password:
+      master-key: ${ROOM_PASSWORD_MASTER_KEY:gopair-local-dev-secret}
 
   # 定时任务配置
   schedule:
@@ -58,3 +57,7 @@ mq:
     exchange: room.leave.exchange
     routing-key: room.leave.requested
     queue: room.leave.queue
+  user-offline:
+    exchange: websocket.topic
+    routing-key: system.offline
+    queue: user.offline.queue

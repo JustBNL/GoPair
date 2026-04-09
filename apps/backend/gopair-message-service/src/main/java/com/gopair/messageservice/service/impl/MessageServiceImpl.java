@@ -17,10 +17,13 @@ import com.gopair.messageservice.enums.MessageErrorCode;
 import com.gopair.messageservice.exception.MessageException;
 import com.gopair.messageservice.mapper.MessageMapper;
 import com.gopair.messageservice.service.MessageService;
+import com.gopair.messageservice.service.UserProfileFallbackService;
+import com.gopair.framework.logging.annotation.LogRecord;
 import org.springframework.context.ApplicationEventPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -39,18 +42,22 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final ApplicationEventPublisher eventPublisher;
     private final WebSocketMessageProducer webSocketMessageProducer;
     private final MessageProperties messageProperties;
+    private final UserProfileFallbackService userProfileFallbackService;
 
     public MessageServiceImpl(MessageMapper messageMapper, ApplicationEventPublisher eventPublisher,
                               WebSocketMessageProducer webSocketMessageProducer,
-                              MessageProperties messageProperties) {
+                              MessageProperties messageProperties,
+                              UserProfileFallbackService userProfileFallbackService) {
         this.messageMapper = messageMapper;
         this.eventPublisher = eventPublisher;
         this.webSocketMessageProducer = webSocketMessageProducer;
         this.messageProperties = messageProperties;
+        this.userProfileFallbackService = userProfileFallbackService;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "发送消息", module = "消息管理", includeResult = true)
     public MessageVO sendMessage(SendMessageDto sendMessageDto, Long senderId) {
         log.info("发送消息开始, 发送者ID: {}, 房间ID: {}, 消息类型: {}, 内容: {}", 
                  senderId, sendMessageDto.getRoomId(), sendMessageDto.getMessageType(), sendMessageDto.getContent());
@@ -76,6 +83,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
             // 查询完整的消息信息返回
             MessageVO result = messageMapper.selectMessageVOById(message.getMessageId());
+            userProfileFallbackService.fillMissingProfiles(List.of(result), null);
 
             // 通过RabbitMQ发送WebSocket消息
             Map<String, Object> payload = new HashMap<>();
@@ -123,6 +131,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     @Override
+    @LogRecord(operation = "分页查询房间消息", module = "消息管理")
     public PageResult<MessageVO> getRoomMessages(MessageQueryDto queryDto) {
         log.info("查询房间消息列表, 房间ID: {}, 页码: {}, 页大小: {}", 
                  queryDto.getRoomId(), queryDto.getPageNum(), queryDto.getPageSize());
@@ -140,14 +149,32 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         return new PageResult<>(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
     }
 
-    @Override
-    public List<MessageVO> getLatestMessages(Long roomId, Integer limit) {
-        log.info("获取房间最新消息, 房间ID: {}, 限制数量: {}", roomId, limit);
-
-        return messageMapper.selectLatestMessages(roomId, limit);
+    /**
+     * 从消息列表中提取 replyToId 非空且 replyToSenderNickname 为空的消息 ID
+     */
+    private List<Long> collectReplyToIdsNeedingProfile(List<MessageVO> messages) {
+        return messages.stream()
+                .filter(m -> m.getReplyToId() != null && !StringUtils.hasText(m.getReplyToSenderNickname()))
+                .map(MessageVO::getReplyToId)
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
+    @LogRecord(operation = "获取房间最新消息", module = "消息管理")
+    public List<MessageVO> getLatestMessages(Long roomId, Integer limit) {
+        log.info("获取房间最新消息, 房间ID: {}, 限制数量: {}", roomId, limit);
+
+        List<MessageVO> messages = messageMapper.selectLatestMessages(roomId, limit);
+        if (!messages.isEmpty()) {
+            List<Long> replyToIds = collectReplyToIdsNeedingProfile(messages);
+            userProfileFallbackService.fillMissingProfiles(messages, replyToIds);
+        }
+        return messages;
+    }
+
+    @Override
+    @LogRecord(operation = "查询消息详情", module = "消息管理")
     public MessageVO getMessageById(Long messageId) {
         log.info("获取消息详情, 消息ID: {}", messageId);
 
@@ -155,12 +182,13 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         if (messageVO == null) {
             throw new MessageException(MessageErrorCode.MESSAGE_NOT_FOUND);
         }
-
+        userProfileFallbackService.fillMissingProfiles(List.of(messageVO), null);
         return messageVO;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "删除消息", module = "消息管理", includeResult = true)
     public Boolean deleteMessage(Long messageId, Long userId) {
         log.info("删除消息, 消息ID: {}, 操作用户ID: {}", messageId, userId);
 
@@ -175,6 +203,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     @Override
+    @LogRecord(operation = "统计房间消息数量", module = "消息管理")
     public Long countRoomMessages(Long roomId, Integer messageType) {
         log.info("统计房间消息数量, 房间ID: {}, 消息类型: {}", roomId, messageType);
 
@@ -182,6 +211,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     @Override
+    @LogRecord(operation = "检查消息操作权限", module = "消息管理", includeResult = true)
     public Boolean checkMessagePermission(Long messageId, Long userId) {
         log.info("检查消息权限, 消息ID: {}, 用户ID: {}", messageId, userId);
 
@@ -200,6 +230,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     @Override
+    @LogRecord(operation = "检查用户是否在房间", module = "消息管理", includeResult = true)
     public Boolean checkUserInRoom(Long roomId, Long userId) {
         log.info("检查用户是否在房间内, 房间ID: {}, 用户ID: {}", roomId, userId);
         

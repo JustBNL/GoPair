@@ -1,5 +1,6 @@
 package com.gopair.roomservice.messaging;
 
+import com.gopair.framework.logging.annotation.LogRecord;
 import com.gopair.roomservice.domain.event.JoinRoomRequestedEvent;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -22,6 +23,7 @@ public class JoinRoomProducer {
         this.rabbitTemplate = rabbitTemplate;
     }
 
+    @LogRecord(operation = "发送加入房间事件", module = "消息发送", includeResult = true)
     public boolean sendRequested(JoinRoomRequestedEvent event) {
         try {
             CorrelationData cd = new CorrelationData(event.getJoinToken() != null ? event.getJoinToken() : UUID.randomUUID().toString());

@@ -22,6 +22,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 用户管理控制器
@@ -105,6 +109,32 @@ public class UserController {
             @Parameter(description = "用户ID", required = true, example = "1") 
             @PathVariable Long userId) {
         return R.ok(userService.deleteUser(userId));
+    }
+
+    /**
+     * 批量按 ID 查询用户（路径固定，须写在 /{userId} 之前，避免被当成路径变量）
+     */
+    @Operation(summary = "批量查询用户", description = "逗号分隔的用户 ID，用于房间成员列表等场景")
+    @GetMapping("/by-ids")
+    public R<List<UserVO>> listUsersByIds(
+            @Parameter(description = "用户 ID，逗号分隔", example = "1,2,3")
+            @RequestParam("ids") String ids) {
+        if (!StringUtils.hasText(ids)) {
+            return R.ok(List.of());
+        }
+        List<Long> idList = new ArrayList<>();
+        for (String part : ids.split(",")) {
+            String t = part.trim();
+            if (t.isEmpty()) {
+                continue;
+            }
+            try {
+                idList.add(Long.parseLong(t));
+            } catch (NumberFormatException ignored) {
+                // 跳过非法片段
+            }
+        }
+        return R.ok(userService.listUsersByIds(idList));
     }
 
     /**

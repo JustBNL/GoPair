@@ -100,6 +100,13 @@ public class R<T> implements Serializable {
     }
 
     /**
+     * 返回指定状态码、消息和数据的错误
+     */
+    public static <T> R<T> fail(int code, String msg, T data) {
+        return new R<>(code, msg, data);
+    }
+
+    /**
      * 根据错误码构建失败响应
      */
     public static <T> R<T> fail(ErrorCode errorCode) {

@@ -1,5 +1,6 @@
 package com.gopair.roomservice.messaging;
 
+import com.gopair.framework.logging.annotation.LogRecord;
 import com.gopair.roomservice.domain.event.LeaveRoomRequestedEvent;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -22,6 +23,7 @@ public class LeaveRoomProducer {
         this.rabbitTemplate = rabbitTemplate;
     }
 
+    @LogRecord(operation = "发送离开房间事件", module = "消息发送", includeResult = true)
     public boolean sendRequested(LeaveRoomRequestedEvent event) {
         try {
             CorrelationData cd = new CorrelationData(event.getCorrelationId() != null ? event.getCorrelationId() : UUID.randomUUID().toString());

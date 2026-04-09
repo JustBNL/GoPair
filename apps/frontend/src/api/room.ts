@@ -17,10 +17,6 @@ export class RoomAPI {
     return http.post<RoomInfo>(API_ENDPOINTS.ROOM_CREATE, roomData)
   }
 
-  static async joinRoom(joinData: JoinRoomRequest): Promise<ApiResponse<RoomInfo>> {
-    return http.post<RoomInfo>(API_ENDPOINTS.ROOM_JOIN, joinData)
-  }
-
   static async joinRoomAsync(joinData: JoinRoomRequest): Promise<ApiResponse<{ joinToken: string; message: string }>> {
     return http.post<{ joinToken: string; message: string }>(API_ENDPOINTS.ROOM_JOIN_ASYNC, joinData)
   }
@@ -66,7 +62,6 @@ export class RoomAPI {
 
 export const {
   createRoom,
-  joinRoom,
   joinRoomAsync,
   getJoinResult,
   getUserRooms,

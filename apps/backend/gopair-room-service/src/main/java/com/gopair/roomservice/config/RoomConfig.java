@@ -38,7 +38,8 @@ public class RoomConfig {
     public static class Password {
         /**
          * AES 主密钥，用于派生每个房间的加密密钥
+         * 必须通过 ROOM_PASSWORD_MASTER_KEY 环境变量或 nacos:gopair-room.yml 配置注入
          */
-        private String masterKey = "gopair-room-secret-key-2024";
+        private String masterKey;
     }
 } 

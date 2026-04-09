@@ -15,10 +15,6 @@ public class JoinRoomDto {
      */
     private String roomCode;
 
-    /**
-     * 房间内显示名称
-     */
-    private String displayName;
 
     /**
      * 加入密码（passwordMode != 0 时必填）

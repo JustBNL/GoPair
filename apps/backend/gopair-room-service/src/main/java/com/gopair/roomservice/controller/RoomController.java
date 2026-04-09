@@ -3,9 +3,9 @@ package com.gopair.roomservice.controller;
 import com.gopair.framework.context.UserContextHolder;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
-import com.gopair.common.entity.BaseQuery;
 import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
+import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.dto.UpdateRoomPasswordDto;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
@@ -15,6 +15,7 @@ import com.gopair.roomservice.service.RoomService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,20 +41,9 @@ public class RoomController {
     @PostMapping
     public R<RoomVO> createRoom(
             @Parameter(description = "房间信息", required = true)
-            @RequestBody RoomDto roomDto) {
+            @Validated @RequestBody RoomDto roomDto) {
         Long userId = UserContextHolder.getCurrentUserId();
         RoomVO roomVO = roomService.createRoom(roomDto, userId);
-        return R.ok(roomVO);
-    }
-
-    /** 加入房间（同步） */
-    @Operation(summary = "加入房间", description = "通过房间码加入房间")
-    @PostMapping("/join")
-    public R<RoomVO> joinRoom(
-            @Parameter(description = "加入房间信息", required = true)
-            @RequestBody JoinRoomDto joinRoomDto) {
-        Long userId = UserContextHolder.getCurrentUserId();
-        RoomVO roomVO = roomService.joinRoom(joinRoomDto, userId);
         return R.ok(roomVO);
     }
 
@@ -97,12 +87,22 @@ public class RoomController {
         return R.ok(roomVO);
     }
 
-    /** 获取房间成员列表 */
-    @Operation(summary = "获取房间成员", description = "获取指定房间的成员列表")
+    /** 获取房间成员列表（仅房间成员可查询） */
+    @Operation(summary = "获取房间成员", description = "获取指定房间的成员列表，仅房间成员可访问")
     @GetMapping("/{roomId}/members")
     public R<List<RoomMemberVO>> getRoomMembers(
             @Parameter(description = "房间ID", required = true)
             @PathVariable Long roomId) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        if (userId == null) {
+            throw new com.gopair.roomservice.exception.RoomException(
+                    com.gopair.roomservice.enums.RoomErrorCode.USER_NOT_LOGGED_IN);
+        }
+        // 权限检查：仅房间成员可查询成员列表
+        if (!roomService.isMemberInRoom(roomId, userId)) {
+            throw new com.gopair.roomservice.exception.RoomException(
+                    com.gopair.roomservice.enums.RoomErrorCode.NO_PERMISSION);
+        }
         List<RoomMemberVO> members = roomService.getRoomMembers(roomId);
         return R.ok(members);
     }
@@ -121,7 +121,7 @@ public class RoomController {
     /** 获取用户的房间列表 */
     @Operation(summary = "获取用户房间", description = "获取用户创建或加入的房间列表")
     @GetMapping("/my")
-    public R<PageResult<RoomVO>> getUserRooms(BaseQuery query) {
+    public R<PageResult<RoomVO>> getUserRooms(RoomQueryDto query) {
         Long userId = UserContextHolder.getCurrentUserId();
         PageResult<RoomVO> result = roomService.getUserRooms(userId, query);
         return R.ok(result);

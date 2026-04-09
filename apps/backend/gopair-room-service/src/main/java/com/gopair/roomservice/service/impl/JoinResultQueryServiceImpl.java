@@ -1,8 +1,6 @@
 package com.gopair.roomservice.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.gopair.roomservice.domain.po.RoomMember;
-import com.gopair.roomservice.mapper.RoomMemberMapper;
+import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.service.JoinResultQueryService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -11,28 +9,43 @@ import org.springframework.stereotype.Service;
 public class JoinResultQueryServiceImpl implements JoinResultQueryService {
 
     private final StringRedisTemplate stringRedisTemplate;
-    private final RoomMemberMapper roomMemberMapper;
 
-    public JoinResultQueryServiceImpl(StringRedisTemplate stringRedisTemplate, RoomMemberMapper roomMemberMapper) {
+    public JoinResultQueryServiceImpl(StringRedisTemplate stringRedisTemplate) {
         this.stringRedisTemplate = stringRedisTemplate;
-        this.roomMemberMapper = roomMemberMapper;
     }
 
+    /*
+    根据token查询房间加入状态
+     */
     @Override
     public JoinStatusVO queryByToken(String joinToken) {
-        String tokenKey = "join:" + joinToken;
-        String status = stringRedisTemplate.opsForValue().get(tokenKey);
-        if (status == null) {
+        String tokenKey = RoomConst.joinTokenKey(joinToken);
+        String value = stringRedisTemplate.opsForValue().get(tokenKey);
+        if (value == null) {
             return new JoinStatusVO(JoinStatusVO.Status.PROCESSING, null, null, "处理中");
         }
-        switch (status) {
-            case "JOINED":
-                // 无法直接从token取roomId/userId，这里返回状态为JOINED；前端可刷新房间列表
-                return new JoinStatusVO(JoinStatusVO.Status.JOINED, null, null, "加入成功");
-            case "FAILED":
-                return new JoinStatusVO(JoinStatusVO.Status.FAILED, null, null, "加入失败");
-            default:
-                return new JoinStatusVO(JoinStatusVO.Status.PROCESSING, null, null, "处理中");
+        // 格式: roomId:userId:STATUS  (e.g. "123:456:JOINED")
+        // 兼容旧格式裸字符串 "PROCESSING"
+        String[] parts = value.split(":", 3);
+        if (parts.length == 3) {
+            Long roomId = parseLong(parts[0]);
+            Long userId = parseLong(parts[1]);
+            String statusStr = parts[2];
+            if (RoomConst.JOIN_RESULT_JOINED.equals(statusStr)) {
+                return new JoinStatusVO(JoinStatusVO.Status.JOINED, roomId, userId, "加入成功");
+            } else if (RoomConst.JOIN_RESULT_FAILED.equals(statusStr)) {
+                return new JoinStatusVO(JoinStatusVO.Status.FAILED, roomId, userId, "加入失败");
+            }
+        }
+        // 裸 PROCESSING 或其他未知值
+        return new JoinStatusVO(JoinStatusVO.Status.PROCESSING, null, null, "处理中");
+    }
+
+    private Long parseLong(String s) {
+        try {
+            return Long.parseLong(s);
+        } catch (Exception e) {
+            return null;
         }
     }
-} 
+}

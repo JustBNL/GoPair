@@ -32,14 +32,7 @@ public class GatewayApplication {
     }
 
     public static void main(String[] args) {
-        try {
-            SpringApplication.run(GatewayApplication.class, args);
-            log.info("[网关服务启动] ========================================");
-            log.info("[网关服务启动] GoPair 网关服务启动成功！");
-            log.info("[网关服务启动] ========================================");
-        } catch (Exception e) {
-            log.error("[网关服务启动] 网关服务启动失败", e);
-            System.exit(1);
-        }
+        SpringApplication.run(GatewayApplication.class, args);
+        log.info("[网关服务] GoPair 网关服务启动成功");
     }
 }

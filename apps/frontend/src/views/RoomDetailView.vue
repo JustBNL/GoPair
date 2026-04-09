@@ -324,15 +324,17 @@
                     class="member-item"
                   >
                     <div class="member-avatar">
-                      <a-avatar :size="40">
-                        {{ member.displayName?.charAt(0) || 'U' }}
+                      <a-avatar :size="40" :src="member.avatar || undefined">
+                        <template v-if="!member.avatar">
+                          {{ memberNameInitial(member) }}
+                        </template>
                       </a-avatar>
-                      <div v-if="member.status === 'online'" class="online-indicator"></div>
+                      <div v-if="memberPresence(member) === 'online'" class="online-indicator"></div>
                     </div>
                     
                     <div class="member-info">
                       <div class="member-name">
-                        {{ member.displayName }}
+                        {{ member.nickname }}
                         <a-tag v-if="member.isOwner" color="gold" size="small">
                           房主
                         </a-tag>
@@ -342,8 +344,8 @@
                       </div>
                       <div class="member-meta">
                         <span class="join-time">{{ formatTime(member.joinTime) }}</span>
-                        <span :class="['status', member.status || 'offline']">
-                          {{ getStatusText(member.status || 'offline') }}
+                        <span :class="['status', memberPresence(member)]">
+                          {{ getStatusText(memberPresence(member)) }}
                         </span>
                       </div>
                     </div>
@@ -429,6 +431,11 @@ import { useRoomWebSocket } from '@/composables/useRoomWebSocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import type { RoomInfo, RoomMember } from '@/types/room'
+import {
+  memberNameInitial,
+  memberPresence,
+  normalizeRoomMembersList
+} from '@/utils/roomMemberDisplay'
 import type { MessageVO, FileVO, MessageQueryDto } from '@/types/api'
 
 // 组件导入
@@ -681,7 +688,7 @@ const roomMembers = ref<RoomMember[]>([])
 const memberNicknameMap = computed<Record<number, string>>(() => {
   const map: Record<number, string> = {}
   for (const m of roomMembers.value) {
-    if (m.userId && m.displayName) map[m.userId] = m.displayName
+    if (m.userId && m.nickname) map[m.userId] = m.nickname
   }
   return map
 })
@@ -944,7 +951,7 @@ const loadRoomMembers = async () => {
   
   try {
     const response = await getRoomMembers(currentRoom.value.roomId)
-    roomMembers.value = response.data || []  // 确保始终是数组
+    roomMembers.value = normalizeRoomMembersList(response.data)
     serviceStates.value.members.retryCount = 0
   } catch (error: any) {
     console.error('加载房间成员失败:', error)
@@ -1144,7 +1151,7 @@ const handleFileDeleted = (fileId: number) => {
 const kickMember = (member: RoomMember) => {
   Modal.confirm({
     title: '确认操作',
-    content: `确定要将 ${member.displayName} 移出房间吗？`,
+    content: `确定要将 ${member.nickname} 移出房间吗？`,
     onOk: async () => {
       try {
         // TODO: 实现踢出成员API
@@ -1702,6 +1709,16 @@ onUnmounted(() => {
             
             .member-avatar {
               position: relative;
+              flex-shrink: 0;
+
+              :deep(.ant-avatar) {
+                border: 2px solid #f0f0f0;
+                object-fit: cover;
+              }
+
+              :deep(.ant-avatar-image img) {
+                object-fit: cover;
+              }
               
               .online-indicator {
                 position: absolute;

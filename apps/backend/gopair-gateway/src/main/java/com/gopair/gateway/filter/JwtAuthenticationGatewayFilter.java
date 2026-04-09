@@ -2,7 +2,6 @@ package com.gopair.gateway.filter;
 
 import brave.Tracer;
 import brave.baggage.BaggageField;
-import com.gopair.common.enums.impl.CommonErrorCode;
 import com.gopair.common.util.JwtUtils;
 import com.gopair.common.constants.MessageConstants;
 import com.gopair.gateway.config.GatewayAuthProperties;
@@ -27,8 +26,8 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import jakarta.annotation.PostConstruct;
 
@@ -71,6 +70,11 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     private static final String USER_ID_HEADER = MessageConstants.HEADER_USER_ID;
     private static final String NICKNAME_HEADER = MessageConstants.HEADER_NICKNAME;
 
+    /**
+     * 启动时预解析白名单路径，避免每次请求都 split
+     */
+    private List<String> preParsedSkipAuthPaths;
+
     public JwtAuthenticationGatewayFilter(JwtProperties jwtProperties,
                                           GatewayAuthProperties gatewayAuthProperties,
                                           @Nullable Tracer tracer) {
@@ -81,8 +85,23 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
     @PostConstruct
     public void init() {
-        log.info("[网关服务] JWT认证过滤器初始化完成，Baggage追踪增强={}",
-                tracer != null ? "已启用" : "未启用(无Tracer)");
+        preParsedSkipAuthPaths = parseSkipAuthPaths(gatewayAuthProperties.getSkipAuthPaths());
+        log.info("[网关服务] JWT认证过滤器初始化完成，Baggage追踪增强={}, 白名单路径={}",
+                tracer != null ? "已启用" : "未启用(无Tracer)",
+                preParsedSkipAuthPaths);
+    }
+
+    /**
+     * 预解析白名单路径字符串，支持精确匹配和带尾部斜杠的精确匹配。
+     */
+    private List<String> parseSkipAuthPaths(String skipAuthPathsStr) {
+        if (!StringUtils.hasText(skipAuthPathsStr)) {
+            return List.of();
+        }
+        return List.of(skipAuthPathsStr.split(",")).stream()
+                .map(String::trim)
+                .filter(p -> !p.isEmpty())
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -111,50 +130,49 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
         // 两处都没有找到token
         if (!StringUtils.hasText(token)) {
             log.warn("[网关认证] 认证失败 - 路径: {}, 原因: 未找到JWT令牌", path);
-            return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.TOKEN_NOT_FOUND.getMessage());
+            return handleAuthenticationFailure(exchange.getResponse(),
+                    GatewayErrorCode.TOKEN_NOT_FOUND.getCode(),
+                    GatewayErrorCode.TOKEN_NOT_FOUND.getMessage());
         }
 
         log.info("[网关认证] 获取令牌 - 来源: {}, 路径: {}", tokenSource, path);
 
+        // 一次解析，同一 secret 只解析一次
+        String userId;
+        String nickname;
         try {
-            // 验证JWT令牌
-            if (!JwtUtils.validateToken(token, jwtProperties.getSecret())) {
-                log.warn("[网关认证] 认证失败 - 路径: {}, 原因: JWT令牌验证失败", path);
-                return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.TOKEN_VALIDATION_FAILED.getMessage());
-            }
-
-            // 提取用户信息
-            String userId = JwtUtils.getUserIdFromToken(token, jwtProperties.getSecret());
-            String nickname = JwtUtils.getNicknameFromToken(token, jwtProperties.getSecret());
-
-            if (!StringUtils.hasText(userId) || !StringUtils.hasText(nickname)) {
-                log.warn("[网关认证] 认证失败 - 路径: {}, 原因: 无法从令牌中提取用户信息", path);
-                return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.INVALID_USER_INFO.getMessage());
-            }
-
-            log.info("[网关认证] 认证成功 - 用户: {}, ID: {}, 路径: {}", nickname, userId, path);
-
-            // 将用户信息注入 Brave BaggageField
-            // MDCScopeDecorator（TracingMdcConfiguration）会自动将其桥接到 MDC
-            injectUserBaggage(userId, nickname);
-
-            // 将用户信息添加到请求头，传递给下游服务
-            ServerHttpRequest modifiedRequest = request.mutate()
-                    .header(USER_ID_HEADER, userId)
-                    .header(NICKNAME_HEADER, nickname)
-                    .build();
-
-            // 保留 Reactor Context 写入（双保险，兼容非 Brave 场景）
-            return chain.filter(exchange.mutate().request(modifiedRequest).build())
-                    .contextWrite(ctx -> ctx
-                            .put("userId", userId)
-                            .put("nickname", nickname)
-                    );
-
+            userId = JwtUtils.getUserIdFromToken(token, jwtProperties.getSecret());
+            nickname = JwtUtils.getNicknameFromToken(token, jwtProperties.getSecret());
         } catch (Exception e) {
-            log.error("[网关认证] 认证异常 - 路径: {}, 异常: {}", path, e.getMessage(), e);
-            return handleAuthenticationFailure(exchange.getResponse(), GatewayErrorCode.AUTH_PROCESSING_ERROR.getMessage());
+            log.warn("[网关认证] 认证失败 - 路径: {}, 原因: JWT签名验证失败({})", path, e.getClass().getSimpleName());
+            return handleAuthenticationFailure(exchange.getResponse(),
+                    GatewayErrorCode.TOKEN_VALIDATION_FAILED.getCode(),
+                    GatewayErrorCode.TOKEN_VALIDATION_FAILED.getMessage());
         }
+
+        if (!StringUtils.hasText(userId) || !StringUtils.hasText(nickname)) {
+            log.warn("[网关认证] 认证失败 - 路径: {}, 原因: 无法从令牌中提取用户信息", path);
+            return handleAuthenticationFailure(exchange.getResponse(),
+                    GatewayErrorCode.INVALID_USER_INFO.getCode(),
+                    GatewayErrorCode.INVALID_USER_INFO.getMessage());
+        }
+
+        log.info("[网关认证] 认证成功 - 用户: {}, ID: {}, 路径: {}", nickname, userId, path);
+
+        // 将用户信息注入 Brave BaggageField
+        injectUserBaggage(userId, nickname);
+
+        // 将用户信息添加到请求头，传递给下游服务
+        ServerHttpRequest modifiedRequest = request.mutate()
+                .header(USER_ID_HEADER, userId)
+                .header(NICKNAME_HEADER, nickname)
+                .build();
+
+        return chain.filter(exchange.mutate().request(modifiedRequest).build())
+                .contextWrite(ctx -> ctx
+                        .put("userId", userId)
+                        .put("nickname", nickname)
+                );
     }
 
     /**
@@ -182,17 +200,12 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 检查是否为白名单路径
+     * 检查是否为白名单路径，使用精确匹配或带尾部斜杠的精确匹配。
+     * 例如配置 "/ws" 可匹配 "/ws" 和 "/ws/"。
      */
     private boolean isSkipAuthPath(String path) {
-        String skipAuthPathsStr = gatewayAuthProperties.getSkipAuthPaths();
-        if (!StringUtils.hasText(skipAuthPathsStr)) {
-            return false;
-        }
-        List<String> skipAuthPaths = Arrays.asList(skipAuthPathsStr.split(","));
-        return skipAuthPaths.stream()
-                .map(String::trim)
-                .anyMatch(skipPath -> path.startsWith(skipPath));
+        return preParsedSkipAuthPaths.stream()
+                .anyMatch(skipPath -> path.equals(skipPath) || path.equals(skipPath + "/"));
     }
 
     /**
@@ -218,30 +231,19 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 处理认证失败
+     * 处理认证失败（JSON 消息经过转义，防止注入）
      */
-    private Mono<Void> handleAuthenticationFailure(ServerHttpResponse response, String message) {
+    private Mono<Void> handleAuthenticationFailure(ServerHttpResponse response, int code, String message) {
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        String safeMessage = message
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "");
         String responseBody = String.format(
                 "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
-                CommonErrorCode.UNAUTHORIZED.getCode(),
-                message
-        );
-        DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
-        return response.writeWith(Mono.just(buffer));
-    }
-
-    /**
-     * 处理认证失败（支持错误码对象）
-     */
-    private Mono<Void> handleAuthenticationFailure(ServerHttpResponse response, GatewayErrorCode errorCode) {
-        response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        String responseBody = String.format(
-                "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
-                errorCode.getCode(),
-                errorCode.getMessage()
+                code, safeMessage
         );
         DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
         return response.writeWith(Mono.just(buffer));

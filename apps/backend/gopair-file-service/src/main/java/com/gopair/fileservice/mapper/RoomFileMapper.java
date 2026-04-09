@@ -49,4 +49,21 @@ public interface RoomFileMapper extends BaseMapper<RoomFile> {
      * @return 文件列表
      */
     List<RoomFile> selectAllByRoomId(@Param("roomId") Long roomId);
+
+    /**
+     * 分批查询房间文件（用于清理时防止 OOM）
+     *
+     * @param roomId 房间ID
+     * @param limit  每批大小
+     * @return 文件列表
+     */
+    List<RoomFile> selectBatchByRoomId(@Param("roomId") Long roomId, @Param("limit") int limit);
+
+    /**
+     * 原子递增文件下载计数（用于 generateDownloadUrl，防止并发 Lost Update）
+     *
+     * @param fileId 文件ID
+     * @return 受影响行数
+     */
+    int incrementDownloadCount(@Param("fileId") Long fileId);
 }

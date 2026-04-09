@@ -1,19 +1,22 @@
 package com.gopair.websocketservice.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gopair.websocketservice.enums.WebSocketErrorCode;
+import com.gopair.websocketservice.config.RabbitMQConfig;
 import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
 import com.gopair.websocketservice.service.ConnectionManagerService;
 import com.gopair.websocketservice.service.BasicSubscriptionService;
-import lombok.RequiredArgsConstructor;
+import com.gopair.websocketservice.service.ConnectionManagerService.SessionInfo;
+import com.gopair.websocketservice.service.RedisOperationService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -42,20 +45,28 @@ public class ConnectionHandler {
 
     private final ConnectionManagerService connectionManager;
     private final BasicSubscriptionService basicSubscriptionService;
+    private final RedisOperationService redisOperationService;
+    private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
-    
+
     /**
      * 构造函数
-     * 
+     *
      * @param connectionManager 连接管理服务
      * @param basicSubscriptionService 基础订阅服务（使用@Lazy避免循环依赖）
+     * @param redisOperationService Redis 操作服务（用于查询用户会话状态）
+     * @param rabbitTemplate RabbitMQ 模板（用于发送离线通知）
      * @param objectMapper JSON序列化工具
      */
     public ConnectionHandler(ConnectionManagerService connectionManager,
                            @Lazy BasicSubscriptionService basicSubscriptionService,
+                           RedisOperationService redisOperationService,
+                           RabbitTemplate rabbitTemplate,
                            ObjectMapper objectMapper) {
         this.connectionManager = connectionManager;
         this.basicSubscriptionService = basicSubscriptionService;
+        this.redisOperationService = redisOperationService;
+        this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
     }
 
@@ -118,25 +129,68 @@ public class ConnectionHandler {
 
     /**
      * 处理连接断开
-     * 
-     * 流程：
-     * 1. 记录断开日志
-     * 2. 清理连接相关资源
-     * 3. 清理订阅关系
-     * 
+     *
+     * <h2>完整流程</h2>
+     * <ol>
+     *   <li><b>清理连接</b>：调用 connectionManager.removeSession，移除 Redis 中的会话索引。</li>
+     *   <li><b>检查离线</b>：从 Redis 中读取该用户是否还有其他活跃会话（ws:user-sessions:{userId}）。</li>
+     *   <li><b>发离线通知</b>：若用户没有任何其他活跃会话，通过 RabbitMQ 发送 system.offline 消息到 room-service。</li>
+     * </ol>
+     *
+     * <h2>多端登录处理</h2>
+     * 用户在手机和电脑上同时在线时，任一端断开只清理自己的 session，
+     * 只有当 ws:user-sessions:{userId} 全部清空后才会发送离线通知。
+     *
      * @param session WebSocket会话
      */
     public void handleConnectionClosed(WebSocketSession session) {
         try {
             log.info("[连接管理] WebSocket连接断开: sessionId={}", session.getId());
-            
+
+            // 从 Redis 获取会话信息（userId 在 removeSession 之前读取）
+            SessionInfo sessionInfo = connectionManager.getSessionInfo(session.getId());
+            Long userId = sessionInfo != null ? sessionInfo.getUserId() : null;
+
             // 清理连接相关资源
             connectionManager.removeSession(session.getId());
-            
+
+            // 检查该用户是否还有其他活跃会话，只有全部断开才发离线通知
+            if (userId != null) {
+                Set<String> remainingSessions = redisOperationService.getUserSessions(userId);
+                if (remainingSessions == null || remainingSessions.isEmpty()) {
+                    sendUserOfflineEvent(userId);
+                }
+            }
+
             log.info("[连接管理] 连接资源清理完成: sessionId={}", session.getId());
-            
+
         } catch (Exception e) {
             log.error("[连接管理] 处理连接断开失败: sessionId={}", session.getId(), e);
+        }
+    }
+
+    /**
+     * 发送用户离线事件到 MQ，供 room-service 消费后将 room_member.status 更新为离线。
+     * 使用 system.offline 路由键，room-service 监听 user.offline.queue 队列。
+     *
+     * @param userId 离线用户 ID
+     */
+    private void sendUserOfflineEvent(Long userId) {
+        try {
+            Map<String, Object> payload = Map.of("userId", userId);
+            UnifiedWebSocketMessage message = new UnifiedWebSocketMessage()
+                    .setMessageId(UUID.randomUUID().toString())
+                    .setTimestamp(LocalDateTime.now())
+                    .setType(MessageType.SYSTEM)
+                    .setChannel("user:" + userId)
+                    .setEventType("offline")
+                    .setPayload(payload)
+                    .setSource("websocket-service");
+
+            rabbitTemplate.convertAndSend(RabbitMQConfig.WEBSOCKET_EXCHANGE, "system.offline", message);
+            log.info("[连接管理] 发送用户离线事件: userId={}", userId);
+        } catch (Exception e) {
+            log.error("[连接管理] 发送用户离线事件失败: userId={}", userId, e);
         }
     }
 

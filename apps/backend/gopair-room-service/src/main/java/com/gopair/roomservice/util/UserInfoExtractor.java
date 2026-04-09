@@ -56,38 +56,6 @@ public class UserInfoExtractor {
     }
 
     /**
-     * 获取用户显示名称
-     * 
-     * @param userId 用户ID
-     * @param customDisplayName 自定义显示名称
-     * @return 显示名称
-     */
-    public static String getDisplayName(Long userId, String customDisplayName) {
-        if (customDisplayName != null && !customDisplayName.trim().isEmpty()) {
-            return customDisplayName.trim();
-        }
-        
-        String nickname = getCurrentNickname();
-        if (!"未知用户".equals(nickname)) {
-            return nickname;
-        }
-        
-        return "用户" + userId;
-    }
-
-    /**
-     * 验证显示名称是否有效
-     * 
-     * @param displayName 显示名称
-     * @return 是否有效
-     */
-    public static boolean isValidDisplayName(String displayName) {
-        return displayName != null && 
-               !displayName.trim().isEmpty() && 
-               displayName.trim().length() <= 50;
-    }
-
-    /**
      * 格式化创建者信息
      * 
      * @param userId 用户ID

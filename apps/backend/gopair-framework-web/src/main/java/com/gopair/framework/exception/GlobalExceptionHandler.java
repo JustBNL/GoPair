@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Web框架全局异常处理器 (Spring MVC)
@@ -40,20 +42,27 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理参数校验异常
+     * 处理参数校验异常（收集所有字段错误）
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public R<Void> handleValidationException(MethodArgumentNotValidException e) {
+    public R<Map<String, String>> handleValidationException(MethodArgumentNotValidException e) {
         log.warn("参数校验失败: {}", e.getMessage());
 
-        // 简化处理，只返回第一个错误信息
-        String errorMessage = "参数校验失败";
-        if (e.getBindingResult().hasErrors() && e.getBindingResult().getFieldError() != null) {
-            errorMessage = e.getBindingResult().getFieldError().getDefaultMessage();
+        Map<String, String> errors = e.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        org.springframework.validation.FieldError::getField,
+                        org.springframework.validation.FieldError::getDefaultMessage,
+                        (existing, replacement) -> existing
+                ));
+
+        if (errors.isEmpty()) {
+            return R.fail(CommonErrorCode.PARAM_ERROR, "参数校验失败");
         }
 
-        return R.fail(CommonErrorCode.PARAM_ERROR, errorMessage);
+        return R.fail(CommonErrorCode.PARAM_ERROR.getCode(),
+                errors.size() == 1 ? errors.values().iterator().next() : "存在 " + errors.size() + " 个参数错误",
+                errors);
     }
 
     /**

@@ -1,9 +1,9 @@
 package com.gopair.roomservice.service;
 
 import com.gopair.common.core.PageResult;
-import com.gopair.common.entity.BaseQuery;
 import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
+import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.po.Room;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
@@ -29,15 +29,6 @@ public interface RoomService {
     RoomVO createRoom(RoomDto roomDto, Long userId);
 
     /**
-     * 加入房间
-     *
-     * @param joinRoomDto 加入房间信息
-     * @param userId 用户ID（必须为注册用户）
-     * @return 房间信息
-     */
-    RoomVO joinRoom(JoinRoomDto joinRoomDto, Long userId);
-
-    /**
      * 离开房间
      *
      * @param roomId 房间ID
@@ -61,7 +52,7 @@ public interface RoomService {
      * @param query 查询条件
      * @return 分页结果
      */
-    PageResult<RoomVO> getUserRooms(Long userId, BaseQuery query);
+    PageResult<RoomVO> getUserRooms(Long userId, RoomQueryDto query);
 
     /**
      * 关闭房间
@@ -89,6 +80,9 @@ public interface RoomService {
 
     /**
      * 完全删除房间（包括成员）
+     * <p>注意：此方法仅供内部定时任务调用，用于清理过期房间。
+     * 由于定时任务在无用户上下文的场景下执行，此方法不进行权限检查。
+     * 如需对外暴露，请添加房主权限验证。
      *
      * @param roomId 房间ID
      * @return 是否成功
@@ -136,4 +130,13 @@ public interface RoomService {
      * @param targetUserId 被踢出的用户ID
      */
     void kickMember(Long roomId, Long operatorId, Long targetUserId);
+
+    /**
+     * 检查用户是否为房间成员
+     *
+     * @param roomId 房间ID
+     * @param userId 用户ID
+     * @return 是否为房间成员
+     */
+    boolean isMemberInRoom(Long roomId, Long userId);
 }

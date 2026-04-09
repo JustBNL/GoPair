@@ -141,14 +141,16 @@ public class JwtUtils {
     }
 
     /**
-     * 验证令牌
-     * 
+     * 验证令牌（含签名校验）
+     * 同时检查过期时间与签名有效性，任一失败均返回 false。
+     *
      * @param token JWT令牌
      * @param secret 密钥
-     * @return 如果令牌有效则返回true，否则返回false
+     * @return 若令牌签名有效且未过期则返回 true，否则返回 false
      */
     public static Boolean validateToken(String token, String secret) {
         try {
+            getAllClaimsFromToken(token, secret);
             return !isTokenExpired(token, secret);
         } catch (Exception e) {
             return false;

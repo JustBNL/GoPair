@@ -30,7 +30,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 
@@ -171,6 +174,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     @Override
+    @LogRecord(operation = "按ID查询用户", module = "用户管理")
     public UserVO getUserById(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -180,6 +184,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     @Override
+    @LogRecord(operation = "批量查询用户", module = "用户管理")
+    public List<UserVO> listUsersByIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> unique = new LinkedHashSet<>();
+        for (Long id : userIds) {
+            if (id != null) {
+                unique.add(id);
+            }
+        }
+        if (unique.isEmpty()) {
+            return List.of();
+        }
+        List<Long> batch = new ArrayList<>(unique);
+        int max = 200;
+        if (batch.size() > max) {
+            batch = batch.subList(0, max);
+        }
+        List<User> users = userMapper.selectBatchIds(batch);
+        if (users == null || users.isEmpty()) {
+            return List.of();
+        }
+        return BeanCopyUtils.copyBeanList(users, UserVO.class);
+    }
+
+    @Override
+    @LogRecord(operation = "分页查询用户", module = "用户管理")
     public PageResult<UserVO> getUserPage(UserDto userDto) {
         // 使用 PageHelper 启动分页
         PageHelper.startPage(userDto.getPageNum(), userDto.getPageSize());

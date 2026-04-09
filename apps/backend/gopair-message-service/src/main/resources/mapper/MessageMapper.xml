@@ -18,6 +18,7 @@
         <result column="reply_to_id" property="replyToId"/>
         <result column="reply_to_content" property="replyToContent"/>
         <result column="reply_to_sender_nickname" property="replyToSenderNickname"/>
+        <result column="reply_to_sender_id" property="replyToSenderId"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
@@ -45,6 +46,7 @@
         m.reply_to_id,
         rm.content as reply_to_content,
         ru.nickname as reply_to_sender_nickname,
+        rm.sender_id as reply_to_sender_id,
         m.create_time,
         m.update_time
     </sql>

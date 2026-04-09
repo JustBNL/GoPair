@@ -10,6 +10,7 @@ import type {
 } from '@/types/room'
 import type { BaseQuery } from '@/types/api'
 import { RoomAPI } from '@/api/room'
+import { normalizeRoomMembersList } from '@/utils/roomMemberDisplay'
 import { useAuthStore } from './auth'
 
 /**
@@ -133,6 +134,30 @@ export const useRoomStore = defineStore('room', () => {
     return status
   }
 
+  /**
+   * 入房成功后：刷新房间列表 + 并行预取成员列表。
+   * JOINED 时立即拉成员数据，后续进入 RoomDetailView 时成员列表已就绪，感知无等待。
+   */
+  async function prefetchAfterJoin(token: string, roomCode: string): Promise<'JOINED' | 'PROCESSING' | 'FAILED'> {
+    const resp = await RoomAPI.getJoinResult(token)
+    const status = resp.data.status
+    if (status === 'JOINED') {
+      message.success({ content: '加入成功', key: 'joinAsync' })
+      // 刷新列表（串行，先拿到最新房间 ID）
+      await fetchUserRooms()
+      // 找到刚加入的房间，并行预取成员
+      const joinedRoom = roomList.value.find(r => r.roomCode === roomCode)
+      if (joinedRoom) {
+        fetchRoomMembers(joinedRoom.roomId).catch(() => {
+          // 预取失败静默，RoomDetailView 进入时会正常加载
+        })
+      }
+    } else if (status === 'FAILED') {
+      message.error({ content: '加入失败，请重试', key: 'joinAsync' })
+    }
+    return status
+  }
+
   async function getRoomByCode(roomCode: string): Promise<RoomInfo | null> {
     try {
       const response = await RoomAPI.getRoomByCode(roomCode)
@@ -147,7 +172,7 @@ export const useRoomStore = defineStore('room', () => {
     membersLoading.value = true
     try {
       const response = await RoomAPI.getRoomMembers(roomId)
-      roomMembers.value = response.data
+      roomMembers.value = normalizeRoomMembersList(response.data)
     } catch (error) {
       console.error('获取房间成员失败:', error)
       message.error('获取房间成员失败')
@@ -260,6 +285,7 @@ export const useRoomStore = defineStore('room', () => {
     joinRoom,
     requestJoinRoomAsync,
     queryJoinResult,
+    prefetchAfterJoin,
     getRoomByCode,
     fetchRoomMembers,
     leaveRoom,

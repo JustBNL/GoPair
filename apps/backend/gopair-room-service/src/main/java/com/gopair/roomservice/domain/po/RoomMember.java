@@ -37,10 +37,6 @@ public class RoomMember extends BaseEntity {
      */
     private Long userId;
 
-    /**
-     * 房间内显示名称
-     */
-    private String displayName;
 
     /**
      * 角色（0-普通成员 1-管理员 2-房主）

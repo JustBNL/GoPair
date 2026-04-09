@@ -59,4 +59,20 @@
         WHERE room_id = #{roomId}
     </select>
 
+    <!-- 分批查询房间文件（用于清理时防止 OOM） -->
+    <select id="selectBatchByRoomId" resultMap="RoomFileResultMap">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM room_file
+        WHERE room_id = #{roomId}
+        LIMIT #{limit}
+    </select>
+
+    <!-- 原子递增下载计数（防止并发 Lost Update） -->
+    <update id="incrementDownloadCount">
+        UPDATE room_file
+        SET download_count = download_count + 1
+        WHERE file_id = #{fileId}
+    </update>
+
 </mapper>

@@ -3,26 +3,25 @@
 -- KEYS[3] = room pending hash/set key: room:{roomId}:pending
 -- KEYS[4] = join token key: join:{token}
 -- ARGV[1] = userId
--- ARGV[2] = displayName (unused in Lua, for reference)
--- ARGV[3] = token
--- ARGV[4] = now (ms)
--- ARGV[5] = join token ttl (seconds)
+-- ARGV[2] = token
+-- ARGV[3] = now (ms)
+-- ARGV[4] = join token ttl (seconds)
 -- Return codes:
 -- 0 = ACCEPTED
 -- 1 = ALREADY_JOINED
 -- 2 = FULL
 -- 3 = CLOSED
 -- 4 = EXPIRED
--- 5 = PROCESSING
+-- 5 = ALREADY_PROCESSING
 
 local metaKey = KEYS[1]
 local membersKey = KEYS[2]
 local pendingKey = KEYS[3]
 local tokenKey = KEYS[4]
 local userId = ARGV[1]
-local token = ARGV[3]
-local now = tonumber(ARGV[4])
-local tokenTtl = tonumber(ARGV[5])
+local token = ARGV[2]
+local now = tonumber(ARGV[3])
+local tokenTtl = tonumber(ARGV[4])
 
 -- status: 0 active, 1 closed
 local status = redis.call('HGET', metaKey, 'status')

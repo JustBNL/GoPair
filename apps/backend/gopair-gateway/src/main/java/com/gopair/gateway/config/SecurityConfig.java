@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
-import reactor.core.publisher.Mono;
 
 import jakarta.annotation.PostConstruct;
 
@@ -49,15 +48,6 @@ public class SecurityConfig {
             .authorizeExchange(authorizeExchange -> authorizeExchange
                 // 允许所有请求通过，认证逻辑由 JWT 过滤器处理
                 .anyExchange().permitAll()
-            )
-            
-            // 配置异常处理
-            .exceptionHandling(exceptionHandling -> exceptionHandling
-                // 可以在这里配置自定义的认证/授权失败处理器
-                .authenticationEntryPoint((exchange, e) -> {
-                    // 认证失败时的处理逻辑
-                    return Mono.empty();
-                })
             );
 
         return http.build();

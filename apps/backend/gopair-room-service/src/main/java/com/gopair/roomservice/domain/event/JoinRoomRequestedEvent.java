@@ -12,7 +12,6 @@ import java.io.Serializable;
 public class JoinRoomRequestedEvent implements Serializable {
     private Long roomId;
     private Long userId;
-    private String displayName;
     private String joinToken;
     private Long requestAt;
 } 

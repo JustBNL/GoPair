@@ -56,7 +56,6 @@ export interface CreateRoomRequest {
  */
 export interface JoinRoomRequest {
   roomCode: string
-  displayName: string
   password?: string
 }
 
@@ -85,13 +84,13 @@ export interface RoomPasswordInfo {
 export interface RoomMember {
   userId: number
   roomId: number
-  displayName: string
   nickname: string
   joinTime: string
   isOwner: boolean
   status?: 'online' | 'offline' | 'away'
   role?: 'owner' | 'member'
   lastActiveTime?: string
+  avatar?: string
 }
 
 /**
@@ -119,7 +118,6 @@ export interface CreateRoomFormData {
 
 export interface JoinRoomFormData {
   roomCode: string
-  displayName: string
   password: string
 }
 

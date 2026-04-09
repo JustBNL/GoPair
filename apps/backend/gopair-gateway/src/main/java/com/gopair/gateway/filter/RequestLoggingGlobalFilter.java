@@ -2,11 +2,13 @@ package com.gopair.gateway.filter;
 
 import io.micrometer.tracing.Tracer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -26,8 +28,12 @@ import jakarta.annotation.PostConstruct;
 public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
 
     private final Tracer tracer;
-    
-    public RequestLoggingGlobalFilter(Tracer tracer) {
+
+    /**
+     * Tracer 为可选依赖，当 micrometer-tracing-bridge-brave 不可用时应能正常启动。
+     */
+    @Autowired
+    public RequestLoggingGlobalFilter(@Nullable Tracer tracer) {
         this.tracer = tracer;
     }
 
@@ -53,16 +59,20 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
         
         return chain.filter(exchange)
                 .doFinally(signalType -> {
-                    // 计算请求耗时
                     long duration = System.currentTimeMillis() - startTime;
-                    
+
                     ServerHttpResponse response = exchange.getResponse();
-                    int statusCode = response.getStatusCode() != null ? 
+                    int statusCode = response.getStatusCode() != null ?
                         response.getStatusCode().value() : 0;
-                    
-                    // 记录请求完成日志
-                    log.info("[网关请求] 处理完成 - 方法: {}, 路径: {}, 状态码: {}, 耗时: {}ms, traceId: {}", 
-                            method, path, statusCode, duration, traceId);
+
+                    // 5xx 错误或慢请求（> 3s）使用 warn 级别，其余用 info
+                    if (statusCode >= 500 || duration > 3000) {
+                        log.warn("[网关请求] 处理完成 - 方法: {}, 路径: {}, 状态码: {}, 耗时: {}ms, traceId: {}",
+                                method, path, statusCode, duration, traceId);
+                    } else {
+                        log.info("[网关请求] 处理完成 - 方法: {}, 路径: {}, 状态码: {}, 耗时: {}ms, traceId: {}",
+                                method, path, statusCode, duration, traceId != null ? traceId : "N/A");
+                    }
                 });
     }
 

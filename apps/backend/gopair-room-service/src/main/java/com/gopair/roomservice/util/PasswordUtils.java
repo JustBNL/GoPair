@@ -2,6 +2,7 @@ package com.gopair.roomservice.util;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +16,7 @@ import java.util.Base64;
  *
  * <p>支持两种密码模式：
  * <ul>
- *   <li>模式1（固定密码）：AES-128/ECB 加密存储，可逆解密展示给房主</li>
+ *   <li>模式1（固定密码）：AES-256/GCM 加密存储，可逆解密展示给房主</li>
  *   <li>模式2（动态令牌）：TOTP（RFC 6238 变体），secret 存 DB，令牌实时派生</li>
  * </ul>
  *
@@ -37,30 +38,44 @@ public final class PasswordUtils {
     // ==================== 模式1：AES 固定密码 ====================
 
     /**
-     * 加密明文密码为 AES 密文（Base64编码）
+     * 加密明文密码为 AES-GCM 密文（Base64编码）
+     * 使用 AES/GCM 模式替代 ECB，提高安全性
      *
      * @param rawPassword 明文密码
      * @param roomId      房间ID（用于派生 AES 密钥）
      * @param masterKey   主密钥（来自配置）
-     * @return Base64 编码的 AES 密文
+     * @return Base64 编码的 AES-GCM 密文（格式：IV + 密文 + Tag）
      */
     public static String encryptPassword(String rawPassword, Long roomId, String masterKey) {
         try {
             byte[] keyBytes = deriveAesKey(roomId, masterKey);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec);
+            
+            // 生成随机 IV（12字节，GCM 推荐长度）
+            byte[] iv = new byte[12];
+            new SecureRandom().nextBytes(iv);
+            
+            GCMParameterSpec spec = new GCMParameterSpec(128, iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
+            
             byte[] encrypted = cipher.doFinal(rawPassword.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(encrypted);
+            
+            // 密文格式：IV(12字节) + 密文+Tag
+            ByteBuffer buffer = ByteBuffer.allocate(iv.length + encrypted.length);
+            buffer.put(iv);
+            buffer.put(encrypted);
+            
+            return Base64.getEncoder().encodeToString(buffer.array());
         } catch (Exception e) {
             throw new IllegalStateException("密码加密失败", e);
         }
     }
 
     /**
-     * 解密 AES 密文为明文密码
+     * 解密 AES-GCM 密文为明文密码
      *
-     * @param cipherText Base64 编码的 AES 密文
+     * @param cipherText Base64 编码的 AES-GCM 密文
      * @param roomId     房间ID
      * @param masterKey  主密钥
      * @return 明文密码
@@ -69,9 +84,23 @@ public final class PasswordUtils {
         try {
             byte[] keyBytes = deriveAesKey(roomId, masterKey);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            cipher.init(Cipher.DECRYPT_MODE, keySpec);
-            byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(cipherText));
+            
+            byte[] decodedCipherText = Base64.getDecoder().decode(cipherText);
+            
+            // 提取 IV（前12字节）
+            ByteBuffer buffer = ByteBuffer.wrap(decodedCipherText);
+            byte[] iv = new byte[12];
+            buffer.get(iv);
+            
+            // 剩余部分是密文+Tag
+            byte[] encrypted = new byte[buffer.remaining()];
+            buffer.get(encrypted);
+            
+            GCMParameterSpec spec = new GCMParameterSpec(128, iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
+            
+            byte[] decrypted = cipher.doFinal(encrypted);
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new IllegalStateException("密码解密失败", e);

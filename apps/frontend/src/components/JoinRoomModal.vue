@@ -161,7 +161,7 @@ const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
 
-const formData = reactive<JoinRoomFormData>({ roomCode: '', displayName: '', password: '' })
+const formData = reactive<JoinRoomFormData>({ roomCode: '', password: '' })
 
 const roomPreview = ref<RoomInfo | null>(null)
 const searchLoading = ref(false)
@@ -262,14 +262,12 @@ async function handleSubmit(_values: JoinRoomFormData) {
     // 异步加入：请求受理 token 并轮询结果
     const token = await roomStore.requestJoinRoomAsync({
       roomCode: currentRoomCode,
-      // displayName 使用当前登录用户昵称，后端要求非空
-      displayName: authStore.currentNickname || currentRoomCode,
       password: formData.password?.trim() || undefined
     })
     if (!token) return
     // 退避轮询（最多6次，约1.2s）
     for (let i = 0; i < 6; i++) {
-      const status = await roomStore.queryJoinResult(token)
+      const status = await roomStore.prefetchAfterJoin(token, currentRoomCode)
       if (status === 'JOINED') {
         // queryJoinResult 内部已调用 fetchUserRooms，从刷新后列表找房间
         const joinedRoom = roomStore.roomList.find(r => r.roomCode === currentRoomCode) ?? targetRoom
@@ -303,7 +301,6 @@ function handleCancel() {
 
 function resetForm() {
   formData.roomCode = ''
-  formData.displayName = ''
   formData.password = ''
   roomPreview.value = null
   searchLoading.value = false

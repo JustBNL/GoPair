@@ -1,6 +1,5 @@
 package com.gopair.fileservice.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.service.WebSocketMessageProducer;
@@ -17,16 +16,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -38,6 +39,8 @@ public class FileServiceImpl implements FileService {
     private final MinioProperties minioProperties;
     private final RoomFileMapper roomFileMapper;
     private final WebSocketMessageProducer wsProducer;
+    private final StringRedisTemplate redisTemplate;
+    private static final String ROOM_QUOTA_KEY_PREFIX = "file:quota:";
     @Value("${gopair.file.max-file-size:104857600}")
     private long maxFileSize;
     @Value("${gopair.file.max-room-size:1073741824}")
@@ -48,7 +51,14 @@ public class FileServiceImpl implements FileService {
     private String allowedTypes;
     private static final List<String> IMAGE_TYPES = List.of("jpg","jpeg","png","gif","bmp","webp");
     private static final List<String> AVATAR_IMAGE_TYPES = List.of("jpg","jpeg","png","gif","webp");
-    private static final long AVATAR_MAX_SIZE = 5 * 1024 * 1024L;
+    private Set<String> allowedTypesSet;
+    @Value("${gopair.file.avatar-max-size:5242880}")
+    private long avatarMaxSize;
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        allowedTypesSet = Set.of(allowedTypes.split(","));
+    }
 
     // ==================== avatar ====================
     @Override
@@ -60,8 +70,8 @@ public class FileServiceImpl implements FileService {
         if (!AVATAR_IMAGE_TYPES.contains(ft)) {
             throw new FileException(FileErrorCode.FILE_TYPE_NOT_ALLOWED, "仅支持图片格式: jpg/jpeg/png/gif/webp");
         }
-        if (fs > AVATAR_MAX_SIZE) {
-            throw new FileException(FileErrorCode.FILE_TOO_LARGE, "头像文件不能超过 5MB");
+        if (fs > avatarMaxSize) {
+            throw new FileException(FileErrorCode.FILE_TOO_LARGE, "头像文件不能超过 " + FileVO.formatFileSize(avatarMaxSize));
         }
         String objectKey = "avatar/" + userId + "/profile.jpg";
         try {
@@ -86,28 +96,40 @@ public class FileServiceImpl implements FileService {
         String ft = extractExtension(fn);
         long fs = file.getSize();
         log.info("[file-service] start op:uploadFile roomId:{} userId:{} file:{} size:{}B", roomId, userId, fn, fs);
-        validateUpload(ft, fs, roomId);
+        checkFileTypeAndSize(ft, fs);
+        // 原子预占配额：Redis INCRBY 本身原子，窗口极短，高并发下不会明显超卖
+        reserveRoomQuota(roomId, fs);
         String uuid = UUID.randomUUID().toString().replace("-", "");
         String ok = buildObjectKey(roomId, "original", uuid, ft);
         String tk = null;
         try {
-            uploadToMinio(file.getInputStream(), ok, file.getContentType(), fs);
+            // 一次性读取流，避免重复消费导致第二次 getInputStream() 得到已关闭流
+            byte[] rawBytes = file.getBytes();
+            ByteArrayInputStream source = new ByteArrayInputStream(rawBytes);
+            uploadToMinio(source, ok, file.getContentType(), fs);
             if (IMAGE_TYPES.contains(ft)) {
                 tk = buildObjectKey(roomId, "thumbnail", uuid + "_thumb", ft);
-                byte[] tb = generateThumbnail(file.getInputStream(), ft);
+                byte[] tb = generateThumbnail(new ByteArrayInputStream(rawBytes), ft);
                 uploadToMinio(new ByteArrayInputStream(tb), tk, file.getContentType(), tb.length);
             }
             RoomFile rf = buildRoomFile(roomId, userId, nickname, fn, ok, tk, fs, ft, file.getContentType());
             roomFileMapper.insert(rf);
+            // 双重校验：若 DB 实际总和已超限（极端情况），删除记录并抛异常
+            if (!syncAndCheckRoomQuota(roomId)) {
+                roomFileMapper.deleteById(rf.getFileId());
+                throw new FileException(FileErrorCode.ROOM_QUOTA_EXCEEDED);
+            }
             publishFileEvent(roomId, rf.getFileId(), fn, "file_upload");
             log.info("[file-service] success op:uploadFile fileId:{}", rf.getFileId());
             return toVO(rf);
         } catch (FileException e) {
+            releaseRoomQuota(roomId, fs);
             throw e;
         } catch (Exception e) {
             log.error("[file-service] failed op:uploadFile err:{}", e.getMessage(), e);
             silentDeleteFromMinio(ok);
             if (tk != null) silentDeleteFromMinio(tk);
+            releaseRoomQuota(roomId, fs);
             throw new FileException(FileErrorCode.FILE_UPLOAD_FAILED, e.getMessage());
         }
     }
@@ -130,8 +152,9 @@ public class FileServiceImpl implements FileService {
     @Override
     public String generateDownloadUrl(Long fileId) {
         RoomFile rf = getFileOrThrow(fileId);
-        rf.setDownloadCount(rf.getDownloadCount() + 1);
-        roomFileMapper.updateById(rf);
+        // 使用 SQL 原子 +1，避免 read-modify-write 并发竞态导致的计数丢失
+        roomFileMapper.incrementDownloadCount(fileId);
+        rf.setDownloadCount(rf.getDownloadCount() + 1); // VO 仍+1以保持一致性
         return buildPresignedDownloadUrl(rf.getFilePath(), rf.getFileName());
     }
 
@@ -152,6 +175,7 @@ public class FileServiceImpl implements FileService {
         silentDeleteFromMinio(rf.getFilePath());
         if (rf.getThumbnailPath() != null) silentDeleteFromMinio(rf.getThumbnailPath());
         roomFileMapper.deleteById(fileId);
+        releaseRoomQuota(rf.getRoomId(), rf.getFileSize()); // 释放配额
         publishFileEvent(rf.getRoomId(), fileId, rf.getFileName(), "file_delete");
         log.info("[file-service] success op:deleteFile fileId:{}", fileId);
     }
@@ -160,7 +184,21 @@ public class FileServiceImpl implements FileService {
     @Override
     public RoomFileStats getRoomFileStats(Long roomId) {
         long count = roomFileMapper.countByRoomId(roomId);
-        long totalSize = roomFileMapper.sumFileSizeByRoomId(roomId);
+        // 优先从 Redis 获取配额，性能更优；Redis 无值时回退到 DB
+        Long totalSize = null;
+        try {
+            String redisVal = redisTemplate.opsForValue().get(ROOM_QUOTA_KEY_PREFIX + roomId);
+            if (redisVal != null) {
+                totalSize = Long.parseLong(redisVal);
+            }
+        } catch (Exception ignored) {}
+        if (totalSize == null) {
+            totalSize = roomFileMapper.sumFileSizeByRoomId(roomId);
+            // 异步回填 Redis（不阻塞主流程）
+            try {
+                redisTemplate.opsForValue().setIfAbsent(ROOM_QUOTA_KEY_PREFIX + roomId, String.valueOf(totalSize));
+            } catch (Exception ignored) {}
+        }
         return new RoomFileStats(count, totalSize, FileVO.formatFileSize(totalSize));
     }
 
@@ -168,27 +206,82 @@ public class FileServiceImpl implements FileService {
     @Transactional(rollbackFor = Exception.class)
     public int cleanupRoomFiles(Long roomId) {
         log.info("[file-service] start op:cleanupRoomFiles roomId:{}", roomId);
-        List<RoomFile> files = roomFileMapper.selectAllByRoomId(roomId);
-        if (files.isEmpty()) return 0;
-        for (RoomFile file : files) {
-            silentDeleteFromMinio(file.getFilePath());
-            if (file.getThumbnailPath() != null) silentDeleteFromMinio(file.getThumbnailPath());
+        int totalCleaned = 0;
+        int batchSize = 200;
+        List<RoomFile> batch;
+        do {
+            batch = roomFileMapper.selectBatchByRoomId(roomId, batchSize);
+            if (batch.isEmpty()) break;
+            for (RoomFile file : batch) {
+                silentDeleteFromMinio(file.getFilePath());
+                if (file.getThumbnailPath() != null) silentDeleteFromMinio(file.getThumbnailPath());
+            }
+            List<Long> ids = batch.stream().map(RoomFile::getFileId).toList();
+            roomFileMapper.deleteBatchIds(ids);
+            totalCleaned += batch.size();
+            log.info("[file-service] cleanupRoomFiles roomId:{} batch done, total:{}", roomId, totalCleaned);
+        } while (batch.size() == batchSize);
+        // 清理 Redis 配额缓存
+        try {
+            redisTemplate.delete(ROOM_QUOTA_KEY_PREFIX + roomId);
+        } catch (Exception e) {
+            log.warn("[file-service] cleanupRoomFiles: failed to delete redis quota key roomId:{} err:{}", roomId, e.getMessage());
         }
-        LambdaQueryWrapper<RoomFile> w = new LambdaQueryWrapper<>();
-        w.eq(RoomFile::getRoomId, roomId);
-        roomFileMapper.delete(w);
-        log.info("[file-service] success op:cleanupRoomFiles roomId:{} count:{}", roomId, files.size());
-        return files.size();
+        log.info("[file-service] success op:cleanupRoomFiles roomId:{} count:{}", roomId, totalCleaned);
+        return totalCleaned;
     }
 
     // ==================== private helpers ====================
-    private void validateUpload(String fileType, long fileSize, Long roomId) {
-        if (!Arrays.asList(allowedTypes.split(",")).contains(fileType))
+    private void checkFileTypeAndSize(String fileType, long fileSize) {
+        if (!allowedTypesSet.contains(fileType))
             throw new FileException(FileErrorCode.FILE_TYPE_NOT_ALLOWED, "Unsupported type: " + fileType);
         if (fileSize > maxFileSize)
             throw new FileException(FileErrorCode.FILE_TOO_LARGE, "Max: " + FileVO.formatFileSize(maxFileSize));
-        if (roomFileMapper.sumFileSizeByRoomId(roomId) + fileSize > maxRoomSize)
+    }
+
+    /**
+     * 原子预占房间配额（使用 Redis INCRBY）。
+     * 预占成功后再检查是否超限，超限则立即释放。
+     * 这样在预占到检查之间的窗口极短（毫秒级），即使高并发也不会出现明显超卖。
+     */
+    private void reserveRoomQuota(Long roomId, long fileSize) {
+        String key = ROOM_QUOTA_KEY_PREFIX + roomId;
+        Long used = redisTemplate.opsForValue().increment(key, fileSize);
+        if (used != null && used > maxRoomSize) {
+            redisTemplate.opsForValue().decrement(key, fileSize);
             throw new FileException(FileErrorCode.ROOM_QUOTA_EXCEEDED);
+        }
+    }
+
+    /**
+     * 释放房间配额（上传失败时调用）
+     */
+    private void releaseRoomQuota(Long roomId, long fileSize) {
+        redisTemplate.opsForValue().decrement(ROOM_QUOTA_KEY_PREFIX + roomId, fileSize);
+    }
+
+    /**
+     * 双重校验：Redis 与 DB 配额同步检查。
+     * Redis 预占成功但极端情况下 DB 写入不符合预期（如事务回滚），返回 false。
+     * 内部会纠正 Redis 值，使其与 DB 实际总大小一致。
+     */
+    private boolean syncAndCheckRoomQuota(Long roomId) {
+        String key = ROOM_QUOTA_KEY_PREFIX + roomId;
+        String redisVal = redisTemplate.opsForValue().get(key);
+        if (redisVal == null) {
+            return true; // 无 Redis 记录，以 DB 为准
+        }
+        long redisUsed = Long.parseLong(redisVal);
+        long dbUsed = roomFileMapper.sumFileSizeByRoomId(roomId);
+        // 允许 Redis 与 DB 有合理偏差（1字节容错，避免浮点误差）
+        if (Math.abs(redisUsed - dbUsed) > 1) {
+            // 强制同步 Redis 值与 DB 实际值
+            redisTemplate.opsForValue().set(key, String.valueOf(dbUsed));
+            if (dbUsed > maxRoomSize) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String buildObjectKey(Long roomId, String cat, String name, String ext) {
@@ -223,14 +316,18 @@ public class FileServiceImpl implements FileService {
 
     private String buildPresignedDownloadUrl(String key, String fileName) {
         try {
-            String encoded = java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+            // RFC 5987/RFC 6266 标准：使用 RFC 3986 (percent-encoding) 编码
+            // 浏览器兼容性：Chrome/Firefox/Safari 均支持 RFC 5987 filename* 语法
+            String encoded = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                    .replace("+", "%20")
+                    .replace("%", "%25");
             return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .bucket(minioProperties.getBucketName()).object(key)
                     .method(Method.GET)
                     .expiry((int) minioProperties.getPresignedUrlExpireSeconds(), TimeUnit.SECONDS)
                     .extraQueryParams(java.util.Map.of(
                             "response-content-disposition",
-                            "attachment; filename=\"" + encoded + "\""
+                            "attachment; filename*=UTF-8''" + encoded
                     )).build());
         } catch (Exception e) {
             log.error("[file-service] presigned download url failed key:{} err:{}", key, e.getMessage());

@@ -108,7 +108,6 @@ class RoomApiContractTest extends BaseIntegrationTest {
         // 3. 加入房间
         JoinRoomDto joinDto = new JoinRoomDto();
         joinDto.setRoomCode(roomCode);
-        joinDto.setDisplayName("新成员");
 
         HttpEntity<JoinRoomDto> joinRequest = new HttpEntity<>(joinDto, headers);
 

@@ -1,7 +1,7 @@
 package com.gopair.roomservice.service;
 
 import com.gopair.common.core.PageResult;
-import com.gopair.common.entity.BaseQuery;
+import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;
@@ -42,7 +42,7 @@ class RoomServiceTest {
     void testGetUserRooms_ShouldReturnRoomsWithRelationshipInfo() {
         // 准备测试数据
         Long userId = 8L;
-        BaseQuery query = new BaseQuery();
+        RoomQueryDto query = new RoomQueryDto();
         query.setPageNum(1);
         query.setPageSize(10);
 
@@ -80,7 +80,7 @@ class RoomServiceTest {
     @Test
     void testGetUserRooms_WithNullUserId_ShouldThrowException() {
         // 执行测试并验证异常
-        BaseQuery query = new BaseQuery();
+        RoomQueryDto query = new RoomQueryDto();
         
         assertThrows(Exception.class, () -> {
             roomService.getUserRooms(null, query);
@@ -91,7 +91,7 @@ class RoomServiceTest {
     void testGetUserRooms_EmptyResult_ShouldReturnEmptyPage() {
         // 准备测试数据
         Long userId = 8L;
-        BaseQuery query = new BaseQuery();
+        RoomQueryDto query = new RoomQueryDto();
         
         PageResult<RoomVO> emptyResult = new PageResult<>(List.of(), 0L, 1L, 10L);
         
