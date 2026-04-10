@@ -44,6 +44,28 @@ public class MessageConstants {
     public static final String BEARER_PREFIX = "Bearer ";
 
     /**
+     * WebSocket 消息相关常量
+     */
+    public static final String WEBSOCKET_EXCHANGE = "websocket.topic";
+    public static final String CHANNEL_ROOM_PREFIX = "room:";
+    public static final String CHANNEL_USER_PREFIX = "user:";
+    public static final String ROUTING_KEY_CHAT_ROOM = "chat.room";
+    public static final String ROUTING_KEY_SYSTEM_USER = "system.user";
+    public static final String ROUTING_KEY_SYSTEM_ROOM = "system.room";
+    public static final String ROUTING_KEY_SYSTEM_OFFLINE = "system.offline";
+    public static final String ROUTING_KEY_SIGNALING_USER = "signaling.user";
+    public static final String ROUTING_KEY_FILE_PROGRESS = "file.progress";
+
+    /**
+     * RabbitMQ 队列常量
+     */
+    public static final String QUEUE_WEBSOCKET_CHAT = "websocket.chat";
+    public static final String QUEUE_WEBSOCKET_SIGNALING = "websocket.signaling";
+    public static final String QUEUE_WEBSOCKET_FILE = "websocket.file";
+    public static final String QUEUE_WEBSOCKET_SYSTEM = "websocket.system";
+    public static final String QUEUE_USER_OFFLINE = "user.offline.queue";
+
+    /**
      * MDC (Mapped Diagnostic Context) 键常量
      */
     public static final String MDC_TRACE_ID = "traceId";

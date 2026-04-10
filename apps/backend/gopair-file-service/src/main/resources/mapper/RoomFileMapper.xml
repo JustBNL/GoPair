@@ -51,14 +51,6 @@
         WHERE room_id = #{roomId}
     </select>
 
-    <!-- 查询房间所有文件（用于批量清理） -->
-    <select id="selectAllByRoomId" resultMap="RoomFileResultMap">
-        SELECT
-            <include refid="Base_Column_List"/>
-        FROM room_file
-        WHERE room_id = #{roomId}
-    </select>
-
     <!-- 分批查询房间文件（用于清理时防止 OOM） -->
     <select id="selectBatchByRoomId" resultMap="RoomFileResultMap">
         SELECT
@@ -67,6 +59,14 @@
         WHERE room_id = #{roomId}
         LIMIT #{limit}
     </select>
+
+    <!-- 批量删除文件记录（替代 BaseMapper 的 deprecated deleteBatchIds） -->
+    <delete id="deleteByIds">
+        DELETE FROM room_file WHERE file_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
 
     <!-- 原子递增下载计数（防止并发 Lost Update） -->
     <update id="incrementDownloadCount">

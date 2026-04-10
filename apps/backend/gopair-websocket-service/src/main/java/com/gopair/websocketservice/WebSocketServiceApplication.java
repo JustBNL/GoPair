@@ -6,10 +6,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * WebSocket统一服务启动类
- * 
+ *
  * @author gopair
  */
 @Slf4j
@@ -17,7 +20,9 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
     DataSourceAutoConfiguration.class,
     HibernateJpaAutoConfiguration.class
 })
+@ComponentScan(basePackages = "com.gopair.websocketservice")
 @EnableDiscoveryClient
+@EnableScheduling
 public class WebSocketServiceApplication {
 
     public static void main(String[] args) {

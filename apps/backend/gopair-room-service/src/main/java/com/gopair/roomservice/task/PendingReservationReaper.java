@@ -47,10 +47,11 @@ public class PendingReservationReaper {
                     String userId = String.valueOf(e.getKey());
                     String token  = String.valueOf(e.getValue());
                     String value  = redis.opsForValue().get(RoomConst.joinTokenKey(token));
-                    // 只清理明确失败的 pending：
-                    // - token 存在且以 FAILED 结尾（新格式 roomId:userId:FAILED 或旧格式 FAILED）
-                    // - token 为 null 时表示 PROCESSING TTL 尚未到期或 Consumer 已处理完（不应误清理）
-                    boolean shouldClean = value != null && value.toUpperCase().endsWith(RoomConst.JOIN_RESULT_FAILED);
+                    // 清理条件：
+                    // 1. token 存在且明确标记为 FAILED（join 因满员/超时等原因失败）
+                    // 2. token 不存在（TTL 已过期，结果已被 Redis 自动清理），说明 join 未正常完成，pending 残留需回收
+                    boolean shouldClean = (value != null && value.toUpperCase().endsWith(RoomConst.JOIN_RESULT_FAILED))
+                            || (value == null);
                     if (shouldClean) {
                         try {
                             String reserved = String.valueOf(redis.opsForHash().get(metaKey, RoomConst.FIELD_RESERVED));
@@ -60,8 +61,10 @@ public class PendingReservationReaper {
                                 redis.opsForHash().increment(metaKey, RoomConst.FIELD_RESERVED, -1);
                             }
                             redis.opsForHash().delete(pKey, userId);
-                            log.debug("[房间服务][reaper] 清理失败预占 房间={} 用户={} token={}", roomId, userId, token);
-                        } catch (Exception ignore) {
+                            log.debug("[房间服务][reaper] 清理预占 房间={} 用户={} token={} 原因={}", roomId, userId, token,
+                                    value == null ? "token已过期" : "join失败");
+                        } catch (Exception ex) {
+                            log.warn("[房间服务][reaper] 清理预占失败 房间={} 用户={} token={} 错误={}", roomId, userId, token, ex.getMessage());
                         }
                     }
                 }

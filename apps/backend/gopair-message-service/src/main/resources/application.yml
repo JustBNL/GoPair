@@ -28,3 +28,5 @@ gopair:
     history-retention-days: 30
     # Redis 消息频道前缀
     redis-channel-prefix: "message"
+    # Emoji 消息最大字符长度（兼容多码点 Emoji）
+    emoji-max-length: 8

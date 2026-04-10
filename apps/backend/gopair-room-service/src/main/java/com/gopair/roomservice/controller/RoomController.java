@@ -11,6 +11,7 @@ import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.domain.vo.JoinAcceptedVO;
 import com.gopair.roomservice.service.JoinResultQueryService.JoinStatusVO;
+import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.roomservice.service.RoomService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,9 +32,11 @@ import java.util.List;
 public class RoomController {
 
     private final RoomService roomService;
+    private final RoomMemberService roomMemberService;
 
-    public RoomController(RoomService roomService) {
+    public RoomController(RoomService roomService, RoomMemberService roomMemberService) {
         this.roomService = roomService;
+        this.roomMemberService = roomMemberService;
     }
 
     /** 创建房间 */
@@ -161,5 +164,20 @@ public class RoomController {
         Long operatorId = UserContextHolder.getCurrentUserId();
         roomService.kickMember(roomId, operatorId, userId);
         return R.ok(null);
+    }
+
+    /**
+     * 检查指定用户是否为房间成员（内部服务调用，无需鉴权拦截）
+     * 用于 message-service 等内部服务校验成员身份
+     */
+    @Operation(summary = "检查成员身份", description = "内部接口，校验用户是否为指定房间成员")
+    @GetMapping("/{roomId}/members/{userId}/check")
+    public R<Boolean> checkMember(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId,
+            @Parameter(description = "用户ID", required = true)
+            @PathVariable Long userId) {
+        boolean result = roomMemberService.isMemberInRoom(roomId, userId);
+        return R.ok(result);
     }
 }

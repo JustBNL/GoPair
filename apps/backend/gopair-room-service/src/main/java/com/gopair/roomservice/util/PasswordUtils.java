@@ -177,7 +177,11 @@ public final class PasswordUtils {
                     | ((hash[offset + 2] & 0xFF) << 8)
                     | (hash[offset + 3] & 0xFF);
 
-            int otp = binary % (int) Math.pow(10, TOTP_DIGITS);
+            int divisor = 1;
+            for (int i = 0; i < TOTP_DIGITS; i++) {
+                divisor *= 10;
+            }
+            int otp = binary % divisor;
             return String.format("%0" + TOTP_DIGITS + "d", otp);
         } catch (Exception e) {
             throw new IllegalStateException("TOTP 计算失败", e);

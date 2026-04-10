@@ -1,0 +1,43 @@
+-- 房间表
+CREATE TABLE IF NOT EXISTS room (
+    room_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    room_code VARCHAR(20),
+    room_name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    max_members INT NOT NULL DEFAULT 10,
+    current_members INT NOT NULL DEFAULT 0,
+    owner_id BIGINT NOT NULL,
+    status INT NOT NULL DEFAULT 0,
+    expire_time TIMESTAMP,
+    version INT NOT NULL DEFAULT 0,
+    password_mode INT NOT NULL DEFAULT 0,
+    password_hash VARCHAR(500),
+    password_visible INT NOT NULL DEFAULT 1,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 房间成员表
+CREATE TABLE IF NOT EXISTS room_member (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    room_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    role INT NOT NULL DEFAULT 0,
+    status INT NOT NULL DEFAULT 0,
+    join_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_active_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_room_id (room_id),
+    INDEX idx_user_id (user_id),
+    UNIQUE KEY uk_room_user (room_id, user_id)
+);
+
+-- 用户公开资料表（用于测试）
+CREATE TABLE IF NOT EXISTS user_public (
+    user_id BIGINT PRIMARY KEY,
+    nickname VARCHAR(100),
+    avatar VARCHAR(500),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

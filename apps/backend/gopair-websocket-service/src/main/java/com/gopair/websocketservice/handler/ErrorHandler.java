@@ -14,6 +14,7 @@ import org.springframework.web.socket.WebSocketSession;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * WebSocket错误处理器
@@ -71,29 +72,44 @@ public class ErrorHandler {
     }
 
     /**
-     * 发送错误消息并关闭连接
-     * 
+     * 发送错误消息并关闭连接（异步执行，解除对事件线程的阻塞）。
+     *
+     * 错误消息发送后，连接关闭操作提交至守护线程池异步执行，不再阻塞调用方。
+     *
      * @param session WebSocket会话
      * @param errorCode 错误代码
      * @param errorMessage 错误消息
      */
     public void sendErrorAndClose(WebSocketSession session, WebSocketErrorCode errorCode, String errorMessage) {
         try {
-            log.warn("[错误处理] 发送错误并关闭连接: sessionId={}, errorCode={}, message={}", 
+            log.warn("[错误处理] 发送错误并关闭连接: sessionId={}, errorCode={}, message={}",
                     session.getId(), errorCode, errorMessage);
-            
-            if (session.isOpen()) {
-                sendErrorMessage(session, errorCode, errorMessage);
-                
-                // 延迟关闭，确保错误消息发送完成
-                Thread.sleep(100);
-                session.close(CloseStatus.NOT_ACCEPTABLE);
+
+            if (!session.isOpen()) {
+                return;
             }
-            
+
+            sendErrorMessage(session, errorCode, errorMessage);
+
+            // 将关闭操作提交至公共线程池异步执行，解除对 WebSocket 事件线程的阻塞
+            CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep(100);
+                    if (session.isOpen()) {
+                        session.close(CloseStatus.NOT_ACCEPTABLE);
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.warn("[错误处理] 异步关闭被中断: sessionId={}", session.getId());
+                } catch (Exception e) {
+                    log.debug("[错误处理] 异步关闭会话失败（可能已关闭）: sessionId={}", session.getId());
+                }
+            });
+
         } catch (Exception e) {
             log.error("[错误处理] 发送错误消息失败: sessionId={}", session.getId(), e);
-            
-            // 强制关闭连接
+
+            // 同步兜底关闭
             try {
                 if (session.isOpen()) {
                     session.close(CloseStatus.SERVER_ERROR);

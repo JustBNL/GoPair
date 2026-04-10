@@ -107,6 +107,8 @@ public final class RoomConst {
 
     /** 普通成员 */
     public static final int ROLE_MEMBER = 0;
+    /** 管理员 */
+    public static final int ROLE_ADMIN  = 1;
     /** 房主 */
     public static final int ROLE_OWNER  = 2;
 

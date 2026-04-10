@@ -46,6 +46,10 @@ public class BasicRateLimitService {
      * @param userId 用户 ID
      */
     public void resetUserMessageRate(Long userId) {
-        tokenBucketRateLimitService.resetBucket(userId);
+        try {
+            tokenBucketRateLimitService.resetBucket(userId);
+        } catch (Exception e) {
+            log.warn("重置用户 [{}] 消息频率计数失败: {}", userId, e.getMessage());
+        }
     }
 }

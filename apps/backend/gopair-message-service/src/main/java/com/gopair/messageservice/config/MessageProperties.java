@@ -36,4 +36,11 @@ public class MessageProperties {
      * 对应配置项：gopair.message.redis-channel-prefix
      */
     private String redisChannelPrefix = "message";
+
+    /**
+     * Emoji 消息内容的最大字符长度。
+     * 兼容多码点 Emoji（如 ❤️ 等），默认值 8。
+     * 对应配置项：gopair.message.emoji-max-length
+     */
+    private int emojiMaxLength = 8;
 }

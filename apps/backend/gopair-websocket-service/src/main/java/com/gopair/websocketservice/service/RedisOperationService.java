@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.gopair.websocketservice.constants.WebSocketConstants;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -88,8 +89,9 @@ public class RedisOperationService implements SessionStore, SubscriptionStore, R
             sessionInfo.put("userId", userId);
             sessionInfo.put("connectionType", connectionType);
             sessionInfo.put("roomId", roomId == null ? "" : roomId.toString());
-            sessionInfo.put("connectTime", LocalDateTime.now().toString());
-            sessionInfo.put("lastActiveTime", LocalDateTime.now().toString());
+            // 统一使用 UTC epoch 秒存储时间戳，避免时区歧义
+            sessionInfo.put("connectTime", Instant.now().getEpochSecond());
+            sessionInfo.put("lastActiveTime", Instant.now().getEpochSecond());
             sessionInfo.put("instanceId", instanceId);
 
             redisTemplate.opsForHash().putAll(redisKey, sessionInfo);
@@ -107,7 +109,7 @@ public class RedisOperationService implements SessionStore, SubscriptionStore, R
         try {
             String redisKey = SESSION_PREFIX + sessionId;
             redisTemplate.expire(redisKey, ttlSeconds, TimeUnit.SECONDS);
-            redisTemplate.opsForHash().put(redisKey, "lastActiveTime", LocalDateTime.now().toString());
+            redisTemplate.opsForHash().put(redisKey, "lastActiveTime", Instant.now().getEpochSecond());
             log.debug("[Redis操作] 刷新会话TTL: sessionId={}", sessionId);
         } catch (Exception e) {
             log.error("[Redis操作] 刷新会话TTL失败: sessionId={}", sessionId, e);
@@ -135,9 +137,6 @@ public class RedisOperationService implements SessionStore, SubscriptionStore, R
         try {
             String redisKey = SESSION_PREFIX + sessionId;
             Map<Object, Object> sessionInfo = redisTemplate.opsForHash().entries(redisKey);
-            if (sessionInfo == null) {
-                return new HashMap<>();
-            }
             log.debug("[Redis操作] 读取会话: sessionId={}, fields={}", sessionId, sessionInfo.size());
             return sessionInfo;
         } catch (Exception e) {

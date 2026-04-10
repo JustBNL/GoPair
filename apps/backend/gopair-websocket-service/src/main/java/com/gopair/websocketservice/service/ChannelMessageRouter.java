@@ -119,20 +119,24 @@ public class ChannelMessageRouter {
             for (String sessionId : subscriberSessions) {
                 WebSocketSession session = connectionManagerService.getSession(sessionId);
                 if (session != null && session.isOpen()) {
+                    String capturedSessionId = sessionId;
                     CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                        sendTextMessageToSession(session, textMsg, message.getMessageId());
-                        successCount.incrementAndGet();
-                        // 更新订阅活跃时间
-                        ConnectionManagerService.SessionInfo sessionInfo =
-                                connectionManagerService.getSessionInfo(sessionId);
-                        if (sessionInfo != null) {
-                            subscriptionManager.updateSubscriptionActivity(
-                                    sessionInfo.getUserId(), channel);
+                        boolean sent = sendTextMessageToSession(session, textMsg, message.getMessageId());
+                        if (sent) {
+                            successCount.incrementAndGet();
+                            ConnectionManagerService.SessionInfo sessionInfo =
+                                    connectionManagerService.getSessionInfo(capturedSessionId);
+                            if (sessionInfo != null) {
+                                subscriptionManager.updateSubscriptionActivity(
+                                        sessionInfo.getUserId(), channel);
+                            }
+                        } else {
+                            failCount.incrementAndGet();
                         }
                     }, dispatchExecutor).exceptionally(ex -> {
                         failCount.incrementAndGet();
                         log.error("[消息代理] 并行分发任务异常: sessionId={}, messageId={}",
-                                sessionId, message.getMessageId(), ex);
+                                capturedSessionId, message.getMessageId(), ex);
                         return null;
                     });
                     futures.add(future);
@@ -188,8 +192,9 @@ public class ChannelMessageRouter {
      * @param session   目标 WebSocket 会话
      * @param textMsg   已序列化的不可变文本消息（所有接收者复用）
      * @param messageId 消息 ID（仅用于日志）
+     * @return true 表示发送成功；false 表示 session 已关闭或发送异常
      */
-    private void sendTextMessageToSession(WebSocketSession session, TextMessage textMsg, String messageId) {
+    private boolean sendTextMessageToSession(WebSocketSession session, TextMessage textMsg, String messageId) {
         Object lock = sessionLocks.computeIfAbsent(session.getId(), id -> new Object());
         synchronized (lock) {
             try {
@@ -197,14 +202,16 @@ public class ChannelMessageRouter {
                     log.warn("[消息代理] Session已关闭，跳过发送: sessionId={}, messageId={}",
                             session.getId(), messageId);
                     sessionLocks.remove(session.getId());
-                    return;
+                    return false;
                 }
                 session.sendMessage(textMsg);
                 log.debug("[消息代理] WebSocket消息发送成功: sessionId={}, messageId={}",
                         session.getId(), messageId);
+                return true;
             } catch (Exception e) {
                 log.error("[消息代理] 发送WebSocket消息失败: sessionId={}, messageId={}",
                         session.getId(), messageId, e);
+                return false;
             }
         }
     }

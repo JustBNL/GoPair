@@ -3,6 +3,7 @@ package com.gopair.voiceservice.domain.po;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.gopair.voiceservice.enums.ConnectionStatus;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -27,6 +28,6 @@ public class VoiceCallParticipant {
 
     private LocalDateTime leaveTime;
 
-    /** 连接状态：1=已连接，2=已断开 */
+    /** 连接状态，使用 {@link ConnectionStatus} 枚举管理 */
     private Integer connectionStatus;
 }

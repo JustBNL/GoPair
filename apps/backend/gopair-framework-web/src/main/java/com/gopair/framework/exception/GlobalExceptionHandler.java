@@ -1,17 +1,17 @@
 package com.gopair.framework.exception;
 
 import com.gopair.common.core.R;
+import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.exception.BaseException;
 import com.gopair.common.enums.impl.CommonErrorCode;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -32,11 +32,11 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BaseException.class)
     public R<Void> handleBaseException(BaseException e) {
-        // 根据错误码类型设置不同的HTTP状态码
-        if (e.getErrorCode().getCode() >= 800 && e.getErrorCode().getCode() < 900) {
-            log.warn("认证异常: {}", e.getMessage());
+        String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
+        if (e.getErrorCode() == CommonErrorCode.UNAUTHORIZED) {
+            log.warn("[异常处理] [traceId={}] 认证异常: {}", traceId, e.getMessage());
         } else {
-            log.warn("业务异常: {}", e.getMessage());
+            log.warn("[异常处理] [traceId={}] 业务异常: {}", traceId, e.getMessage());
         }
         return R.fail(e.getErrorCode(), e.getMessage());
     }
@@ -47,7 +47,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public R<Map<String, String>> handleValidationException(MethodArgumentNotValidException e) {
-        log.warn("参数校验失败: {}", e.getMessage());
+        String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
+        log.warn("[异常处理] [traceId={}] 参数校验失败: {}", traceId, e.getMessage());
 
         Map<String, String> errors = e.getBindingResult().getFieldErrors().stream()
                 .collect(Collectors.toMap(
@@ -71,7 +72,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public R<Void> handleException(Exception e) {
-        log.error("系统异常: {}", e.getMessage(), e);
+        String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
+        log.error("[异常处理] [traceId={}] 系统异常: {}", traceId, e.getMessage(), e);
         return R.fail(CommonErrorCode.SYSTEM_ERROR, "系统内部错误");
     }
 }

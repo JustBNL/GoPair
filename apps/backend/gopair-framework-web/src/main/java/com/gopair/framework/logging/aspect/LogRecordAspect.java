@@ -3,19 +3,14 @@ package com.gopair.framework.logging.aspect;
 import com.gopair.common.exception.BaseException;
 import com.gopair.framework.config.properties.LoggingProperties;
 import com.gopair.framework.logging.annotation.LogRecord;
-import com.gopair.framework.context.UserContextHolder;
 import com.gopair.framework.logging.ops.LogMetricsCollector;
-import com.gopair.framework.logging.event.LogRecordEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.StringJoiner;
 
 /**
@@ -32,40 +27,37 @@ public class LogRecordAspect {
 
     private final LoggingProperties loggingProperties;
     private final LogMetricsCollector logMetricsCollector;
-    private final ApplicationEventPublisher eventPublisher;
 
     public LogRecordAspect(LoggingProperties loggingProperties,
-                           @Autowired(required = false) LogMetricsCollector logMetricsCollector,
-                           ApplicationEventPublisher eventPublisher) {
+                           @Autowired(required = false) LogMetricsCollector logMetricsCollector) {
         this.loggingProperties = loggingProperties;
         this.logMetricsCollector = logMetricsCollector;
-        this.eventPublisher = eventPublisher;
     }
 
     @Around("@annotation(logRecord)")
     public Object logOperation(ProceedingJoinPoint joinPoint, LogRecord logRecord) throws Throwable {
-        // 根据配置决定是否需要记录性能
         boolean shouldLogPerformance = logRecord.logPerformance() && loggingProperties.getAop().isLogExecutionTime();
         long startTime = shouldLogPerformance ? System.currentTimeMillis() : 0;
-        
+
         String module = logRecord.module().isEmpty() ? joinPoint.getTarget().getClass().getSimpleName() : logRecord.module();
-        
-        // 记录方法开始执行
+
         logStart(joinPoint, logRecord, module);
 
         Object result = null;
         Throwable exception = null;
         try {
             result = joinPoint.proceed();
-            return result;
         } catch (Throwable e) {
             exception = e;
             throw e;
         } finally {
             long duration = shouldLogPerformance ? (System.currentTimeMillis() - startTime) : 0;
-            // 记录方法执行结束
             logEnd(joinPoint, logRecord, module, duration, result, exception, shouldLogPerformance);
+            if (logMetricsCollector != null) {
+                logMetricsCollector.recordLog();
+            }
         }
+        return result;
     }
 
     private void logStart(ProceedingJoinPoint joinPoint, LogRecord logRecord, String module) {
@@ -73,8 +65,7 @@ public class LogRecordAspect {
             StringJoiner logMessage = new StringJoiner(" - ", "[业务日志] 开始执行", "");
             logMessage.add("模块: " + module);
             logMessage.add("操作: " + logRecord.operation());
-            
-            // 根据配置和注解决定是否记录参数
+
             boolean shouldLogArgs = logRecord.includeArgs() && loggingProperties.getAop().isLogArgs();
             if (shouldLogArgs) {
                 logMessage.add("参数: " + formatMethodArgs(joinPoint.getArgs()));
@@ -93,13 +84,11 @@ public class LogRecordAspect {
 
             logMessage.add("模块: " + module);
             logMessage.add("操作: " + logRecord.operation());
-            
-            // 根据传入的性能记录标志决定是否记录执行时间
+
             if (shouldLogPerformance) {
                 logMessage.add("耗时: " + duration + "ms");
             }
-            
-            // 根据配置和注解决定是否记录返回结果
+
             boolean shouldLogResult = logRecord.includeResult() && loggingProperties.getAop().isLogResult();
             if (shouldLogResult && result != null) {
                 logMessage.add("结果: " + result.toString());
@@ -119,24 +108,6 @@ public class LogRecordAspect {
         }
     }
 
-    private void safeRecordLog() {
-        if (logMetricsCollector != null) {
-            try {
-                // 这里可以根据需要决定是记录业务日志还是性能日志，或两者都记录
-                // 暂时保留业务日志的记录
-                logMetricsCollector.recordLog();
-            } catch (Throwable ignore) {}
-        }
-    }
-
-    private void safePublishEvent(Object event) {
-        try {
-            if (eventPublisher != null) {
-                eventPublisher.publishEvent(event);
-            }
-        } catch (Throwable ignore) {}
-    }
-
     private String formatMethodArgs(Object[] args) {
         if (args == null || args.length == 0) {
             return "()";
@@ -152,4 +123,4 @@ public class LogRecordAspect {
         sb.append(")");
         return sb.toString();
     }
-} 
+}

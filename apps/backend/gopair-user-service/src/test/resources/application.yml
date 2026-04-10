@@ -1,5 +1,11 @@
 # 测试环境配置
 spring:
+  # 关闭 Nacos 配置检查（测试环境不使用 Nacos）
+  cloud:
+    nacos:
+      config:
+        import-check:
+          enabled: false
   # 测试数据源配置
   datasource:
     # 测试数据库连接URL
@@ -10,6 +16,27 @@ spring:
     password: 610692
     # JDBC驱动类名
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # 邮件配置（测试环境：连接不存在的 localhost:25，发送会失败但不会破坏容器）
+  mail:
+    host: localhost
+    port: 25
+    username: test
+    password: test
+
+  # Redis测试配置（验证码依赖Redis存储）
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: 15
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
 
 # MyBatis Plus测试配置
 mybatis-plus:

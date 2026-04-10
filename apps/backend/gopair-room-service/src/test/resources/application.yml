@@ -2,24 +2,56 @@
 spring:
   application:
     name: room-service-test
-  
+
+  # 禁用 Nacos 配置中心（测试环境不需要）
+  config:
+    import: "optional:nacos:"
+
+  cloud:
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+
+  # RabbitMQ 测试配置（禁用自动启动监听器避免队列不存在错误）
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        auto-startup: false
+    virtual-host: /
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
   # 使用H2内存数据库进行测试
   datasource:
     url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     username: sa
-    password: 
+    password:
     driver-class-name: org.h2.Driver
-  
+
   # H2数据库配置
-  h2:
-    console:
-      enabled: true
-  
-  # JPA配置（用于自动创建表结构）
+  sql:
+    init:
+      mode: embedded
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:NOOP.sql
+
   jpa:
     hibernate:
       ddl-auto: create-drop
     show-sql: true
+
+  # Redis 测试配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
 # 服务器配置
 server:
@@ -50,7 +82,31 @@ gopair:
     default-max-members: 5  # 测试用较小值
     default-expire-hours: 1  # 测试用较短时间
     code-length: 8
+    reservation:
+      join-token-ttl-seconds: 30
+      pending-ttl-seconds: 30
+      reaper-interval-ms: 60000
+      rate-limit-per-ms: 100
+    password:
+      master-key: test-master-key-for-testing
   schedule:
-    room-cleanup-interval: 10000  # 测试用较短间隔
+    room-cleanup-interval: 10000
     message-cleanup-interval: 10000
-    message-retain-days: 1 
+    message-retain-days: 1
+
+# MQ 消息队列配置
+mq:
+  room-join:
+    exchange: room.join.exchange
+    routing-key: room.join.requested
+    queue: room.join.queue
+    dlx: room.join.dlx
+    dlq: room.join.dlq
+  room-leave:
+    exchange: room.leave.exchange
+    routing-key: room.leave.requested
+    queue: room.leave.queue
+  user-offline:
+    exchange: websocket.topic
+    routing-key: system.offline
+    queue: user.offline.queue

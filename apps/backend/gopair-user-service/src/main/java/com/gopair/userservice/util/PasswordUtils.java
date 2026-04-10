@@ -23,7 +23,7 @@ public class PasswordUtils {
 
     @PostConstruct
     public void init() {
-        log.info("[用户服务] 密码工具类初始化完成");
+        log.debug("[用户服务] 密码工具类初始化完成");
     }
     
     /**

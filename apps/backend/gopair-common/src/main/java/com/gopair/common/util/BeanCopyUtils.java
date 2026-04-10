@@ -34,13 +34,10 @@ public class BeanCopyUtils {
             return null;
         }
         try {
-            // 创建目标对象实例
             T target = targetClass.getDeclaredConstructor().newInstance();
-            // 执行属性复制
             BeanUtils.copyProperties(source, target);
             return target;
-        } catch (Exception e) {
-            // 抛出运行时异常，简化调用方的异常处理
+        } catch (ReflectiveOperationException e) {
             throw new RuntimeException("创建或复制Bean时出错", e);
         }
     }

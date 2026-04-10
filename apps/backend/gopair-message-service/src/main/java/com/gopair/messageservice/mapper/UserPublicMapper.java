@@ -1,6 +1,7 @@
 package com.gopair.messageservice.mapper;
 
 import com.gopair.messageservice.domain.dto.UserPublicProfileDto;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.List;
 /**
  * 只读访问 user 表公开字段（昵称、头像），与 MessageMapper JOIN 用法互为冗余降级。
  */
+@Mapper
 public interface UserPublicMapper {
 
     /**

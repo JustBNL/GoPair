@@ -1,5 +1,6 @@
 package com.gopair.roomservice.config;
 
+import com.gopair.common.constants.MessageConstants;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -28,6 +29,8 @@ public class RabbitConfig {
     private String roomLeaveRoutingKey;
     @Value("${mq.room-leave.queue:room.leave.queue}")
     private String roomLeaveQueueName;
+
+    // ==================== Join resources ====================
 
     @Bean
     public Exchange roomJoinExchange() {
@@ -62,7 +65,8 @@ public class RabbitConfig {
         return BindingBuilder.bind(roomJoinDlq()).to(roomJoinDlx()).with(roomJoinRoutingKey + ".dlq").noargs();
     }
 
-    // Leave resources
+    // ==================== Leave resources ====================
+
     @Bean
     public Exchange roomLeaveExchange() {
         return ExchangeBuilder.topicExchange(roomLeaveExchangeName).durable(true).build();
@@ -78,9 +82,37 @@ public class RabbitConfig {
         return BindingBuilder.bind(roomLeaveQueue()).to(roomLeaveExchange()).with(roomLeaveRoutingKey).noargs();
     }
 
+    // ==================== Shared resources (independent of websocket-service) ====================
+
+    /**
+     * 用户离线队列，供 room-service 的 UserOfflineConsumer 消费以更新成员在线状态。
+     * 声明于此而非 common 中，避免 {@code @ConditionalOnMissingBean} 加载顺序陷阱
+     * 导致个性化参数（TTL、maxLength）被 common 兜底声明静默覆盖。
+     */
+    @Bean
+    public Queue userOfflineQueue() {
+        return QueueBuilder.durable(MessageConstants.QUEUE_USER_OFFLINE)
+                .ttl(300000)
+                .maxLength(50000L)
+                .build();
+    }
+
+    /**
+     * 绑定用户离线队列到 websocket.topic exchange，routing key = system.offline
+     */
+    @Bean
+    public Binding userOfflineBinding() {
+        return BindingBuilder
+                .bind(userOfflineQueue())
+                .to((TopicExchange) ExchangeBuilder.topicExchange(MessageConstants.WEBSOCKET_EXCHANGE).durable(true).build())
+                .with(MessageConstants.ROUTING_KEY_SYSTEM_OFFLINE);
+    }
+
+    // ==================== Listener factory ====================
+
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,
-                                                                               MessageConverter jackson2JsonMessageConverter) {
+                                                                              MessageConverter jackson2JsonMessageConverter) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(jackson2JsonMessageConverter);

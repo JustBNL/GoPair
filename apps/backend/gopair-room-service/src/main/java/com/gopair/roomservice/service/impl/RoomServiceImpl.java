@@ -301,16 +301,16 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * 离开房间，采用事件化异步处理（MQ）。
      *
      * * [核心策略]
-     * - 事件化：主流程只删除 room_member 记录，然后将 LeaveRoomRequestedEvent
-     *   投递到 MQ，由 LeaveRoomConsumer 异步完成 Redis 清理、人数更新等后续处理。
-     * - 降级兜底：MQ 发送失败时在 afterCommit 中同步执行离开逻辑，保证数据最终一致。
+     * - 事务边界：DB 删除和人数递减必须在主流程内完成，保证与房间状态原子一致；
+     *   MQ 发送在 afterCommit 中执行；Redis confirmed 同步也在 afterCommit 中执行（避免持有 DB 连接）。
+     * - 降级兜底：MQ 发送失败时在 afterCommit 中同步执行 Redis 清理，保证降级路径也能清理缓存。
      *
      * * [执行链路]
      * 1. 权限校验：userId 非空、用户必须在房间内。
-     * 2. 生成唯一 correlationId，用于事件追踪和幂等。
-     * 3. 事务提交后回调：投递 leave 事件到 MQ。
-     *    - 投递成功：Consumer 异步处理后续（删缓存、减人数、判断是否自动关房）。
-     *    - 投递失败：降级同步处理，执行完整的离开逻辑。
+     * 2. DB 删除：主流程内执行 room_member 删除和人数递减。
+     * 3. afterCommit 回调投递 leave 事件到 MQ。
+     *    - 投递成功：Consumer 异步处理后续（Redis confirmed-- 等）。
+     *    - 投递失败：降级同步处理，执行 Redis 清理（DB 已由主流程处理完）。
      *
      * @param roomId 房间 ID
      * @param userId 当前登录用户 ID
@@ -327,7 +327,26 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.NOT_IN_ROOM);
         }
 
-        // 生成唯一 correlationId，用于事件追踪和幂等
+        // DB 删除和计数递减必须在事务主流程内完成，与房间状态原子一致
+        LambdaQueryWrapper<RoomMember> q = new LambdaQueryWrapper<>();
+        q.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
+        int deleted = roomMemberMapper.delete(q);
+        if (deleted > 0) {
+            int dec = roomMapper.decrementMembersIfPositive(roomId);
+            if (dec == 1) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            roomCacheSyncService.incrementConfirmed(roomId, -1);
+                        } catch (Exception e) {
+                            log.warn("[房间服务] Redis confirmed-- 失败 roomId={} 错误={}", roomId, e.getMessage());
+                        }
+                    }
+                });
+            }
+        }
+
         String correlationId = UUID.randomUUID().toString();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -336,22 +355,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                     LeaveRoomRequestedEvent evt = new LeaveRoomRequestedEvent(roomId, userId, correlationId, System.currentTimeMillis());
                     boolean sent = leaveRoomProducer.sendRequested(evt);
                     if (!sent) {
-                        // MQ 发送失败时降级同步处理，确保用户体验不受影响
+                        // MQ 发送失败时的降级：Redis 清理（DB 已由主流程处理完）
                         try {
-                            // 删除成员记录
-                            LambdaQueryWrapper<RoomMember> q = new LambdaQueryWrapper<>();
-                            q.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
-                            int deleted = roomMemberMapper.delete(q);
-                            if (deleted > 0) {
-                                // 原子减人数（仅在 > 0 时才减，防止负数）
-                                int dec = roomMapper.decrementMembersIfPositive(roomId);
-                                if (dec == 1) {
-                                    roomCacheSyncService.incrementConfirmed(roomId, -1);
-                                }
-                            }
-                            // 从 Redis 缓存移除成员
                             roomCacheSyncService.removeMemberFromCache(roomId, userId);
-                            // 若离开后房间人数为 0 且仍为活跃状态，自动关闭房间
                             Room room = roomMapper.selectById(roomId);
                             if (room != null && room.getCurrentMembers() != null && room.getCurrentMembers() == 0
                                     && (room.getStatus() == null || room.getStatus() == RoomConst.STATUS_ACTIVE)) {

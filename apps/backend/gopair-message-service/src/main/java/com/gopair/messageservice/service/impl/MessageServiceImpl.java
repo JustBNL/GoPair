@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gopair.common.core.PageResult;
+import com.gopair.common.core.R;
 import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.messageservice.config.MessageProperties;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,28 +33,33 @@ import java.util.Map;
 
 /**
  * 消息服务实现类
- * 
+ *
  * @author gopair
  */
 @Slf4j
 @Service
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
+    private static final String ROOM_SERVICE_URL = "http://room-service/room/";
+
     private final MessageMapper messageMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final WebSocketMessageProducer webSocketMessageProducer;
     private final MessageProperties messageProperties;
     private final UserProfileFallbackService userProfileFallbackService;
+    private final RestTemplate restTemplate;
 
     public MessageServiceImpl(MessageMapper messageMapper, ApplicationEventPublisher eventPublisher,
                               WebSocketMessageProducer webSocketMessageProducer,
                               MessageProperties messageProperties,
-                              UserProfileFallbackService userProfileFallbackService) {
+                              UserProfileFallbackService userProfileFallbackService,
+                              RestTemplate restTemplate) {
         this.messageMapper = messageMapper;
         this.eventPublisher = eventPublisher;
         this.webSocketMessageProducer = webSocketMessageProducer;
         this.messageProperties = messageProperties;
         this.userProfileFallbackService = userProfileFallbackService;
+        this.restTemplate = restTemplate;
     }
 
     @Override
@@ -70,7 +77,10 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
             // 验证消息类型
             MessageType messageType = MessageType.fromValue(sendMessageDto.getMessageType());
-            
+            if (messageType == null) {
+                throw new MessageException(MessageErrorCode.MESSAGE_TYPE_INVALID);
+            }
+
             // 根据消息类型进行不同的验证
             validateMessageContent(sendMessageDto, messageType);
 
@@ -133,11 +143,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     @Override
     @LogRecord(operation = "分页查询房间消息", module = "消息管理")
     public PageResult<MessageVO> getRoomMessages(MessageQueryDto queryDto) {
-        log.info("查询房间消息列表, 房间ID: {}, 页码: {}, 页大小: {}", 
+        log.info("查询房间消息列表, 房间ID: {}, 页码: {}, 页大小: {}",
                  queryDto.getRoomId(), queryDto.getPageNum(), queryDto.getPageSize());
 
         Page<MessageVO> page = new Page<>(queryDto.getPageNum(), queryDto.getPageSize());
-        
+
         IPage<MessageVO> result = messageMapper.selectMessageVOPage(
             page,
             queryDto.getRoomId(),
@@ -145,6 +155,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             queryDto.getSenderId(),
             queryDto.getKeyword()
         );
+
+        if (!result.getRecords().isEmpty()) {
+            List<Long> replyToIds = collectReplyToIdsNeedingProfile(result.getRecords());
+            userProfileFallbackService.fillMissingProfiles(result.getRecords(), replyToIds);
+        }
 
         return new PageResult<>(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
     }
@@ -225,17 +240,26 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             return true;
         }
 
-        // TODO: 房间管理员权限检查
-        return false;
+        // 发送者仅可删除自己的消息（管理员权限由业务决定是否开放，本服务采用 sender-only 模型）
+        return message.getSenderId().equals(userId);
     }
 
     @Override
     @LogRecord(operation = "检查用户是否在房间", module = "消息管理", includeResult = true)
     public Boolean checkUserInRoom(Long roomId, Long userId) {
         log.info("检查用户是否在房间内, 房间ID: {}, 用户ID: {}", roomId, userId);
-        
-        // TODO: 实现房间成员检查逻辑，这里暂时返回true
-        return true;
+
+        try {
+            String url = ROOM_SERVICE_URL + roomId + "/members/" + userId + "/check";
+            R<Boolean> response = restTemplate.getForObject(url, R.class);
+            Boolean isMember = (response != null) ? response.getData() : false;
+            log.info("房间成员校验结果, 房间ID: {}, 用户ID: {}, 成员状态: {}", roomId, userId, isMember);
+            return Boolean.TRUE.equals(isMember);
+        } catch (Exception e) {
+            log.warn("房间成员校验接口调用失败, 房间ID: {}, 用户ID: {}, 错误: {}",
+                     roomId, userId, e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -262,11 +286,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 }
                 break;
             case EMOJI:
-                // Emoji 消息只需 content 不为空，长度不超过 8（兼容 ❤️ 等多码点 Emoji）
+                // Emoji 消息只需 content 不为空，长度不超过配置上限（兼容 ❤️ 等多码点 Emoji）
                 if (dto.getContent() == null || dto.getContent().trim().isEmpty()) {
                     throw new MessageException(MessageErrorCode.MESSAGE_CONTENT_EMPTY);
                 }
-                if (dto.getContent().length() > 8) {
+                if (dto.getContent().length() > messageProperties.getEmojiMaxLength()) {
                     throw new MessageException(MessageErrorCode.MESSAGE_TYPE_INVALID);
                 }
                 break;

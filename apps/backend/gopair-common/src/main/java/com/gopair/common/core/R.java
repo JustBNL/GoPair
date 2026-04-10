@@ -129,18 +129,6 @@ public class R<T> implements Serializable {
         return code == SUCCESS;
     }
 
-    /**
-     * 转换为JSON字符串
-     */
-    public String toJson() {
-        return String.format(
-            "{\"code\":%d,\"msg\":\"%s\",\"data\":%s}",
-            code,
-            msg.replace("\"", "\\\""),
-            data == null ? "null" : "\"" + data.toString().replace("\"", "\\\"") + "\""
-        );
-    }
-
     // ==================== Getter/Setter ====================
 
     public int getCode() {
@@ -171,49 +159,63 @@ public class R<T> implements Serializable {
 
     /**
      * 成功响应（兼容性方法，等同于ok()）
+     * @deprecated 请使用 {@link #ok()}
      */
+    @Deprecated
     public static <T> R<T> success() {
         return ok();
     }
 
     /**
      * 成功响应带数据（兼容性方法，等同于ok(T data)）
+     * @deprecated 请使用 {@link #ok(Object)}
      */
+    @Deprecated
     public static <T> R<T> success(T data) {
         return ok(data);
     }
 
     /**
      * 成功响应带消息（兼容性方法，等同于ok(String msg, null)）
+     * @deprecated 请使用 {@link #ok(String, Object)}
      */
+    @Deprecated
     public static <T> R<T> success(String msg) {
         return ok(msg, null);
     }
 
     /**
      * 成功响应带数据和消息（兼容性方法，等同于ok(String msg, T data)）
+     * @deprecated 参数顺序不符合直觉，请使用 {@link #ok(String, Object)}
      */
+    @Deprecated
     public static <T> R<T> success(T data, String msg) {
         return ok(msg, data);
     }
 
     /**
      * 失败响应（兼容性方法，等同于fail()）
+     * @deprecated 请使用 {@link #fail()}
      */
+    @Deprecated
     public static <T> R<T> error() {
         return fail();
     }
 
     /**
      * 失败响应带消息（兼容性方法，等同于fail(String msg)）
+     * @deprecated 请使用 {@link #fail(String)}
      */
+    @Deprecated
     public static <T> R<T> error(String msg) {
         return fail(msg);
     }
 
     /**
      * 失败响应带错误码和消息（兼容性方法，等同于fail(int code, String msg)）
+     * @deprecated 请使用 {@link #fail(int, String)}
      */
+    @Deprecated
     public static <T> R<T> error(int code, String msg) {
         return fail(code, msg);
     }

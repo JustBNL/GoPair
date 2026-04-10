@@ -45,6 +45,11 @@ public class JoinReservationServiceImpl implements JoinReservationService {
     @Value("${gopair.room.reservation.join-token-ttl-seconds:30}")
     private long tokenTtlSeconds;
 
+    /** 未抢到分布式锁时的轮询重试次数 */
+    private static final int META_INIT_RETRY_COUNT = 3;
+    /** 每次轮询等待间隔（毫秒） */
+    private static final int META_INIT_RETRY_INTERVAL_MS = 50;
+
     public JoinReservationServiceImpl(StringRedisTemplate stringRedisTemplate,
                                       DefaultRedisScript<Long> roomPreReserveScript,
                                       DefaultRedisScript<Long> roomRollbackReserveScript,
@@ -138,11 +143,10 @@ public class JoinReservationServiceImpl implements JoinReservationService {
     /**
      * 确保房间元数据已在 Redis 中初始化。
      *
-     * 逻辑说明：
-     * - 先检查 metaKey 是否已存在 FIELD_MAX 字段（已有初始化则跳过）
-     * - 若未初始化，抢占分布式锁后从 DB 查询房间信息，构建完整的元数据字段并写入 Redis
-     * - 未抢到锁的请求等待 50ms 后重试（此时缓存大概率已由抢到锁的线程写入）
-     * - 双重检查：抢到锁后再次检查 metaKey，避免重复查 DB
+     * * [核心策略]
+     * - 双重检查锁：先用 hasKey 快速判断，抢锁后再双重确认，避免重复查 DB。
+     * - 分布式锁：setIfAbsent + TTL=5s 防止多实例并发写入和进程崩溃死锁。
+     * - 有限等待重试：未抢到锁时最多轮询 3 次（每次 50ms），超过后打 warn 并放弃，防止 MQ 消费者线程被长期阻塞。
      *
      * @param roomId 房间 ID
      */
@@ -192,16 +196,21 @@ public class JoinReservationServiceImpl implements JoinReservationService {
                 stringRedisTemplate.delete(lockKey);
             }
         } else {
-            // 未抢到锁：等待其他请求完成，再重试读缓存
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException ignored) {}
-            // 50ms 后再次检查，缓存大概率已由抢到锁的线程写入
-            hasMax = stringRedisTemplate.opsForHash().hasKey(metaKey, RoomConst.FIELD_MAX);
-            if (hasMax == null || !hasMax) {
-                // 兜底：仍未初始化，递归重试一次（最多一次，防止极端情况）
-                ensureRoomMetaInitialized(roomId);
+            // 未抢到锁：轮询等待其他请求完成，最多尝试 META_INIT_RETRY_COUNT 次
+            for (int i = 0; i < META_INIT_RETRY_COUNT; i++) {
+                try {
+                    Thread.sleep(META_INIT_RETRY_INTERVAL_MS);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                hasMax = stringRedisTemplate.opsForHash().hasKey(metaKey, RoomConst.FIELD_MAX);
+                if (hasMax != null && hasMax) {
+                    return;
+                }
             }
+            log.warn("[房间服务][join-async] 房间={} 元数据初始化等待超时（{}ms），Redis 缓存可能为空", roomId,
+                    META_INIT_RETRY_COUNT * META_INIT_RETRY_INTERVAL_MS);
         }
     }
 

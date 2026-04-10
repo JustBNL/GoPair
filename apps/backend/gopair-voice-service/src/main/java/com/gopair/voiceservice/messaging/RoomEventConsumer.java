@@ -1,8 +1,8 @@
 package com.gopair.voiceservice.messaging;
 
 import com.gopair.common.util.TracingAmqpConsumerSupport;
-import com.gopair.voiceservice.service.VoiceCallService;
 import lombok.RequiredArgsConstructor;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -21,7 +21,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RoomEventConsumer {
 
-    private final VoiceCallService voiceCallService;
     private final TracingAmqpConsumerSupport tracingAmqpConsumerSupport;
 
     /**
@@ -34,7 +33,7 @@ public class RoomEventConsumer {
     @RabbitListener(queues = "${mq.voice.room-created.queue:voice.room.created.queue}")
     public void onRoomCreated(Map<String, Object> message, Message rawMessage) {
         tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
-            log.debug("[语音] 收到 room_created 事件，按需创建模式下忽略自动建话: eventType={}",
+            log.info("[语音] 收到 room_created 事件，按需创建模式下忽略自动建话: eventType={}",
                     message.get("eventType"));
         });
     }

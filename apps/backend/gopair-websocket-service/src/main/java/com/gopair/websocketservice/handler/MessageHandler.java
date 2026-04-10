@@ -7,6 +7,7 @@ import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
 import com.gopair.websocketservice.service.SubscriptionManagerService;
 import com.gopair.websocketservice.service.ChannelMessageRouter;
+import com.gopair.websocketservice.service.ConnectionManagerService;
 import com.gopair.websocketservice.util.PayloadAdapter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class MessageHandler {
 
     private final SubscriptionManagerService subscriptionManager;
     private final ChannelMessageRouter channelMessageRouter;
+    private final ConnectionManagerService connectionManager;
     private final ObjectMapper objectMapper;
 
     @SuppressWarnings("unchecked")
@@ -44,14 +46,16 @@ public class MessageHandler {
 
     private boolean routeMessage(WebSocketSession session, UnifiedWebSocketMessage message) {
         try {
-            switch (message.getType()) {
+            return switch (message.getType()) {
                 case SUBSCRIBE -> handleSubscriptionMessage(session, message);
                 case CHANNEL_MESSAGE -> handleChannelMessage(session, message);
                 case HEARTBEAT -> handleHeartbeatMessage(session, message);
-                default -> log.warn("[消息处理] 不支持的消息类型: sessionId={}, type={}", 
-                        session.getId(), message.getType());
-            }
-            return true;
+                default -> {
+                    log.warn("[消息处理] 不支持的消息类型: sessionId={}, type={}",
+                            session.getId(), message.getType());
+                    yield false;
+                }
+            };
         } catch (Exception e) {
             log.error("[消息处理] 消息路由失败: sessionId={}", session.getId(), e);
             return false;
@@ -117,17 +121,6 @@ public class MessageHandler {
         };
     }
 
-    @SuppressWarnings("unchecked")
-    private String getNestedValue(Map<String, Object> map, String... keys) {
-        for (int i = 0; i < keys.length - 1; i++) {
-            Map<String, Object> nested = (Map<String, Object>) map.get(keys[i]);
-            if (nested == null) return null;
-            map = nested;
-        }
-        return (String) map.get(keys[keys.length - 1]);
-    }
-
-    @SuppressWarnings("unchecked")
     private boolean handleSubscriptionMessage(WebSocketSession session, UnifiedWebSocketMessage message) {
         String eventType = message.getEventType();
         Map<String, Object> payload = message.getPayload();
@@ -191,12 +184,14 @@ public class MessageHandler {
 
     private boolean handleHeartbeatMessage(WebSocketSession session, UnifiedWebSocketMessage message) {
         try {
+            connectionManager.updateHeartbeat(session.getId());
+
             UnifiedWebSocketMessage response = new UnifiedWebSocketMessage()
                     .setMessageId(message.getMessageId())
                     .setType(MessageType.HEARTBEAT)
                     .setEventType("pong")
                     .setPayload(Map.of());
-            
+
             sendResponse(session, response);
             return true;
         } catch (Exception e) {
@@ -205,12 +200,8 @@ public class MessageHandler {
         }
     }
 
-    private void sendResponse(WebSocketSession session, UnifiedWebSocketMessage response) {
-        try {
-            String jsonMessage = objectMapper.writeValueAsString(response);
-            session.sendMessage(new TextMessage(jsonMessage));
-        } catch (Exception e) {
-            log.error("[消息处理] 发送响应失败: sessionId={}", session.getId(), e);
-        }
+    private void sendResponse(WebSocketSession session, UnifiedWebSocketMessage response) throws Exception {
+        String jsonMessage = objectMapper.writeValueAsString(response);
+        session.sendMessage(new TextMessage(jsonMessage));
     }
 }

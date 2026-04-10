@@ -46,7 +46,7 @@ public interface VoiceCallService {
     CallVO getCall(Long callId);
 
     /** 获取房间当前活跃通话（仅查询，不自动创建；无活跃通话时返回 null） */
-    CallVO getActiveCall(Long roomId, Long userId);
+    CallVO getActiveCall(Long roomId);
 
     /** 转发 WebRTC 信令给目标用户 */
     void forwardSignaling(SignalingDto dto, Long fromUserId);

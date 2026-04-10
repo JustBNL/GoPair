@@ -57,7 +57,7 @@ public class RoomCacheSyncServiceImpl implements RoomCacheSyncService {
         try {
             redis.opsForSet().add(RoomConst.membersKey(roomId), String.valueOf(userId));
         } catch (Exception e) {
-            log.debug("[房间服务] Redis 添加成员失败 roomId={} userId={} 错误={}", roomId, userId, e.getMessage());
+            log.warn("[房间服务] Redis 添加成员失败 roomId={} userId={} 错误={}", roomId, userId, e.getMessage());
         }
     }
 
@@ -67,7 +67,7 @@ public class RoomCacheSyncServiceImpl implements RoomCacheSyncService {
         try {
             redis.opsForSet().remove(RoomConst.membersKey(roomId), String.valueOf(userId));
         } catch (Exception e) {
-            log.debug("[房间服务] Redis 移除成员失败 roomId={} userId={} 错误={}", roomId, userId, e.getMessage());
+            log.warn("[房间服务] Redis 移除成员失败 roomId={} userId={} 错误={}", roomId, userId, e.getMessage());
         }
     }
 
@@ -77,7 +77,7 @@ public class RoomCacheSyncServiceImpl implements RoomCacheSyncService {
         try {
             redis.opsForHash().increment(RoomConst.metaKey(roomId), RoomConst.FIELD_CONFIRMED, delta);
         } catch (Exception e) {
-            log.debug("[房间服务] Redis 更新确认成员数失败 roomId={} delta={} 错误={}", roomId, delta, e.getMessage());
+            log.warn("[房间服务] Redis 更新确认成员数失败 roomId={} delta={} 错误={}，缓存与DB可能不一致", roomId, delta, e.getMessage());
         }
     }
 

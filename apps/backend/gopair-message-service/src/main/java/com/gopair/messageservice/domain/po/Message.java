@@ -36,7 +36,7 @@ public class Message extends BaseEntity {
     private Long senderId;
 
     /**
-     * 消息类型：1-文本 2-图片 3-文件 4-语音
+     * 消息类型：1-文本 2-图片 3-文件 4-语音 5-Emoji互动
      */
     private Integer messageType;
 

@@ -10,10 +10,16 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import jakarta.annotation.PostConstruct;
 
 /**
- * Spring Security WebFlux 配置类
- * 
- * 配置网关的安全策略，与 JWT 认证过滤器协同工作
- * 
+ * Spring Security WebFlux 安全基线配置
+ *
+ * 本配置仅负责安全基础设施的初始化和安全策略基线，不承载认证逻辑。
+ * 实际请求认证由 JwtAuthenticationGatewayFilter 处理（两者协同工作）。
+ *
+ * 当前基线策略：
+ * - 禁用 CSRF（网关透传模式天然防护）
+ * - 禁用 BasicAuth / FormLogin（由 JWT 过滤器替代）
+ * - 所有请求默认 permitAll（具体路径的认证由过滤器链控制）
+ *
  * @author gopair
  */
 @Slf4j
@@ -23,14 +29,13 @@ public class SecurityConfig {
 
     @PostConstruct
     public void init() {
-        log.info("[网关服务] Spring Security WebFlux配置初始化完成");
+        log.info("[网关服务] Spring Security WebFlux 安全基线配置初始化完成");
     }
 
     /**
-     * 配置安全过滤器链
-     * 
-     * 注意：这里配置为允许所有请求通过，实际的认证逻辑由 JWT 过滤器处理
-     * Spring Security 主要用于提供安全基础设施和过滤器链
+     * 构建安全过滤器链基线。
+     *
+     * 注意：认证逻辑由 JwtAuthenticationGatewayFilter 负责，此处仅设置安全策略基线。
      */
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {

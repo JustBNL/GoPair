@@ -115,8 +115,7 @@ public class VoiceController {
     @GetMapping("/room/{roomId}/active")
     public R<CallVO> getActiveCall(
             @Parameter(description = "房间ID") @PathVariable Long roomId) {
-        Long userId = UserContextHolder.getCurrentUserId();
-        return R.ok(voiceCallService.getActiveCall(roomId, userId));
+        return R.ok(voiceCallService.getActiveCall(roomId));
     }
 
     /**

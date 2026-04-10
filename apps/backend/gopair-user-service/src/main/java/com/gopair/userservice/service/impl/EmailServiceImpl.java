@@ -2,6 +2,7 @@ package com.gopair.userservice.service.impl;
 
 import com.gopair.userservice.config.EmailConfig;
 import com.gopair.userservice.enums.UserErrorCode;
+import com.gopair.userservice.enums.VerificationType;
 import com.gopair.userservice.exception.UserException;
 import com.gopair.userservice.service.EmailService;
 import jakarta.mail.internet.MimeMessage;
@@ -41,11 +42,11 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private String buildSubject(String type) {
-        return "resetPassword".equals(type) ? "【GoPair】重置密码验证码" : "【GoPair】注册验证码";
+        return VerificationType.RESET_PASSWORD.getCode().equals(type) ? "【GoPair】重置密码验证码" : "【GoPair】注册验证码";
     }
 
     private String buildContent(String code, String type) {
-        String action = "resetPassword".equals(type) ? "重置密码" : "注册";
+        String action = VerificationType.RESET_PASSWORD.getCode().equals(type) ? "重置密码" : "注册";
         return "<div style='font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; border: 1px solid #e8e8e8; border-radius: 8px;'>" +
                "<h2 style='color: #1a1a1a; margin-bottom: 8px;'>GoPair</h2>" +
                "<p style='color: #555; margin-bottom: 24px;'>您正在进行<strong>" + action + "</strong>操作，验证码为：</p>" +

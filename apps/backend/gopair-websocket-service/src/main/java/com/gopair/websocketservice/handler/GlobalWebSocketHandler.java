@@ -1,5 +1,6 @@
 package com.gopair.websocketservice.handler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gopair.websocketservice.enums.WebSocketErrorCode;
 import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
@@ -45,7 +46,8 @@ public class GlobalWebSocketHandler implements WebSocketHandler {
     private final SubscriptionManagerService subscriptionManager;
     private final BasicSubscriptionService basicSubscriptionService;
     private final BasicRateLimitService basicRateLimitService;
-    
+    private final ObjectMapper objectMapper;
+
     private final ConnectionHandler connectionHandler;
     private final MessageHandler messageHandler;
     private final ErrorHandler errorHandler;
@@ -270,8 +272,7 @@ public class GlobalWebSocketHandler implements WebSocketHandler {
     @SuppressWarnings("unchecked")
     private Integer extractMessageType(String rawPayload) {
         try {
-            Map<String, Object> map = new com.fasterxml.jackson.databind.ObjectMapper()
-                    .readValue(rawPayload, Map.class);
+            Map<String, Object> map = objectMapper.readValue(rawPayload, Map.class);
             // 顶层 type 为控制类型（subscribe/heartbeat 等），messageType 在 data 或 payload 层
             String topType = (String) map.get("type");
             if ("subscribe".equals(topType) || "heartbeat".equals(topType)) {

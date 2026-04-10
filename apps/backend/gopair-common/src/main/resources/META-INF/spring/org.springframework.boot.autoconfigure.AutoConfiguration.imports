@@ -1,2 +1,3 @@
 com.gopair.common.config.GopairAutoConfiguration
 com.gopair.common.config.RabbitMQAutoConfiguration
+com.gopair.common.config.RabbitMQInfrastructureConfig

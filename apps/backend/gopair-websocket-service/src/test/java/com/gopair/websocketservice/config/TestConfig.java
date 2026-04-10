@@ -1,15 +1,21 @@
 package com.gopair.websocketservice.config;
 
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SetOperations;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -17,100 +23,60 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * 简化的测试配置类
- * 提供模拟的Redis和RabbitMQ依赖
- * 
- * @author gopair
+ * 模拟 Redis + RabbitMQ 依赖的测试配置。
+ *
+ * * [核心策略]
+ * - RedisTemplate：使用内嵌 Map 模拟 Hash/Value/Set 操作，无需真实 Redis。
+ * - RedisConnectionFactory：Mock，避免 Spring Data Redis 自动配置。
+ * - RabbitTemplate / ConnectionFactory：Mock，避免 RabbitMQ 连接。
+ *
+ * * [已知限制]
+ * - 仅覆盖实际被测试代码调用的方法，未调用的方法不做打桩。
  */
 @TestConfiguration
 public class TestConfig {
 
+    // ==================== Redis 模拟 ====================
+
     /**
-     * 模拟RedisTemplate，使用内存存储
+     * 模拟 RedisConnectionFactory（RedisConfig.redisTemplate 的依赖）。
+     */
+    @Bean
+    @Primary
+    public RedisConnectionFactory redisConnectionFactory() {
+        return mock(RedisConnectionFactory.class);
+    }
+
+    /**
+     * 模拟 RedisTemplate，所有操作走内存 Map。
      */
     @Bean
     @Primary
     @SuppressWarnings("unchecked")
     public RedisTemplate<String, Object> redisTemplate() {
-        Map<String, Object> memoryStore = new ConcurrentHashMap<>();
-        
-        RedisTemplate<String, Object> mockRedisTemplate = mock(RedisTemplate.class);
-        HashOperations<String, Object, Object> mockHashOps = mock(HashOperations.class);
-        ValueOperations<String, Object> mockValueOps = mock(ValueOperations.class);
-        
-        // 模拟HashOperations
-        when(mockRedisTemplate.opsForHash()).thenReturn(mockHashOps);
-        doAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            Map<String, Object> hashValues = (Map<String, Object>) invocation.getArgument(2);
-            memoryStore.put(key + "_hash", hashValues);
-            return null;
-        }).when(mockHashOps).putAll(anyString(), any(Map.class));
-        
-        doAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            Object hashKey = invocation.getArgument(1);
-            Object value = invocation.getArgument(2);
-            String fullKey = key + "_hash_" + hashKey;
-            memoryStore.put(fullKey, value);
-            return null;
-        }).when(mockHashOps).put(anyString(), any(), any());
-        
-        doAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            return memoryStore.getOrDefault(key + "_hash", new ConcurrentHashMap<>());
-        }).when(mockHashOps).entries(anyString());
-        
-        // 模拟ValueOperations
-        when(mockRedisTemplate.opsForValue()).thenReturn(mockValueOps);
-        doAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            Object value = invocation.getArgument(1);
-            memoryStore.put(key, value);
-            return null;
-        }).when(mockValueOps).set(anyString(), any());
-        
-        doAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            return memoryStore.get(key);
-        }).when(mockValueOps).get(anyString());
-        
-        // 模拟基本操作
-        when(mockRedisTemplate.expire(anyString(), anyLong(), any(TimeUnit.class))).thenReturn(true);
-        
-        doAnswer(invocation -> {
-            String pattern = invocation.getArgument(0);
-            return memoryStore.keySet().stream()
-                .filter(key -> key.contains(pattern.replace("*", "")))
-                .collect(java.util.stream.Collectors.toSet());
-        }).when(mockRedisTemplate).keys(anyString());
-        
-        when(mockRedisTemplate.delete(anyString())).thenAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            return memoryStore.remove(key) != null;
-        });
-        
-        return mockRedisTemplate;
+        return MockRedisHelper.createMockRedisTemplate();
     }
 
+    // ==================== RabbitMQ 模拟 ====================
+
     /**
-     * 模拟RabbitTemplate
+     * 模拟 RabbitTemplate。
      */
     @Bean
     @Primary
     public RabbitTemplate rabbitTemplate() {
-        RabbitTemplate mockRabbitTemplate = mock(RabbitTemplate.class);
-        doNothing().when(mockRabbitTemplate).convertAndSend(anyString(), any(Object.class));
-        doNothing().when(mockRabbitTemplate).convertAndSend(anyString(), anyString(), any(Object.class));
-        return mockRabbitTemplate;
+        RabbitTemplate mock = mock(RabbitTemplate.class);
+        doNothing().when(mock).convertAndSend(anyString(), any(Object.class));
+        doNothing().when(mock).convertAndSend(anyString(), anyString(), any(Object.class));
+        return mock;
     }
 
     /**
-     * 模拟ConnectionFactory
+     * 模拟 AMQP ConnectionFactory。
      */
     @Bean
     @Primary
-    public ConnectionFactory connectionFactory() {
+    public ConnectionFactory amqpConnectionFactory() {
         return mock(ConnectionFactory.class);
     }
-} 
+}

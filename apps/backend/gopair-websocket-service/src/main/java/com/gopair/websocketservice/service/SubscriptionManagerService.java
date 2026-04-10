@@ -285,22 +285,41 @@ public class SubscriptionManagerService {
         return false;
     }
 
-    public int restoreUserSubscriptionState(Long userId) {
+    /**
+     * 从 Redis 恢复用户在失联期间的订阅状态，将持久化数据合并到本地内存索引中。
+     *
+     * * [核心策略]
+     * - 合并而非覆盖：保留本端已写入内存的订阅（来自 performLoginBasicSubscription），将 Redis 中的订阅合并进去。
+     * - 全量索引重建：恢复时同时重建 channelSessions / sessionSubscriptions / sessionUserMap 三个反向索引，保证消息路由能命中。
+     *
+     * * [执行链路]
+     * 1. 从 Redis 读取 ws:user-subscriptions:{userId} 的全部订阅数据。
+     * 2. 解析并重建每个订阅的 ChannelSubscription 对象（不含 source 字段，从 autoSubscribed 推断）。
+     * 3. 合并到 userSubscriptions（addAll）。
+     * 4. 重建 channelSessions[channel] ← sessionId。
+     * 5. 重建 sessionSubscriptions[sessionId] ← channel。
+     * 6. 重建 sessionUserMap[sessionId] ← userId。
+     *
+     * @param userId    用户 ID
+     * @param sessionId 当前 sessionId（用于重建反向索引）
+     * @return 恢复的订阅数量
+     */
+    public int restoreUserSubscriptionState(Long userId, String sessionId) {
         try {
             Map<Object, Object> persistedData = subscriptionStore.getUserSubscriptions(userId);
-            
+
             if (persistedData.isEmpty()) {
                 log.debug("[订阅管理] 用户无持久化订阅数据: userId={}", userId);
                 return 0;
             }
-            
-            Set<ChannelSubscription> persistedSubscriptions = new HashSet<>();
+
+            Set<ChannelSubscription> restoredSubs = new HashSet<>();
             for (Map.Entry<Object, Object> entry : persistedData.entrySet()) {
                 try {
                     String channel = (String) entry.getKey();
                     @SuppressWarnings("unchecked")
                     Map<String, Object> subData = (Map<String, Object>) entry.getValue();
-                    
+
                     ChannelSubscription subscription = ChannelSubscription.builder()
                             .channel(channel)
                             .eventTypes((Set<String>) subData.get("eventTypes"))
@@ -308,20 +327,32 @@ public class SubscriptionManagerService {
                             .priority((Integer) subData.get("priority"))
                             .autoSubscribed("auto".equals(subData.get("source")))
                             .build();
-                    
-                    persistedSubscriptions.add(subscription);
+
+                    restoredSubs.add(subscription);
                     log.debug("[订阅管理] 恢复订阅: userId={}, channel={}", userId, channel);
-                    
+
                 } catch (Exception e) {
                     log.warn("[订阅管理] 恢复单个订阅失败: userId={}, error={}", userId, e.getMessage());
                 }
             }
 
-            userSubscriptions.put(userId, persistedSubscriptions);
-            
-            log.info("[订阅管理] 恢复用户订阅状态: userId={}, count={}", userId, persistedSubscriptions.size());
-            return persistedSubscriptions.size();
-            
+            // 合并到 userSubscriptions：保留本端已有订阅，新增 Redis 中的订阅
+            userSubscriptions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).addAll(restoredSubs);
+
+            // 重建反向索引：channelSessions / sessionSubscriptions / sessionUserMap
+            sessionUserMap.put(sessionId, userId);
+            sessionSubscriptions.put(sessionId, restoredSubs.stream()
+                    .map(ChannelSubscription::getChannel)
+                    .collect(Collectors.toSet()));
+            for (ChannelSubscription sub : restoredSubs) {
+                channelSessions.computeIfAbsent(sub.getChannel(), k -> ConcurrentHashMap.newKeySet()).add(sessionId);
+            }
+
+            log.info("[订阅管理] 恢复用户订阅状态: userId={}, sessionId={}, restoredCount={}, totalCount={}",
+                    userId, sessionId, restoredSubs.size(),
+                    userSubscriptions.getOrDefault(userId, Collections.emptySet()).size());
+            return restoredSubs.size();
+
         } catch (Exception e) {
             log.error("[订阅管理] 恢复用户订阅状态失败: userId={}", userId, e);
             return 0;
@@ -368,7 +399,7 @@ public class SubscriptionManagerService {
                 Set<String> channelSessions = this.channelSessions.get(channel);
                 if (channelSessions != null) {
                     Set<String> remainingSessions = channelSessions.stream()
-                            .filter(s -> !channels.contains(channel))
+                            .filter(s -> !channels.contains(s))
                             .collect(Collectors.toSet());
                     if (remainingSessions.isEmpty()) {
                         this.channelSessions.remove(channel);

@@ -16,9 +16,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * 异常日志切面
- * 
- * 自动记录所有Controller和Service层的异常
- * 
+ *
+ * 自动记录 Controller、Service、Task 三层的异常，确保未捕获异常不被静默吞掉。
+ *
  * @author gopair
  */
 @Slf4j
@@ -46,13 +46,24 @@ public class ExceptionLogAspect {
     public void logControllerException(JoinPoint joinPoint, Throwable ex) {
         logException(joinPoint, ex, "CONTROLLER");
     }
-    
+
     /**
      * Service层异常记录
      */
     @AfterThrowing(pointcut = "execution(* com.gopair..service..*(..))", throwing = "ex")
     public void logServiceException(JoinPoint joinPoint, Throwable ex) {
         logException(joinPoint, ex, "SERVICE");
+    }
+
+    /**
+     * 定时任务层异常记录
+     *
+     * 覆盖 com.gopair..task..* 路径下的所有 @Scheduled 定时任务，
+     * 防止定时任务中的未捕获异常静默消失。
+     */
+    @AfterThrowing(pointcut = "execution(* com.gopair..task..*(..))", throwing = "ex")
+    public void logTaskException(JoinPoint joinPoint, Throwable ex) {
+        logException(joinPoint, ex, "TASK");
     }
     
     /**

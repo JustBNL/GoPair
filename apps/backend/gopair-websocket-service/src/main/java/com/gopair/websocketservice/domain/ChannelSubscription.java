@@ -1,8 +1,9 @@
 package com.gopair.websocketservice.domain;
 
-import lombok.Data;
-import lombok.Builder;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -10,23 +11,29 @@ import java.util.Set;
 
 /**
  * 频道订阅信息
- * 
+ *
  * @author gopair
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ChannelSubscription {
-    
+
     /**
      * 频道名称 (如: "room:chat:123", "user:456", "room:file:789")
+     * 频道名与事件类型共同构成订阅的唯一标识，
+     * 用于 HashSet 去重，避免同一频道的多次订阅（如重连恢复）产生重复条目。
      */
+    @EqualsAndHashCode.Include
     private String channel;
-    
+
     /**
      * 订阅的事件类型集合 (如: ["message", "typing", "join", "leave"])
+     * 与频道名共同构成订阅的唯一标识。
      */
+    @EqualsAndHashCode.Include
     private Set<String> eventTypes;
     
     /**

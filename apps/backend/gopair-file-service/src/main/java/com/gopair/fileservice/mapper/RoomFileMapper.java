@@ -43,14 +43,6 @@ public interface RoomFileMapper extends BaseMapper<RoomFile> {
     long sumFileSizeByRoomId(@Param("roomId") Long roomId);
 
     /**
-     * 查询房间所有文件（用于批量清理）
-     *
-     * @param roomId 房间ID
-     * @return 文件列表
-     */
-    List<RoomFile> selectAllByRoomId(@Param("roomId") Long roomId);
-
-    /**
      * 分批查询房间文件（用于清理时防止 OOM）
      *
      * @param roomId 房间ID
@@ -58,6 +50,14 @@ public interface RoomFileMapper extends BaseMapper<RoomFile> {
      * @return 文件列表
      */
     List<RoomFile> selectBatchByRoomId(@Param("roomId") Long roomId, @Param("limit") int limit);
+
+    /**
+     * 批量删除文件记录（替代 BaseMapper 的 deprecated deleteBatchIds）
+     *
+     * @param ids 文件ID列表
+     * @return 删除行数
+     */
+    int deleteByIds(@Param("ids") List<Long> ids);
 
     /**
      * 原子递增文件下载计数（用于 generateDownloadUrl，防止并发 Lost Update）

@@ -75,13 +75,13 @@ public class RabbitMQAutoConfiguration {
                 String userId = MDC.get(MessageConstants.MDC_USER_ID);
                 String nickname = MDC.get(MessageConstants.MDC_NICKNAME);
                 if (StringUtils.hasText(traceId)) {
-                    message.getMessageProperties().setHeader("X-Trace-Id", traceId);
+                    message.getMessageProperties().setHeader(MessageConstants.HEADER_TRACE_ID, traceId);
                 }
                 if (StringUtils.hasText(userId)) {
-                    message.getMessageProperties().setHeader("X-User-Id", userId);
+                    message.getMessageProperties().setHeader(MessageConstants.HEADER_USER_ID, userId);
                 }
                 if (StringUtils.hasText(nickname)) {
-                    message.getMessageProperties().setHeader("X-Nickname", nickname);
+                    message.getMessageProperties().setHeader(MessageConstants.HEADER_NICKNAME, nickname);
                 }
                 log.debug("[RabbitMQ] 已注入追踪消息头 - traceId={}, userId={}, nickname={}",
                         traceId, userId, nickname);

@@ -12,11 +12,16 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.annotation.PostConstruct;
 
 /**
- * Tracing MDC配置
- * 
- * 配置Brave将Baggage中的特定字段自动桥接到MDC中
- * 这样在响应式环境下，userId和nickname也能出现在日志中
- * 
+ * Brave 链路追踪与 MDC 桥接配置
+ *
+ * 将 Baggage 中的 userId / nickname 字段自动同步到当前线程的 MDC，
+ * 使下游服务日志中自动携带用户身份信息，无需手动传递 Context。
+ *
+ * 技术选型说明：
+ * - RequestLoggingGlobalFilter 使用 io.micrometer.tracing.Tracer（门面，符合 Spring 规范）
+ * - JwtAuthenticationGatewayFilter 使用 brave.Tracer（原生，用于 BaggageField.updateValue）
+ * - 两者底层共享同一 Brave Span，traceId 完全一致，无版本冲突
+ *
  * @author gopair
  */
 @Slf4j
@@ -29,8 +34,10 @@ public class TracingMdcConfiguration {
     }
 
     /**
-     * 配置MDC scope decorator
-     * 
+     * 构建 MDC 作用域装饰器。
+     *
+     * flushOnUpdate 确保每次 Baggage 值更新时立即同步到 MDC，
+     * 适用于响应式环境中 Span 上下文切换频繁的场景。
      */
     @Bean
     public CurrentTraceContext.ScopeDecorator mdcScopeDecorator() {

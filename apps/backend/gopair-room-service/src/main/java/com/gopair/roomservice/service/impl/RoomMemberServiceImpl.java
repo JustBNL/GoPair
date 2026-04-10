@@ -386,7 +386,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             String avatar = avatarNode.isMissingNode() || avatarNode.isNull() ? null : avatarNode.asText();
             return Optional.of(new UserProfileBrief(nick, avatar));
         } catch (Exception e) {
-            log.debug("[房间成员] 单个拉取用户{}资料失败: {}", userId, e.getMessage());
+            log.warn("[房间成员] 单个拉取用户{}资料失败: {}", userId, e.getMessage());
             return Optional.empty();
         }
     }

@@ -41,6 +41,8 @@ public class FileServiceImpl implements FileService {
     private final WebSocketMessageProducer wsProducer;
     private final StringRedisTemplate redisTemplate;
     private static final String ROOM_QUOTA_KEY_PREFIX = "file:quota:";
+    private static final String AVATAR_PATH_PREFIX = "avatar/";
+    private static final int QUOTA_DEVIATION_TOLERANCE_BYTES = 1;
     @Value("${gopair.file.max-file-size:104857600}")
     private long maxFileSize;
     @Value("${gopair.file.max-room-size:1073741824}")
@@ -63,6 +65,10 @@ public class FileServiceImpl implements FileService {
     // ==================== avatar ====================
     @Override
     public String uploadAvatar(MultipartFile file, Long userId) {
+        // FUTURE: 接近 5MB 的大图通过 Thumbnails.of(file.getInputStream()) 全量读入内存，
+        //         当前压缩输出仅为 200x200，整体内存压力可控（峰值约数十 MB）。
+        //         若未来需要支持更高分辨率头像或更大文件，可改为 Thumbnails.Builder 流式 API，
+        //         或引入 disk-based tmp 文件，避免大图撑爆堆内存。
         String fn = file.getOriginalFilename();
         String ft = extractExtension(fn);
         long fs = file.getSize();
@@ -73,7 +79,7 @@ public class FileServiceImpl implements FileService {
         if (fs > avatarMaxSize) {
             throw new FileException(FileErrorCode.FILE_TOO_LARGE, "头像文件不能超过 " + FileVO.formatFileSize(avatarMaxSize));
         }
-        String objectKey = "avatar/" + userId + "/profile.jpg";
+        String objectKey = AVATAR_PATH_PREFIX + userId + "/profile.jpg";
         try {
             byte[] compressed = generateThumbnail(file.getInputStream(), ft);
             uploadToMinio(new ByteArrayInputStream(compressed), objectKey, "image/jpeg", compressed.length);
@@ -151,18 +157,23 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public String generateDownloadUrl(Long fileId) {
+        log.info("[file-service] start op:generateDownloadUrl fileId:{}", fileId);
         RoomFile rf = getFileOrThrow(fileId);
-        // 使用 SQL 原子 +1，避免 read-modify-write 并发竞态导致的计数丢失
         roomFileMapper.incrementDownloadCount(fileId);
-        rf.setDownloadCount(rf.getDownloadCount() + 1); // VO 仍+1以保持一致性
-        return buildPresignedDownloadUrl(rf.getFilePath(), rf.getFileName());
+        rf.setDownloadCount(rf.getDownloadCount() + 1);
+        String url = buildPresignedDownloadUrl(rf.getFilePath(), rf.getFileName());
+        log.info("[file-service] success op:generateDownloadUrl fileId:{} url:{}", fileId, url);
+        return url;
     }
 
     @Override
     public String generatePreviewUrl(Long fileId) {
+        log.info("[file-service] start op:generatePreviewUrl fileId:{}", fileId);
         RoomFile rf = getFileOrThrow(fileId);
         String key = rf.getThumbnailPath() != null ? rf.getThumbnailPath() : rf.getFilePath();
-        return buildPresignedUrl(key);
+        String url = buildPresignedUrl(key);
+        log.info("[file-service] success op:generatePreviewUrl fileId:{}", fileId);
+        return url;
     }
 
     // ==================== delete ====================
@@ -207,27 +218,36 @@ public class FileServiceImpl implements FileService {
     public int cleanupRoomFiles(Long roomId) {
         log.info("[file-service] start op:cleanupRoomFiles roomId:{}", roomId);
         int totalCleaned = 0;
+        int failedBatches = 0;
         int batchSize = 200;
         List<RoomFile> batch;
         do {
             batch = roomFileMapper.selectBatchByRoomId(roomId, batchSize);
             if (batch.isEmpty()) break;
-            for (RoomFile file : batch) {
-                silentDeleteFromMinio(file.getFilePath());
-                if (file.getThumbnailPath() != null) silentDeleteFromMinio(file.getThumbnailPath());
+            try {
+                for (RoomFile file : batch) {
+                    silentDeleteFromMinio(file.getFilePath());
+                    if (file.getThumbnailPath() != null) silentDeleteFromMinio(file.getThumbnailPath());
+                }
+                List<Long> ids = batch.stream().map(RoomFile::getFileId).toList();
+                roomFileMapper.deleteByIds(ids);
+                totalCleaned += batch.size();
+                log.info("[file-service] cleanupRoomFiles batch done, roomId:{} total:{}", roomId, totalCleaned);
+            } catch (Exception e) {
+                failedBatches++;
+                log.error("[file-service] cleanupRoomFiles batch failed roomId:{} batchSize:{} err:{}",
+                        roomId, batch.size(), e.getMessage(), e);
             }
-            List<Long> ids = batch.stream().map(RoomFile::getFileId).toList();
-            roomFileMapper.deleteBatchIds(ids);
-            totalCleaned += batch.size();
-            log.info("[file-service] cleanupRoomFiles roomId:{} batch done, total:{}", roomId, totalCleaned);
         } while (batch.size() == batchSize);
-        // 清理 Redis 配额缓存
         try {
             redisTemplate.delete(ROOM_QUOTA_KEY_PREFIX + roomId);
         } catch (Exception e) {
             log.warn("[file-service] cleanupRoomFiles: failed to delete redis quota key roomId:{} err:{}", roomId, e.getMessage());
         }
-        log.info("[file-service] success op:cleanupRoomFiles roomId:{} count:{}", roomId, totalCleaned);
+        log.info("[file-service] success op:cleanupRoomFiles roomId:{} count:{} failedBatches:{}", roomId, totalCleaned, failedBatches);
+        if (failedBatches > 0) {
+            throw new IllegalStateException("cleanupRoomFiles failed to delete DB records in " + failedBatches + " batch(es). MinIO objects may be orphaned. Check error logs.");
+        }
         return totalCleaned;
     }
 
@@ -273,8 +293,8 @@ public class FileServiceImpl implements FileService {
         }
         long redisUsed = Long.parseLong(redisVal);
         long dbUsed = roomFileMapper.sumFileSizeByRoomId(roomId);
-        // 允许 Redis 与 DB 有合理偏差（1字节容错，避免浮点误差）
-        if (Math.abs(redisUsed - dbUsed) > 1) {
+        // 允许 Redis 与 DB 有合理偏差（容错阈值，避免浮点误差）
+        if (Math.abs(redisUsed - dbUsed) > QUOTA_DEVIATION_TOLERANCE_BYTES) {
             // 强制同步 Redis 值与 DB 实际值
             redisTemplate.opsForValue().set(key, String.valueOf(dbUsed));
             if (dbUsed > maxRoomSize) {
@@ -309,15 +329,13 @@ public class FileServiceImpl implements FileService {
                     .method(Method.GET)
                     .expiry((int) minioProperties.getPresignedUrlExpireSeconds(), TimeUnit.SECONDS).build());
         } catch (Exception e) {
-            log.error("[file-service] presigned url failed key:{} err:{}", key, e.getMessage());
+            log.error("[file-service] presigned url failed key:{} err:{}", key, e.getMessage(), e);
             throw new FileException(FileErrorCode.MINIO_OPERATION_FAILED, "Failed to generate URL");
         }
     }
 
     private String buildPresignedDownloadUrl(String key, String fileName) {
         try {
-            // RFC 5987/RFC 6266 标准：使用 RFC 3986 (percent-encoding) 编码
-            // 浏览器兼容性：Chrome/Firefox/Safari 均支持 RFC 5987 filename* 语法
             String encoded = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8)
                     .replace("+", "%20")
                     .replace("%", "%25");
@@ -327,10 +345,9 @@ public class FileServiceImpl implements FileService {
                     .expiry((int) minioProperties.getPresignedUrlExpireSeconds(), TimeUnit.SECONDS)
                     .extraQueryParams(java.util.Map.of(
                             "response-content-disposition",
-                            "attachment; filename*=UTF-8''" + encoded
-                    )).build());
+                            "attachment; filename*=UTF-8''" + encoded)).build());
         } catch (Exception e) {
-            log.error("[file-service] presigned download url failed key:{} err:{}", key, e.getMessage());
+            log.error("[file-service] presigned download url failed key:{} err:{}", key, e.getMessage(), e);
             throw new FileException(FileErrorCode.MINIO_OPERATION_FAILED, "Failed to generate download URL");
         }
     }
@@ -340,7 +357,7 @@ public class FileServiceImpl implements FileService {
             minioClient.removeObject(RemoveObjectArgs.builder()
                     .bucket(minioProperties.getBucketName()).object(key).build());
         } catch (Exception e) {
-            log.warn("[file-service] minio delete ignored key:{} err:{}", key, e.getMessage());
+            log.error("[file-service] minio delete failed key:{} err:{}", key, e.getMessage(), e);
         }
     }
 

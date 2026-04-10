@@ -1,13 +1,14 @@
 package com.gopair.websocketservice.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gopair.common.constants.MessageConstants;
 import com.gopair.websocketservice.config.RabbitMQConfig;
 import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
 import com.gopair.websocketservice.service.ConnectionManagerService;
 import com.gopair.websocketservice.service.BasicSubscriptionService;
-import com.gopair.websocketservice.service.ConnectionManagerService.SessionInfo;
 import com.gopair.websocketservice.service.RedisOperationService;
+import com.gopair.websocketservice.service.SubscriptionManagerService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.context.annotation.Lazy;
@@ -48,6 +49,7 @@ public class ConnectionHandler {
     private final RedisOperationService redisOperationService;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final SubscriptionManagerService subscriptionManager;
 
     /**
      * 构造函数
@@ -62,23 +64,31 @@ public class ConnectionHandler {
                            @Lazy BasicSubscriptionService basicSubscriptionService,
                            RedisOperationService redisOperationService,
                            RabbitTemplate rabbitTemplate,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           SubscriptionManagerService subscriptionManager) {
         this.connectionManager = connectionManager;
         this.basicSubscriptionService = basicSubscriptionService;
         this.redisOperationService = redisOperationService;
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
+        this.subscriptionManager = subscriptionManager;
     }
 
     /**
-     * 处理连接建立
-     * 
-     * 流程：
-     * 1. 验证用户信息
-     * 2. 添加全局连接到连接管理器
-     * 3. 执行登录基础订阅
-     * 4. 发送欢迎消息
-     * 
+     * 处理连接建立。
+     *
+     * * [核心策略]
+     * - 订阅优先恢复：先将 Redis 中的订阅合并到内存（包含三个反向索引），再执行基础订阅。
+     * - 幂等合并：恢复时使用 addAll 而非 put 覆盖，防止基础订阅丢失。
+     * - 连接为王：即使欢迎消息发送失败，连接建立仍视为成功。
+     *
+     * * [执行链路]
+     * 1. 验证用户信息，无效则直接返回 false。
+     * 2. 恢复 Redis 持久化的订阅状态到内存（channelSessions / sessionSubscriptions / sessionUserMap）。
+     * 3. 添加全局连接到 ConnectionManagerService（写入 sessions Map 和 Redis）。
+     * 4. 执行登录基础订阅（user:userId + system:global）。
+     * 5. 发送连接成功确认消息。
+     *
      * @param session WebSocket会话
      * @param userInfo 用户信息（从请求头提取）
      * @return 是否建立成功
@@ -95,6 +105,10 @@ public class ConnectionHandler {
 
             Long userId = Long.valueOf(userInfo.get("userId").toString());
             String nickname = (String) userInfo.get("nickname");
+
+            // 恢复用户在 Redis 中持久化的订阅状态（合并到内存，并重建三个反向索引）
+            // 无需依赖 sessions Map，仅需 userId 和 sessionId 即可重建所有内存索引
+            subscriptionManager.restoreUserSubscriptionState(userId, session.getId());
 
             // 建立全局连接
             connectionManager.addGlobalSession(session, userId);
@@ -128,18 +142,17 @@ public class ConnectionHandler {
     }
 
     /**
-     * 处理连接断开
+     * 处理连接断开。
      *
-     * <h2>完整流程</h2>
-     * <ol>
-     *   <li><b>清理连接</b>：调用 connectionManager.removeSession，移除 Redis 中的会话索引。</li>
-     *   <li><b>检查离线</b>：从 Redis 中读取该用户是否还有其他活跃会话（ws:user-sessions:{userId}）。</li>
-     *   <li><b>发离线通知</b>：若用户没有任何其他活跃会话，通过 RabbitMQ 发送 system.offline 消息到 room-service。</li>
-     * </ol>
+     * * [核心策略]
+     * - 原子读删：先 getSession 读 userId 再删 Redis key，避免 TTL 过期导致读不到 userId。
+     * - 内存同步清理：拿到 userId 后立即清理本地订阅索引，避免 sessionSubscriptions / channelSessions / sessionUserMap 残留。
+     * - 多端感知：只有 ws:user-sessions:{userId} 全部清空才发送离线通知。
      *
-     * <h2>多端登录处理</h2>
-     * 用户在手机和电脑上同时在线时，任一端断开只清理自己的 session，
-     * 只有当 ws:user-sessions:{userId} 全部清空后才会发送离线通知。
+     * * [执行链路]
+     * 1. 读 userId 并删 Redis key：removeSessionAndGetUserId 一次性完成原子操作。
+     * 2. 清理本地订阅内存：cleanupSessionSubscriptions(sessionId, userId)，在 Redis 删除之后、离线通知之前执行。
+     * 3. 检查多端：若用户无其他活跃 session，发送 system.offline 到 room-service。
      *
      * @param session WebSocket会话
      */
@@ -147,12 +160,14 @@ public class ConnectionHandler {
         try {
             log.info("[连接管理] WebSocket连接断开: sessionId={}", session.getId());
 
-            // 从 Redis 获取会话信息（userId 在 removeSession 之前读取）
-            SessionInfo sessionInfo = connectionManager.getSessionInfo(session.getId());
-            Long userId = sessionInfo != null ? sessionInfo.getUserId() : null;
+            // 先读取 userId 再删除 Redis key（先后读写），减少往返并避免 TTL 过期导致读不到 userId
+            Long userId = connectionManager.removeSessionAndGetUserId(session.getId());
 
-            // 清理连接相关资源
-            connectionManager.removeSession(session.getId());
+            // 立即清理本地订阅索引（sessionSubscriptions / channelSessions / sessionUserMap），
+            // 必须在 Redis 删除之后执行，否则 cleanupSessionSubscriptions 可以根据 userId 做精确清理
+            if (userId != null) {
+                subscriptionManager.cleanupSessionSubscriptions(session.getId(), userId);
+            }
 
             // 检查该用户是否还有其他活跃会话，只有全部断开才发离线通知
             if (userId != null) {
@@ -187,7 +202,7 @@ public class ConnectionHandler {
                     .setPayload(payload)
                     .setSource("websocket-service");
 
-            rabbitTemplate.convertAndSend(RabbitMQConfig.WEBSOCKET_EXCHANGE, "system.offline", message);
+            rabbitTemplate.convertAndSend(RabbitMQConfig.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_SYSTEM_OFFLINE, message);
             log.info("[连接管理] 发送用户离线事件: userId={}", userId);
         } catch (Exception e) {
             log.error("[连接管理] 发送用户离线事件失败: userId={}", userId, e);

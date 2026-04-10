@@ -124,9 +124,13 @@ public class PayloadAdapter {
 
         if (value instanceof String) {
             String stringValue = (String) value;
-            if (required && stringValue.trim().isEmpty()) {
-                throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_FIELD_MISSING, 
-                    String.format("Required field '%s' cannot be empty", key));
+            stringValue = stringValue.trim();
+            if (stringValue.isEmpty()) {
+                if (required) {
+                    throw new PayloadAdaptationException(WebSocketErrorCode.PAYLOAD_FIELD_MISSING, 
+                        String.format("Required field '%s' cannot be empty", key));
+                }
+                return null;
             }
             return stringValue;
         }

@@ -161,9 +161,9 @@ public class TokenBucketRateLimitService {
             }
             return allowed;
         } catch (Exception e) {
-            // 限流检查失败时默认放行，避免影响主流程
-            log.error("[令牌桶] 执行令牌桶脚本失败，默认放行: userId={}", userId, e);
-            return true;
+            // Redis 故障时默认拒绝，防止攻击者利用 Redis 闪断绕过限流
+            log.error("[令牌桶] 执行令牌桶脚本失败，保守拒绝: userId={}", userId, e);
+            return false;
         }
     }
 

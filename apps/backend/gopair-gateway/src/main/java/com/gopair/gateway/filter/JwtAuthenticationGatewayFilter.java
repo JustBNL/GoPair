@@ -2,12 +2,14 @@ package com.gopair.gateway.filter;
 
 import brave.Tracer;
 import brave.baggage.BaggageField;
-import com.gopair.common.util.JwtUtils;
 import com.gopair.common.constants.MessageConstants;
 import com.gopair.gateway.config.GatewayAuthProperties;
 import com.gopair.gateway.config.JwtProperties;
 import com.gopair.gateway.enums.GatewayErrorCode;
+import com.gopair.gateway.util.JwtUtils;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -26,7 +28,9 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import jakarta.annotation.PostConstruct;
@@ -55,12 +59,8 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
     private final JwtProperties jwtProperties;
     private final GatewayAuthProperties gatewayAuthProperties;
+    private final ObjectMapper objectMapper;
 
-    /**
-     * Brave Tracer 可选注入，仅在 micrometer-tracing-bridge-brave 存在时有效
-     * 使用 brave.Tracer 而非 io.micrometer.tracing.Tracer，
-     * 确保 span.context() 返回 brave.propagation.TraceContext
-     */
     @Nullable
     private final Tracer tracer;
 
@@ -71,21 +71,31 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     private static final String NICKNAME_HEADER = MessageConstants.HEADER_NICKNAME;
 
     /**
-     * 启动时预解析白名单路径，避免每次请求都 split
+     * 启动时预解析白名单路径，List 用于保留顺序（日志展示），Set 用于 O(1) 查找。
      */
     private List<String> preParsedSkipAuthPaths;
+    private Set<String> skipAuthPathsSet;
+
+    /**
+     * Baggage 注入失败告警标记，应用生命周期内只打印一次 WARN。
+     * volatile 保证写入对所有读取线程立即可见。
+     */
+    private volatile boolean baggageInjectionFailedWarned = false;
 
     public JwtAuthenticationGatewayFilter(JwtProperties jwtProperties,
-                                          GatewayAuthProperties gatewayAuthProperties,
-                                          @Nullable Tracer tracer) {
+                                         GatewayAuthProperties gatewayAuthProperties,
+                                         @Nullable Tracer tracer,
+                                         ObjectMapper objectMapper) {
         this.jwtProperties = jwtProperties;
         this.gatewayAuthProperties = gatewayAuthProperties;
         this.tracer = tracer;
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
     public void init() {
         preParsedSkipAuthPaths = parseSkipAuthPaths(gatewayAuthProperties.getSkipAuthPaths());
+        skipAuthPathsSet = new HashSet<>(preParsedSkipAuthPaths);
         log.info("[网关服务] JWT认证过滤器初始化完成，Baggage追踪增强={}, 白名单路径={}",
                 tracer != null ? "已启用" : "未启用(无Tracer)",
                 preParsedSkipAuthPaths);
@@ -137,12 +147,16 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
         log.info("[网关认证] 获取令牌 - 来源: {}, 路径: {}", tokenSource, path);
 
-        // 一次解析，同一 secret 只解析一次
+        // 单次解析，同时获取 userId 和 nickname，避免重复验签
         String userId;
         String nickname;
         try {
-            userId = JwtUtils.getUserIdFromToken(token, jwtProperties.getSecret());
-            nickname = JwtUtils.getNicknameFromToken(token, jwtProperties.getSecret());
+            JwtUtils.JwtUserInfo userInfo = JwtUtils.getUserInfoFromToken(token, jwtProperties.getSecret());
+            if (userInfo == null) {
+                throw new IllegalArgumentException("Token解析结果为空");
+            }
+            userId = userInfo.userId();
+            nickname = userInfo.nickname();
         } catch (Exception e) {
             log.warn("[网关认证] 认证失败 - 路径: {}, 原因: JWT签名验证失败({})", path, e.getClass().getSimpleName());
             return handleAuthenticationFailure(exchange.getResponse(),
@@ -180,6 +194,9 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
      *
      * BaggageField 通过 B3 传播协议随 HTTP 请求头传递到下游服务，
      * 下游服务的 TracingMdcConfiguration（若已配置）会自动将其写入 MDC。
+     *
+     * 可观测性保障：Baggage 注入失败时下游日志中 userId/nickname 将缺失，
+     * 为防止此问题被长期忽视，首次失败时记录一次 WARN 级别告警。
      */
     private void injectUserBaggage(String userId, String nickname) {
         if (tracer == null) {
@@ -195,17 +212,22 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
                 log.debug("[网关认证] 当前无活跃 Span，跳过 BaggageField 注入");
             }
         } catch (Exception e) {
-            log.debug("[网关认证] 注入 BaggageField 失败（非致命）: {}", e.getMessage());
+            if (!baggageInjectionFailedWarned) {
+                baggageInjectionFailedWarned = true;
+                log.warn("[网关认证] BaggageField 注入失败，下游日志中将缺失 userId/nickname: {}",
+                        e.getMessage());
+            } else {
+                log.debug("[网关认证] BaggageField 注入失败: {}", e.getMessage());
+            }
         }
     }
 
     /**
-     * 检查是否为白名单路径，使用精确匹配或带尾部斜杠的精确匹配。
+     * 检查是否为白名单路径，使用 HashSet 查找（O(1)），支持尾部斜杠变体。
      * 例如配置 "/ws" 可匹配 "/ws" 和 "/ws/"。
      */
     private boolean isSkipAuthPath(String path) {
-        return preParsedSkipAuthPaths.stream()
-                .anyMatch(skipPath -> path.equals(skipPath) || path.equals(skipPath + "/"));
+        return skipAuthPathsSet.contains(path) || skipAuthPathsSet.contains(path + "/");
     }
 
     /**
@@ -231,22 +253,45 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 处理认证失败（JSON 消息经过转义，防止注入）
+     * 处理认证失败响应，使用 ObjectMapper 序列化 JSON，彻底消除手拼 JSON 的注入风险。
      */
     private Mono<Void> handleAuthenticationFailure(ServerHttpResponse response, int code, String message) {
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        String safeMessage = message
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "");
-        String responseBody = String.format(
-                "{\"code\":%d,\"message\":\"%s\",\"data\":null,\"success\":false}",
-                code, safeMessage
-        );
-        DataBuffer buffer = response.bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
-        return response.writeWith(Mono.just(buffer));
+        try {
+            AuthFailureResponse authResponse = new AuthFailureResponse(code, message, null, false);
+            byte[] bytes = objectMapper.writeValueAsBytes(authResponse);
+            DataBuffer buffer = response.bufferFactory().wrap(bytes);
+            return response.writeWith(Mono.just(buffer));
+        } catch (JsonProcessingException e) {
+            log.error("[网关认证] JSON序列化失败: {}", e.getMessage());
+            byte[] fallback = "{\"code\":-1,\"message\":\"Internal server error\",\"data\":null,\"success\":false}"
+                    .getBytes(StandardCharsets.UTF_8);
+            DataBuffer fallbackBuffer = response.bufferFactory().wrap(fallback);
+            return response.writeWith(Mono.just(fallbackBuffer));
+        }
+    }
+
+    /**
+     * 认证失败响应 DTO，字段 final 保证序列化结构稳定。
+     */
+    private static class AuthFailureResponse {
+        private final int code;
+        private final String message;
+        private final Object data;
+        private final boolean success;
+
+        AuthFailureResponse(int code, String message, Object data, boolean success) {
+            this.code = code;
+            this.message = message;
+            this.data = data;
+            this.success = success;
+        }
+
+        public int getCode() { return code; }
+        public String getMessage() { return message; }
+        public Object getData() { return data; }
+        public boolean isSuccess() { return success; }
     }
 
     @Override
