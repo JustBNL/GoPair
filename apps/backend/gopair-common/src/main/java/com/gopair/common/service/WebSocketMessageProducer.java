@@ -1,6 +1,6 @@
 package com.gopair.common.service;
 
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -36,13 +36,13 @@ public class WebSocketMessageProducer {
                 .messageId(UUID.randomUUID().toString())
                 .timestamp(LocalDateTime.now())
                 .type("chat")
-                .channel(MessageConstants.CHANNEL_ROOM_PREFIX + roomId)
+                .channel(SystemConstants.CHANNEL_ROOM_PREFIX + roomId)
                 .eventType("message_send")
                 .payload(payload)
                 .source(getServiceName())
                 .build();
 
-        rabbitTemplate.convertAndSend(MessageConstants.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_CHAT_ROOM, message);
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_CHAT_ROOM, message);
         log.debug("发送聊天消息到房间: roomId={}, messageId={}", roomId, message.getMessageId());
     }
 
@@ -57,13 +57,13 @@ public class WebSocketMessageProducer {
                 .messageId(UUID.randomUUID().toString())
                 .timestamp(LocalDateTime.now())
                 .type("system")
-                .channel(MessageConstants.CHANNEL_USER_PREFIX + userId)
+                .channel(SystemConstants.CHANNEL_USER_PREFIX + userId)
                 .eventType("notification")
                 .payload(payload)
                 .source(getServiceName())
                 .build();
 
-        rabbitTemplate.convertAndSend(MessageConstants.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_SYSTEM_USER, message);
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_SYSTEM_USER, message);
         log.debug("发送消息给用户: userId={}, messageId={}", userId, message.getMessageId());
     }
 
@@ -78,13 +78,13 @@ public class WebSocketMessageProducer {
                 .messageId(UUID.randomUUID().toString())
                 .timestamp(LocalDateTime.now())
                 .type("signaling")
-                .channel(MessageConstants.CHANNEL_USER_PREFIX + userId)
+                .channel(SystemConstants.CHANNEL_USER_PREFIX + userId)
                 .eventType("signaling")
                 .payload(payload)
                 .source(getServiceName())
                 .build();
 
-        rabbitTemplate.convertAndSend(MessageConstants.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_SIGNALING_USER, message);
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_SIGNALING_USER, message);
         log.debug("发送信令消息给用户: userId={}, messageId={}", userId, message.getMessageId());
     }
 
@@ -105,13 +105,13 @@ public class WebSocketMessageProducer {
                 .messageId(UUID.randomUUID().toString())
                 .timestamp(LocalDateTime.now())
                 .type("file")
-                .channel(MessageConstants.CHANNEL_USER_PREFIX + userId)
+                .channel(SystemConstants.CHANNEL_USER_PREFIX + userId)
                 .eventType("file")
                 .payload(payload)
                 .source(getServiceName())
                 .build();
 
-        rabbitTemplate.convertAndSend(MessageConstants.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_FILE_PROGRESS, message);
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_FILE_PROGRESS, message);
         log.debug("发送文件进度消息: userId={}, fileId={}, messageId={}", userId, fileId, message.getMessageId());
     }
 
@@ -128,13 +128,13 @@ public class WebSocketMessageProducer {
                 .messageId(UUID.randomUUID().toString())
                 .timestamp(LocalDateTime.now())
                 .type("system")
-                .channel(MessageConstants.CHANNEL_USER_PREFIX + userId)
+                .channel(SystemConstants.CHANNEL_USER_PREFIX + userId)
                 .eventType(eventType)
                 .payload(payload)
                 .source(getServiceName())
                 .build();
 
-        rabbitTemplate.convertAndSend(MessageConstants.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_SYSTEM_USER, message);
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_SYSTEM_USER, message);
         log.debug("发送自定义事件给用户: userId={}, eventType={}, messageId={}", userId, eventType, message.getMessageId());
     }
 
@@ -151,13 +151,13 @@ public class WebSocketMessageProducer {
                 .messageId(UUID.randomUUID().toString())
                 .timestamp(LocalDateTime.now())
                 .type("system")
-                .channel(MessageConstants.CHANNEL_ROOM_PREFIX + roomId)
+                .channel(SystemConstants.CHANNEL_ROOM_PREFIX + roomId)
                 .eventType(eventType)
                 .payload(payload)
                 .source(getServiceName())
                 .build();
 
-        rabbitTemplate.convertAndSend(MessageConstants.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_SYSTEM_ROOM, message);
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_SYSTEM_ROOM, message);
         log.debug("发送语音事件到房间: roomId={}, eventType={}, messageId={}", roomId, eventType, message.getMessageId());
     }
 
@@ -177,13 +177,13 @@ public class WebSocketMessageProducer {
                 .messageId(UUID.randomUUID().toString())
                 .timestamp(LocalDateTime.now())
                 .type("system")
-                .channel(MessageConstants.CHANNEL_ROOM_PREFIX + roomId)
+                .channel(SystemConstants.CHANNEL_ROOM_PREFIX + roomId)
                 .eventType("system")
                 .payload(payload)
                 .source(getServiceName())
                 .build();
 
-        rabbitTemplate.convertAndSend(MessageConstants.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_SYSTEM_ROOM, message);
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_SYSTEM_ROOM, message);
         log.debug("发送系统通知到房间: roomId={}, messageId={}", roomId, message.getMessageId());
     }
 

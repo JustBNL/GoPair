@@ -81,6 +81,12 @@
             <artifactId>spring-cloud-context</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- LoadBalancer 支持（@LoadBalanced RestTemplate） -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <!-- Micrometer Tracing (optional，有 Brave 时启用追踪增强) -->
         <dependency>

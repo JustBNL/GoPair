@@ -1,7 +1,10 @@
 package com.gopair.gateway.config;
 
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Configuration;
 
 /**
@@ -9,7 +12,9 @@ import org.springframework.context.annotation.Configuration;
  *
  * @author gopair
  */
+@Validated
 @Data
+@RefreshScope
 @Configuration
 @ConfigurationProperties(prefix = "gopair.gateway")
 public class GatewayAuthProperties {
@@ -23,5 +28,6 @@ public class GatewayAuthProperties {
      * 慢请求阈值（毫秒），超过此阈值则日志级别升为 WARN。
      * 默认值 3000ms，参考：用户对单次 HTTP 响应的可接受等待上限约为 3 秒。
      */
+    @Positive
     private long slowRequestThresholdMs = 3000L;
 } 

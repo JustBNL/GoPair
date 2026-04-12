@@ -64,6 +64,8 @@ export interface LoginResponse {
   userId: number
   nickname: string
   token: string
+  email?: string
+  avatar?: string
 }
 
 /**

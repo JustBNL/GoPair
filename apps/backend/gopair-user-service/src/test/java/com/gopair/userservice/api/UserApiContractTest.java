@@ -21,7 +21,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.annotation.Rollback;
 
 import java.util.stream.Stream;
@@ -30,7 +29,7 @@ import java.util.ArrayList;
 
 import static com.gopair.userservice.enums.UserErrorCode.*;
 import static org.assertj.core.api.Assertions.*;
-import static com.gopair.common.constants.MessageConstants.*;
+import static com.gopair.common.constants.SystemConstants.*;
 import com.gopair.userservice.enums.UserErrorCode;
 
 /**
@@ -96,9 +95,9 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<RegisterResponse>> response = callUserRegistration(invalidUser);
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getMsg()).containsAnyOf(
-                PARAM_MISSING, 
-                NICKNAME_LENGTH_ERROR, 
-                PASSWORD_LENGTH_ERROR, 
+                PARAM_MISSING,
+                NICKNAME_LENGTH_ERROR,
+                PASSWORD_LENGTH_ERROR,
                 EMAIL_FORMAT_ERROR
             );
         }
@@ -228,18 +227,18 @@ class UserApiContractTest extends BaseIntegrationTest {
             RegisterRequest user1 = createValidRegisterRequest();
             RegisterRequest user2 = createValidRegisterRequest();
             RegisterRequest user3 = createValidRegisterRequest();
-            
+
             ResponseEntity<R<RegisterResponse>> reg1 = callUserRegistration(user1);
             ResponseEntity<R<RegisterResponse>> reg2 = callUserRegistration(user2);
             ResponseEntity<R<RegisterResponse>> reg3 = callUserRegistration(user3);
-            
+
             assertThat(reg1.getBody().isSuccess()).isTrue();
             if (!reg2.getBody().isSuccess() || !reg3.getBody().isSuccess()) {
                 return;
             }
-            
+
             LoginResponse loginResult = callUserLogin(user3.getEmail(), user3.getPassword()).getBody().getData();
-            
+
             // 测试昵称冲突
             UserDto nicknameUpdateDto = new UserDto();
             nicknameUpdateDto.setUserId(loginResult.getUserId());
@@ -253,7 +252,7 @@ class UserApiContractTest extends BaseIntegrationTest {
                 );
                 assertThat(nicknameResponse.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS);
             }
-            
+
             // 测试邮箱冲突
             UserDto emailUpdateDto = new UserDto();
             emailUpdateDto.setUserId(loginResult.getUserId());
@@ -282,7 +281,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody().isSuccess()).isTrue();
             assertThat(response.getBody().getData()).isTrue();
-            
+
             // 删除后再次查询该用户，验证用户确实已被删除
             ResponseEntity<R<UserVO>> getResponse = callGetUser(loginResult.getUserId());
             assertThat(getResponse.getBody().isSuccess()).isFalse();
@@ -310,23 +309,23 @@ class UserApiContractTest extends BaseIntegrationTest {
             // 插入15个用户用于测试分页功能
             List<RegisterRequest> testUsers = createAndRegisterMultipleUsers(15);
             assertThat(testUsers).hasSize(15);
-            
+
             // 查询第1页（10条记录）
             ResponseEntity<R<PageResult<UserVO>>> response = callUserPage(1, 10);
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody().isSuccess()).isTrue();
-            
+
             PageResult<UserVO> pageResult = response.getBody().getData();
             assertThat(pageResult).isNotNull();
             assertThat(pageResult.getTotal()).isGreaterThanOrEqualTo(15);
             assertThat(pageResult.getRecords()).hasSize(10);
-            
+
             // 验证返回的用户数据完整性
             UserVO firstUser = pageResult.getRecords().get(0);
             assertThat(firstUser.getUserId()).isNotNull();
             assertThat(firstUser.getNickname()).isNotNull();
             assertThat(firstUser.getEmail()).isNotNull();
-            
+
             // 查询第2页（剩余5条记录）
             ResponseEntity<R<PageResult<UserVO>>> page2Response = callUserPage(2, 10);
             assertThat(page2Response.getBody().isSuccess()).isTrue();
@@ -404,7 +403,7 @@ class UserApiContractTest extends BaseIntegrationTest {
                 users.add(user);
             } else {
                 // 记录注册失败的情况，便于调试
-                System.err.println("用户注册失败 #" + i + ": " + 
+                System.err.println("用户注册失败 #" + i + ": " +
                     (response.getBody() != null ? response.getBody().getMsg() : "响应为空"));
             }
         }
@@ -476,10 +475,10 @@ class UserApiContractTest extends BaseIntegrationTest {
             Arguments.of(createRegisterRequestWithPassword(null), "密码为null"),
             Arguments.of(createRegisterRequestWithEmail(""), "邮箱为空"),
             Arguments.of(createRegisterRequestWithEmail(null), "邮箱为null"),
-            
+
             // 格式错误测试
             Arguments.of(createRegisterRequestWithEmail("invalid-email"), "邮箱格式错误"),
-            
+
             // 长度边界测试
             Arguments.of(createRegisterRequestWithNickname("a".repeat(21)), "昵称过长(21字符)"),
             Arguments.of(createRegisterRequestWithPassword("12345"), "密码过短(5字符)"),
@@ -535,4 +534,4 @@ class UserApiContractTest extends BaseIntegrationTest {
         dto.setEmail(email);
         return dto;
     }
-} 
+}

@@ -5,7 +5,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import com.gopair.userservice.config.JwtConfig;
+import com.gopair.common.config.JwtProperties;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 /**
@@ -16,7 +16,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @Slf4j
 @SpringBootApplication
 @MapperScan("com.gopair.userservice.mapper")
-@EnableConfigurationProperties(JwtConfig.class)
+@EnableConfigurationProperties(JwtProperties.class)
 @EnableDiscoveryClient
 public class UserServiceApplication {
 

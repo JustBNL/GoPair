@@ -1,9 +1,11 @@
 package com.gopair.gateway;
 
+import com.gopair.common.config.JwtProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import reactor.core.publisher.Hooks;
 
@@ -22,6 +24,7 @@ import reactor.core.publisher.Hooks;
         org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration.class
     }
 )
+@EnableConfigurationProperties(JwtProperties.class)
 @EnableDiscoveryClient
 public class GatewayApplication {
 

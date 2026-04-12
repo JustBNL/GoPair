@@ -1,7 +1,7 @@
 package com.gopair.framework.exception;
 
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.core.R;
-import com.gopair.common.constants.MessageConstants;
 import com.gopair.common.exception.BaseException;
 import com.gopair.common.enums.impl.CommonErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BaseException.class)
     public R<Void> handleBaseException(BaseException e) {
-        String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
+        String traceId = MDC.get(SystemConstants.MDC_TRACE_ID);
         if (e.getErrorCode() == CommonErrorCode.UNAUTHORIZED) {
             log.warn("[异常处理] [traceId={}] 认证异常: {}", traceId, e.getMessage());
         } else {
@@ -47,7 +47,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public R<Map<String, String>> handleValidationException(MethodArgumentNotValidException e) {
-        String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
+        String traceId = MDC.get(SystemConstants.MDC_TRACE_ID);
         log.warn("[异常处理] [traceId={}] 参数校验失败: {}", traceId, e.getMessage());
 
         Map<String, String> errors = e.getBindingResult().getFieldErrors().stream()
@@ -72,7 +72,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public R<Void> handleException(Exception e) {
-        String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
+        String traceId = MDC.get(SystemConstants.MDC_TRACE_ID);
         log.error("[异常处理] [traceId={}] 系统异常: {}", traceId, e.getMessage(), e);
         return R.fail(CommonErrorCode.SYSTEM_ERROR, "系统内部错误");
     }

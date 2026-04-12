@@ -15,8 +15,9 @@ import org.springframework.context.annotation.Import;
 @Import({
     MybatisPlusConfiguration.class,    // 数据层配置
     ContextConfiguration.class,        // 上下文配置
-    LoggingConfiguration.class,       // 日志配置
-    JacksonConfiguration.class         // Jackson 全局序列化配置
+    LoggingConfiguration.class,        // 日志配置
+    JacksonConfiguration.class,        // Jackson 全局序列化配置
+    RestTemplateConfiguration.class    // RestTemplate 服务间 HTTP 调用配置
 })
 @ComponentScan(basePackages = {
     "com.gopair.framework.exception",   // 异常处理器

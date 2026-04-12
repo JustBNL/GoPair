@@ -1,6 +1,6 @@
 package com.gopair.common.util;
 
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -60,14 +60,14 @@ public class TracingAmqpConsumerSupport {
 
             // 写入 MDC
             if (StringUtils.hasText(traceId)) {
-                MDC.put(MessageConstants.MDC_TRACE_ID, traceId);
+                MDC.put(SystemConstants.MDC_TRACE_ID, traceId);
                 tracingRestored = true;
             }
             if (StringUtils.hasText(userId)) {
-                MDC.put(MessageConstants.MDC_USER_ID, userId);
+                MDC.put(SystemConstants.MDC_USER_ID, userId);
             }
             if (StringUtils.hasText(nickname)) {
-                MDC.put(MessageConstants.MDC_NICKNAME, nickname);
+                MDC.put(SystemConstants.MDC_NICKNAME, nickname);
             }
 
             if (tracingRestored) {
@@ -83,13 +83,13 @@ public class TracingAmqpConsumerSupport {
         } finally {
             // 清理本次写入的 MDC 条目，避免污染线程池中后续任务
             if (tracingRestored) {
-                MDC.remove(MessageConstants.MDC_TRACE_ID);
+                MDC.remove(SystemConstants.MDC_TRACE_ID);
             }
             if (StringUtils.hasText(userId)) {
-                MDC.remove(MessageConstants.MDC_USER_ID);
+                MDC.remove(SystemConstants.MDC_USER_ID);
             }
             if (StringUtils.hasText(nickname)) {
-                MDC.remove(MessageConstants.MDC_NICKNAME);
+                MDC.remove(SystemConstants.MDC_NICKNAME);
             }
         }
     }

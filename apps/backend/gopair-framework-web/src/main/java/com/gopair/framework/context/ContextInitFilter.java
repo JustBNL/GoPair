@@ -1,6 +1,6 @@
 package com.gopair.framework.context;
 
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.framework.config.properties.ContextProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -97,8 +97,8 @@ public class ContextInitFilter implements Filter {
             String traceId = resolveTraceId(request);
             // 仅当 MDC 中没有 Brave 已写入的 traceId 时才手动写入
             // （Brave 自动配置会在 Filter 链更早的位置写入 traceId，这里做补充）
-            if (!StringUtils.hasText(MDC.get(MessageConstants.MDC_TRACE_ID))) {
-                MDC.put(MessageConstants.MDC_TRACE_ID, traceId);
+            if (!StringUtils.hasText(MDC.get(SystemConstants.MDC_TRACE_ID))) {
+                MDC.put(SystemConstants.MDC_TRACE_ID, traceId);
             }
 
             // === Step 2: 提取用户信息 ===
@@ -119,25 +119,25 @@ public class ContextInitFilter implements Filter {
                 } else {
                     // 降级：纯 MDC 写入
                     if (StringUtils.hasText(userIdStr)) {
-                        MDC.put(MessageConstants.MDC_USER_ID, userIdStr);
+                        MDC.put(SystemConstants.MDC_USER_ID, userIdStr);
                     }
                     if (StringUtils.hasText(nickname)) {
-                        MDC.put(MessageConstants.MDC_NICKNAME, nickname);
+                        MDC.put(SystemConstants.MDC_NICKNAME, nickname);
                     }
                 }
 
                 log.debug("[上下文管理] 初始化请求上下文 - URI: {}, TraceId: {}, UserId: {}, Nickname: {}",
-                        request.getRequestURI(), MDC.get(MessageConstants.MDC_TRACE_ID), userIdStr, nickname);
+                        request.getRequestURI(), MDC.get(SystemConstants.MDC_TRACE_ID), userIdStr, nickname);
             } else {
                 log.debug("[上下文管理] 初始化请求上下文 - URI: {}, TraceId: {} (无用户信息)",
-                        request.getRequestURI(), MDC.get(MessageConstants.MDC_TRACE_ID));
+                        request.getRequestURI(), MDC.get(SystemConstants.MDC_TRACE_ID));
             }
 
         } catch (Exception e) {
             log.warn("[上下文管理] 初始化上下文失败", e);
             // 兜底：确保始终有 traceId
-            if (!StringUtils.hasText(MDC.get(MessageConstants.MDC_TRACE_ID))) {
-                MDC.put(MessageConstants.MDC_TRACE_ID, UUID.randomUUID().toString().replace("-", ""));
+            if (!StringUtils.hasText(MDC.get(SystemConstants.MDC_TRACE_ID))) {
+                MDC.put(SystemConstants.MDC_TRACE_ID, UUID.randomUUID().toString().replace("-", ""));
             }
         }
     }
@@ -155,7 +155,7 @@ public class ContextInitFilter implements Filter {
             }
         }
         // 优先级 2：请求头 X-Trace-Id
-        String headerTraceId = request.getHeader(MessageConstants.HEADER_TRACE_ID);
+        String headerTraceId = request.getHeader(SystemConstants.HEADER_TRACE_ID);
         if (StringUtils.hasText(headerTraceId)) {
             log.debug("[上下文管理] 使用请求头 traceId: {}", headerTraceId);
             return headerTraceId;
@@ -171,7 +171,7 @@ public class ContextInitFilter implements Filter {
      */
     private String extractUserIdStr(HttpServletRequest request) {
         try {
-            String userIdHeader = request.getHeader(MessageConstants.HEADER_USER_ID);
+            String userIdHeader = request.getHeader(SystemConstants.HEADER_USER_ID);
             if (StringUtils.hasText(userIdHeader)) {
                 return userIdHeader.trim();
             }
@@ -201,7 +201,7 @@ public class ContextInitFilter implements Filter {
      */
     private String extractNickname(HttpServletRequest request) {
         try {
-            String nicknameHeader = request.getHeader(MessageConstants.HEADER_NICKNAME);
+            String nicknameHeader = request.getHeader(SystemConstants.HEADER_NICKNAME);
             if (StringUtils.hasText(nicknameHeader)) {
                 return nicknameHeader.trim();
             }
@@ -217,8 +217,8 @@ public class ContextInitFilter implements Filter {
     private void cleanupContext() {
         try {
             UserContextHolder.clear();
-            MDC.remove(MessageConstants.MDC_USER_ID);
-            MDC.remove(MessageConstants.MDC_NICKNAME);
+            MDC.remove(SystemConstants.MDC_USER_ID);
+            MDC.remove(SystemConstants.MDC_NICKNAME);
             // 注意：MDC_TRACE_ID 由 Brave 自动管理，此处不强制移除，避免影响其他 Span
             log.debug("[上下文管理] 请求上下文清理完成");
         } catch (Exception e) {

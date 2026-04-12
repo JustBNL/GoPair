@@ -26,3 +26,6 @@ gopair:
   security:
     # 白名单路径，暂无需跳过鉴权的路由
     skip-auth-paths: ""
+  # RabbitMQ 队列 TTL 配置（毫秒）
+  mq:
+    voice-room-created-ttl: 300000      # 5 分钟

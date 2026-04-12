@@ -31,3 +31,15 @@ gopair:
     exchange-name: "websocket.topic"
     # Session 在 Redis 中的 TTL（秒）
     session-ttl: 3600
+  # RabbitMQ 队列参数配置（TTL 单位：毫秒，max-length 单位：条）
+  mq:
+    websocket-chat-ttl: 300000
+    websocket-chat-max-length: 100000
+    websocket-signaling-ttl: 60000
+    websocket-signaling-max-length: 50000
+    websocket-file-ttl: 600000
+    websocket-file-max-length: 10000
+    websocket-system-ttl: 300000
+    websocket-system-max-length: 20000
+    websocket-offline-ttl: 300000
+    websocket-offline-max-length: 50000

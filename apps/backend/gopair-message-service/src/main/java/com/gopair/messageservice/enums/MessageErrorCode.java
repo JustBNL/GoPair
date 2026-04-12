@@ -1,5 +1,6 @@
 package com.gopair.messageservice.enums;
 
+
 import com.gopair.common.enums.ErrorCode;
 
 /**
@@ -10,7 +11,7 @@ import com.gopair.common.enums.ErrorCode;
  * - A: 错误级别 (2=业务级错误)
  * - BB: 服务标识 (04=消息服务)
  * - CCC: 具体错误序号，从000开始连续递增
- * 
+ *
  * 消息服务错误码范围：20400-20499
  *
  * @author gopair
@@ -21,37 +22,37 @@ public enum MessageErrorCode implements ErrorCode {
      * 消息不存在
      */
     MESSAGE_NOT_FOUND(20400, "消息不存在"),
-    
+
     /**
      * 消息类型无效
      */
     MESSAGE_TYPE_INVALID(20401, "消息类型无效"),
-    
+
     /**
      * 消息内容不能为空
      */
     MESSAGE_CONTENT_EMPTY(20402, "消息内容不能为空"),
-    
+
     /**
      * 用户不在房间中
      */
     USER_NOT_IN_ROOM(20403, "用户不在该房间内，无法发送消息"),
-    
+
     /**
      * 无权限删除消息
      */
     NO_PERMISSION_DELETE_MESSAGE(20404, "无权限删除该消息"),
-    
+
     /**
      * 文件URL不能为空
      */
     FILE_URL_EMPTY(20405, "文件消息的文件URL不能为空"),
-    
+
     /**
      * 文件名不能为空
      */
     FILE_NAME_EMPTY(20406, "文件消息的文件名不能为空"),
-    
+
     /**
      * 消息发送失败
      */
@@ -66,7 +67,7 @@ public enum MessageErrorCode implements ErrorCode {
      * 错误码
      */
     private final int code;
-    
+
     /**
      * 错误信息
      */
@@ -102,4 +103,4 @@ public enum MessageErrorCode implements ErrorCode {
     public String getMessage() {
         return message;
     }
-} 
+}

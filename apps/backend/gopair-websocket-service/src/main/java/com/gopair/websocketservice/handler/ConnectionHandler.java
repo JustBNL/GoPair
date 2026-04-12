@@ -1,8 +1,7 @@
 package com.gopair.websocketservice.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gopair.common.constants.MessageConstants;
-import com.gopair.websocketservice.config.RabbitMQConfig;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
 import com.gopair.websocketservice.service.ConnectionManagerService;
@@ -22,22 +21,22 @@ import java.util.UUID;
 
 /**
  * WebSocket连接处理器
- * 
+ *
  * 职责：
  * - 处理WebSocket连接的建立和断开
  * - 管理连接生命周期
  * - 执行登录时的基础订阅
- * 
+ *
  * 架构设计：
  * - 作为GlobalWebSocketHandler的专门处理器
  * - 负责连接相关的所有逻辑
  * - 与ConnectionManagerService和BasicSubscriptionService协作
- * 
+ *
  * 使用场景：
  * - 客户端建立WebSocket连接时
  * - 客户端断开WebSocket连接时
  * - 需要清理连接资源时
- * 
+ *
  * @author gopair
  */
 @Slf4j
@@ -129,8 +128,8 @@ public class ConnectionHandler {
                     ));
 
             sendWelcomeMessage(session, welcomeMessage);
-            
-            log.info("[连接管理] WebSocket连接建立成功: sessionId={}, userId={}, nickname={}", 
+
+            log.info("[连接管理] WebSocket连接建立成功: sessionId={}, userId={}, nickname={}",
                     session.getId(), userId, nickname);
 
             return true;
@@ -202,7 +201,7 @@ public class ConnectionHandler {
                     .setPayload(payload)
                     .setSource("websocket-service");
 
-            rabbitTemplate.convertAndSend(RabbitMQConfig.WEBSOCKET_EXCHANGE, MessageConstants.ROUTING_KEY_SYSTEM_OFFLINE, message);
+            rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_SYSTEM_OFFLINE, message);
             log.info("[连接管理] 发送用户离线事件: userId={}", userId);
         } catch (Exception e) {
             log.error("[连接管理] 发送用户离线事件失败: userId={}", userId, e);
@@ -211,12 +210,12 @@ public class ConnectionHandler {
 
     /**
      * 发送欢迎消息
-     * 
+     *
      * 流程：
      * 1. 将消息对象序列化为JSON字符串
      * 2. 通过WebSocket会话发送消息
      * 3. 记录发送日志
-     * 
+     *
      * @param session WebSocket会话
      * @param message 统一WebSocket消息对象
      */
@@ -229,4 +228,4 @@ public class ConnectionHandler {
             log.error("[连接管理] 发送欢迎消息失败: sessionId={}", session.getId(), e);
         }
     }
-} 
+}

@@ -1,7 +1,7 @@
 package com.gopair.websocketservice.listener;
 
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.util.TracingAmqpConsumerSupport;
-import com.gopair.websocketservice.config.RabbitMQConfig;
 import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
 import com.gopair.websocketservice.service.ChannelMessageRouter;
@@ -45,7 +45,7 @@ public class BusinessMessageListener {
      * @param messageDto  反序列化后的消息 DTO
      * @param rawMessage  原始 AMQP 消息（用于提取追踪消息头）
      */
-    @RabbitListener(queues = RabbitMQConfig.CHAT_QUEUE)
+    @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_CHAT)
     public void handleChatMessage(WebSocketMessageDto messageDto, Message rawMessage) {
         tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
             log.debug("[消息监听] 收到聊天消息: messageId={}, channel={}, eventType={}",
@@ -57,7 +57,7 @@ public class BusinessMessageListener {
     /**
      * 监听信令消息队列
      */
-    @RabbitListener(queues = RabbitMQConfig.SIGNALING_QUEUE)
+    @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_SIGNALING)
     public void handleSignalingMessage(WebSocketMessageDto messageDto, Message rawMessage) {
         tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
             log.debug("[消息监听] 收到信令消息: messageId={}, channel={}, eventType={}",
@@ -69,7 +69,7 @@ public class BusinessMessageListener {
     /**
      * 监听文件消息队列
      */
-    @RabbitListener(queues = RabbitMQConfig.FILE_QUEUE)
+    @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_FILE)
     public void handleFileMessage(WebSocketMessageDto messageDto, Message rawMessage) {
         tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
             log.debug("[消息监听] 收到文件消息: messageId={}, channel={}, eventType={}",
@@ -81,7 +81,7 @@ public class BusinessMessageListener {
     /**
      * 监听系统消息队列
      */
-    @RabbitListener(queues = RabbitMQConfig.SYSTEM_QUEUE)
+    @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_SYSTEM)
     public void handleSystemMessage(WebSocketMessageDto messageDto, Message rawMessage) {
         tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
             log.debug("[消息监听] 收到系统消息: messageId={}, channel={}, eventType={}",

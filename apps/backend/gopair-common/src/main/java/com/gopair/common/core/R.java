@@ -1,15 +1,15 @@
 package com.gopair.common.core;
 
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.enums.ErrorCode;
-import com.gopair.common.constants.MessageConstants;
 
 import java.io.Serializable;
 
 /**
  * 统一响应结果封装类
- * 
+ *
  * 参考若依框架设计，只负责响应结果的构建和封装
- * 
+ *
  * @author gopair
  */
 public class R<T> implements Serializable {
@@ -42,7 +42,7 @@ public class R<T> implements Serializable {
 
     /**
      * 私有构造函数
-     * 
+     *
      * @param code 状态码
      * @param msg  返回消息
      * @param data 返回数据
@@ -59,14 +59,14 @@ public class R<T> implements Serializable {
      * 返回成功消息
      */
     public static <T> R<T> ok() {
-        return new R<>(SUCCESS, MessageConstants.SUCCESS, null);
+        return new R<>(SUCCESS, SystemConstants.SUCCESS, null);
     }
 
     /**
      * 返回成功数据
      */
     public static <T> R<T> ok(T data) {
-        return new R<>(SUCCESS, MessageConstants.SUCCESS, data);
+        return new R<>(SUCCESS, SystemConstants.SUCCESS, data);
     }
 
     /**
@@ -82,7 +82,7 @@ public class R<T> implements Serializable {
      * 返回默认错误消息
      */
     public static <T> R<T> fail() {
-        return new R<>(ERROR, MessageConstants.FAILED, null);
+        return new R<>(ERROR, SystemConstants.FAILED, null);
     }
 
     /**
@@ -219,4 +219,4 @@ public class R<T> implements Serializable {
     public static <T> R<T> error(int code, String msg) {
         return fail(code, msg);
     }
-} 
+}

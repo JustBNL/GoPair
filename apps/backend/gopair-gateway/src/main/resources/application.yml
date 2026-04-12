@@ -65,7 +65,17 @@ spring:
           '[/**]':
             allowedOriginPatterns:
               - "http://localhost:*"
+              - "https://localhost:*"
               - "http://127.0.0.1:*"
+              - "https://127.0.0.1:*"
+              - "https://198.18.*.*:*"
+              - "http://198.18.*.*:*"
+              - "https://192.168.*.*:*"
+              - "http://192.168.*.*:*"
+              - "https://172.*.*.*:*"
+              - "http://172.*.*.*:*"
+              - "https://10.*.*.*:*"
+              - "http://10.*.*.*:*"
             allowedMethods:
               - GET
               - POST

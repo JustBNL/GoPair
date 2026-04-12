@@ -56,22 +56,15 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('登录响应数据不完整')
       }
       
-      // 创建当前用户对象
+      // 构建当前用户对象（登录响应已包含完整数据，无需额外请求）
       const currentUser: CurrentUser = {
         userId: response.data.userId,
         nickname: response.data.nickname,
-        token: response.data.token
+        token: response.data.token,
+        email: response.data.email || '',
+        avatar: response.data.avatar || ''
       }
 
-      // 补全 email/avatar（LoginResponse 不含这两个字段，需额外请求）
-      try {
-        const userInfo = await AuthAPI.getCurrentUser(response.data.userId)
-        currentUser.email = userInfo.data.email
-        currentUser.avatar = userInfo.data.avatar
-      } catch {
-        // 补全失败不影响登录流程
-      }
-      
       // 先持久化存储，再更新内存状态
       Storage.setToken(response.data.token)
       Storage.setUser(currentUser)

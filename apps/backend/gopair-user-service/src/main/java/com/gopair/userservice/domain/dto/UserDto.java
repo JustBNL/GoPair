@@ -1,16 +1,15 @@
 package com.gopair.userservice.domain.dto;
 
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.entity.BaseQuery;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
  * 用户DTO
- * 
+ *
  * @author gopair
  */
 @Data
@@ -25,19 +24,19 @@ public class UserDto extends BaseQuery {
     /**
      * 昵称
      */
-    @Size(min = 1, max = 20, message = MessageConstants.NICKNAME_LENGTH_ERROR)
+    @Size(min = 1, max = 20, message = SystemConstants.NICKNAME_LENGTH_ERROR)
     private String nickname;
 
     /**
      * 密码
      */
-    @Size(min = 6, max = 50, message = MessageConstants.PASSWORD_LENGTH_ERROR)
+    @Size(min = 6, max = 50, message = SystemConstants.PASSWORD_LENGTH_ERROR)
     private String password;
 
     /**
      * 用户邮箱
      */
-    @Email(message = MessageConstants.EMAIL_FORMAT_ERROR)
+    @Email(message = SystemConstants.EMAIL_FORMAT_ERROR)
     private String email;
 
     /**
@@ -59,4 +58,4 @@ public class UserDto extends BaseQuery {
      * 当前密码（修改密码时用于验证身份）
      */
     private String currentPassword;
-} 
+}

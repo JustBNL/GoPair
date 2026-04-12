@@ -1,6 +1,6 @@
 package com.gopair.roomservice.messaging;
 
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.framework.logging.annotation.LogRecord;
 import com.gopair.roomservice.service.RoomMemberService;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ public class UserOfflineConsumer {
 
     private final RoomMemberService roomMemberService;
 
-    @RabbitListener(queues = MessageConstants.QUEUE_USER_OFFLINE)
+    @RabbitListener(queues = SystemConstants.QUEUE_USER_OFFLINE)
     @LogRecord(operation = "消费用户离线事件", module = "消息消费")
     public void handle(Object message) {
         try {

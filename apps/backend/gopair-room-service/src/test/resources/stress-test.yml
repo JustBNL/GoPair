@@ -102,8 +102,8 @@ mq:
     exchange: room.join.exchange
     routing-key: room.join.requested
     queue: room.join.queue
-    dlx: room.join.dlx
-    dlq: room.join.dlq
+    dlx: dl.exchange
+    dlq: dl.queue
   room-leave:
     exchange: room.leave.exchange
     routing-key: room.leave.requested

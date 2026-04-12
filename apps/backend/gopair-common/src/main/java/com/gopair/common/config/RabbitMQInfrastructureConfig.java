@@ -1,6 +1,6 @@
 package com.gopair.common.config;
 
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -19,6 +19,8 @@ import org.springframework.context.annotation.Configuration;
  *   <li>room-service：room.join/leave 系列队列 + user.offline.queue binding</li>
  *   <li>voice-service：voice.* 系列队列</li>
  * </ul>
+ *
+ * <p>DLX/DLQ 在此声明，供所有服务复用。
  *
  * <p>Queue/Binding 不放在本配置中的原因：若在 gopair-common 的 auto-import 配置中声明，
  * 会与业务服务自身的同名 Queue Bean 产生 {@code @ConditionalOnMissingBean} 加载顺序陷阱——
@@ -39,8 +41,28 @@ public class RabbitMQInfrastructureConfig {
     @ConditionalOnMissingBean(name = "websocketTopicExchange")
     public TopicExchange websocketTopicExchange() {
         return ExchangeBuilder
-                .topicExchange(MessageConstants.WEBSOCKET_EXCHANGE)
+                .topicExchange(SystemConstants.WEBSOCKET_EXCHANGE)
                 .durable(true)
                 .build();
+    }
+
+    // ==================== DLX & DLQ ====================
+
+    @Bean
+    public TopicExchange dlExchange() {
+        return ExchangeBuilder.topicExchange(SystemConstants.DL_EXCHANGE).durable(true).build();
+    }
+
+    @Bean
+    public Queue dlQueue() {
+        return QueueBuilder.durable(SystemConstants.DL_QUEUE).build();
+    }
+
+    @Bean
+    public Binding dlQueueBinding() {
+        return BindingBuilder
+                .bind(dlQueue())
+                .to(dlExchange())
+                .with(SystemConstants.DL_ROUTING_KEY_ALL);
     }
 }

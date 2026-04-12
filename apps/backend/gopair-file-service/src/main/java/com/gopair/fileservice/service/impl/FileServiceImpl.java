@@ -3,6 +3,7 @@ package com.gopair.fileservice.service.impl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.service.WebSocketMessageProducer;
+import com.gopair.framework.logging.annotation.LogRecord;
 import com.gopair.fileservice.config.MinioProperties;
 import com.gopair.fileservice.domain.po.RoomFile;
 import com.gopair.fileservice.domain.vo.FileVO;
@@ -62,8 +63,9 @@ public class FileServiceImpl implements FileService {
         allowedTypesSet = Set.of(allowedTypes.split(","));
     }
 
-    // ==================== avatar ====================
+    /** @FileServiceImpl.java (66-67) avatar */
     @Override
+    @LogRecord(operation = "上传头像", module = "文件管理")
     public String uploadAvatar(MultipartFile file, Long userId) {
         // FUTURE: 接近 5MB 的大图通过 Thumbnails.of(file.getInputStream()) 全量读入内存，
         //         当前压缩输出仅为 200x200，整体内存压力可控（峰值约数十 MB）。
@@ -94,9 +96,10 @@ public class FileServiceImpl implements FileService {
         }
     }
 
-    // ==================== upload ====================
+    /** @FileServiceImpl.java (99-100) upload */
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "上传文件", module = "文件管理", includeResult = true)
     public FileVO uploadFile(MultipartFile file, Long roomId, Long userId, String nickname) {
         String fn = file.getOriginalFilename();
         String ft = extractExtension(fn);
@@ -140,7 +143,7 @@ public class FileServiceImpl implements FileService {
         }
     }
 
-    // ==================== query ====================
+    /** @FileServiceImpl.java (146-147) query */
     @Override
     public PageResult<FileVO> getRoomFiles(Long roomId, int pageNum, int pageSize) {
         Page<RoomFile> page = new Page<>(pageNum, pageSize);
@@ -156,6 +159,7 @@ public class FileServiceImpl implements FileService {
     public FileVO getFileInfo(Long fileId) { return toVO(getFileOrThrow(fileId)); }
 
     @Override
+    @LogRecord(operation = "生成下载链接", module = "文件管理", includeResult = true)
     public String generateDownloadUrl(Long fileId) {
         log.info("[file-service] start op:generateDownloadUrl fileId:{}", fileId);
         RoomFile rf = getFileOrThrow(fileId);
@@ -167,6 +171,7 @@ public class FileServiceImpl implements FileService {
     }
 
     @Override
+    @LogRecord(operation = "生成预览链接", module = "文件管理")
     public String generatePreviewUrl(Long fileId) {
         log.info("[file-service] start op:generatePreviewUrl fileId:{}", fileId);
         RoomFile rf = getFileOrThrow(fileId);
@@ -179,6 +184,7 @@ public class FileServiceImpl implements FileService {
     // ==================== delete ====================
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "删除文件", module = "文件管理", includeResult = true)
     public void deleteFile(Long fileId, Long userId) {
         RoomFile rf = getFileOrThrow(fileId);
         log.info("[file-service] start op:deleteFile fileId:{} userId:{}", fileId, userId);
@@ -215,6 +221,7 @@ public class FileServiceImpl implements FileService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "清理房间文件", module = "文件管理", includeResult = true)
     public int cleanupRoomFiles(Long roomId) {
         log.info("[file-service] start op:cleanupRoomFiles roomId:{}", roomId);
         int totalCleaned = 0;

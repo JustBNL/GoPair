@@ -1,6 +1,7 @@
 package com.gopair.roomservice.messaging;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.domain.event.LeaveRoomRequestedEvent;
 import com.gopair.roomservice.domain.po.Room;
@@ -39,7 +40,7 @@ public class LeaveRoomConsumer {
      * @param event 离开房间事件
      */
     @Transactional(rollbackFor = Exception.class)
-    @RabbitListener(queues = "${mq.room-leave.queue}")
+    @RabbitListener(queues = SystemConstants.QUEUE_ROOM_LEAVE)
     @LogRecord(operation = "消费离开房间事件", module = "消息消费")
     public void handle(LeaveRoomRequestedEvent event) {
         Long roomId = event.getRoomId();

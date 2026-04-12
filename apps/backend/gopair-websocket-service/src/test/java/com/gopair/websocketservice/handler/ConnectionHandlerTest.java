@@ -1,7 +1,7 @@
 package com.gopair.websocketservice.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gopair.websocketservice.config.RabbitMQConfig;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.websocketservice.config.TestConfig;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
 import com.gopair.websocketservice.service.BasicSubscriptionService;
@@ -192,7 +192,7 @@ public class ConnectionHandlerTest {
             // then: MQ 消息的 exchange 和 routingKey 均精确验证
             verify(rabbitTemplate, times(1))
                     .convertAndSend(
-                            eq(RabbitMQConfig.WEBSOCKET_EXCHANGE),
+                            eq(SystemConstants.WEBSOCKET_EXCHANGE),
                             eq("system.offline"),
                             any(UnifiedWebSocketMessage.class));
         }

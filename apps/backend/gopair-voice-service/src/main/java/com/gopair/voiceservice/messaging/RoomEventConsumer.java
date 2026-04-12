@@ -1,5 +1,6 @@
 package com.gopair.voiceservice.messaging;
 
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.util.TracingAmqpConsumerSupport;
 import lombok.RequiredArgsConstructor;
 
@@ -30,7 +31,7 @@ public class RoomEventConsumer {
      * @param message    消息内容
      * @param rawMessage 原始 AMQP 消息（用于提取追踪消息头）
      */
-    @RabbitListener(queues = "${mq.voice.room-created.queue:voice.room.created.queue}")
+    @RabbitListener(queues = SystemConstants.QUEUE_VOICE_ROOM_CREATED)
     public void onRoomCreated(Map<String, Object> message, Message rawMessage) {
         tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
             log.info("[语音] 收到 room_created 事件，按需创建模式下忽略自动建话: eventType={}",

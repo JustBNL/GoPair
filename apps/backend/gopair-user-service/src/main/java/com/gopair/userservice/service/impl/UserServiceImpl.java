@@ -10,9 +10,9 @@ import com.gopair.userservice.enums.UserErrorCode;
 import com.gopair.userservice.enums.UserStatus;
 import com.gopair.userservice.exception.LoginException;
 import com.gopair.userservice.exception.UserException;
+import com.gopair.common.config.JwtProperties;
 import com.gopair.common.util.JwtUtils;
 import com.gopair.userservice.util.PasswordUtils;
-import com.gopair.userservice.config.JwtConfig;
 import com.gopair.userservice.domain.dto.UserDto;
 import com.gopair.userservice.domain.dto.auth.ForgotPasswordRequest;
 import com.gopair.userservice.domain.dto.auth.LoginRequest;
@@ -47,14 +47,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
     private final UserMapper userMapper;
     private final PasswordUtils passwordUtils;
-    private final JwtConfig jwtConfig;
+    private final JwtProperties jwtProperties;
     private final VerificationCodeService verificationCodeService;
 
-    public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils, JwtConfig jwtConfig,
+    public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils, JwtProperties jwtProperties,
                            VerificationCodeService verificationCodeService) {
         this.userMapper = userMapper;
         this.passwordUtils = passwordUtils;
-        this.jwtConfig = jwtConfig;
+        this.jwtProperties = jwtProperties;
         this.verificationCodeService = verificationCodeService;
     }
     
@@ -302,12 +302,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         if (UserStatus.CANCELLED.getCode() == user.getStatus()) {
             throw new LoginException(UserErrorCode.USER_ALREADY_CANCELLED);
         }
-        String token = JwtUtils.generateToken(user.getNickname(), user.getUserId().toString(), 
-                jwtConfig.getSecret(), jwtConfig.getExpiration());
+        String token = JwtUtils.generateToken(user.getNickname(), user.getUserId().toString(),
+                jwtProperties.getSecret(), jwtProperties.getExpiration());
         LoginResponse loginResponse = new LoginResponse();
         loginResponse.setUserId(user.getUserId());
         loginResponse.setNickname(user.getNickname());
         loginResponse.setToken(token);
+        loginResponse.setEmail(user.getEmail());
+        loginResponse.setAvatar(user.getAvatar());
         return loginResponse;
     }
 } 

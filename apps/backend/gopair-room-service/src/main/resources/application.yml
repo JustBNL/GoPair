@@ -45,19 +45,11 @@ gopair:
     # 房间清理任务执行间隔（毫秒，默认 15 分钟）
     room-cleanup-interval: 900000
 
-# 业务消息队列交换机与路由配置（room-service 专属）
-mq:
-  room-join:
-    exchange: room.join.exchange
-    routing-key: room.join.requested
-    queue: room.join.queue
-    dlx: room.join.dlx
-    dlq: room.join.dlq
-  room-leave:
-    exchange: room.leave.exchange
-    routing-key: room.leave.requested
-    queue: room.leave.queue
-  user-offline:
-    exchange: websocket.topic
-    routing-key: system.offline
-    queue: user.offline.queue
+  # RabbitMQ 队列参数配置（TTL 单位：毫秒）
+  mq:
+    room-join-ttl: 300000      # 5 分钟
+    room-leave-ttl: 300000     # 5 分钟
+
+  # RestTemplate 配置（通过 Nacos 服务名调用其他服务）
+  rest-template:
+    enabled: true

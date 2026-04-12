@@ -1,13 +1,14 @@
 package com.gopair.websocketservice.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,7 +16,11 @@ import jakarta.annotation.PostConstruct;
 
 /**
  * RabbitMQ 配置类
- * 配置 WebSocket 服务的消息队列，包括 Exchange、Queue、Binding 及监听器工厂。
+ *
+ * * [职责范围]
+ * - 声明 ws-service 专用的 5 个共享队列（chat/signaling/file/system/offline）
+ * - websocket.topic Exchange 由 gopair-common/RabbitMQInfrastructureConfig 统一声明，此处注入使用同一个 Bean
+ * - 消息监听器线程池工厂（个性化并发参数）
  *
  * @author gopair
  */
@@ -26,164 +31,131 @@ public class RabbitMQConfig {
 
     private final ObjectMapper objectMapper;
 
-    public static final String WEBSOCKET_EXCHANGE = MessageConstants.WEBSOCKET_EXCHANGE;
-    public static final String CHAT_QUEUE = MessageConstants.QUEUE_WEBSOCKET_CHAT;
-    public static final String SIGNALING_QUEUE = MessageConstants.QUEUE_WEBSOCKET_SIGNALING;
-    public static final String FILE_QUEUE = MessageConstants.QUEUE_WEBSOCKET_FILE;
-    public static final String SYSTEM_QUEUE = MessageConstants.QUEUE_WEBSOCKET_SYSTEM;
-    public static final String USER_OFFLINE_QUEUE = MessageConstants.QUEUE_USER_OFFLINE;
+    @Value("${gopair.mq.websocket-chat-ttl:300000}")
+    private int chatTtl;
+    @Value("${gopair.mq.websocket-signaling-ttl:60000}")
+    private int signalingTtl;
+    @Value("${gopair.mq.websocket-file-ttl:600000}")
+    private int fileTtl;
+    @Value("${gopair.mq.websocket-system-ttl:300000}")
+    private int systemTtl;
+    @Value("${gopair.mq.websocket-offline-ttl:300000}")
+    private int offlineTtl;
 
-    /** 聊天/系统/离线队列默认 TTL：5 分钟 */
-    private static final int TTL_5_MINUTES = 300000;
-    /** 信令队列 TTL：1 分钟（时效性要求高） */
-    private static final int TTL_1_MINUTE = 60000;
-    /** 文件队列 TTL：10 分钟 */
-    private static final int TTL_10_MINUTES = 600000;
-
-    /** 聊天队列最大长度：10 万条 */
-    private static final long MAX_LENGTH_CHAT = 100000L;
-    /** 信令队列最大长度：5 万条 */
-    private static final long MAX_LENGTH_SIGNALING = 50000L;
-    /** 文件队列最大长度：1 万条（文件消息较大） */
-    private static final long MAX_LENGTH_FILE = 10000L;
-    /** 系统队列最大长度：2 万条 */
-    private static final long MAX_LENGTH_SYSTEM = 20000L;
-    /** 离线队列最大长度：5 万条 */
-    private static final long MAX_LENGTH_OFFLINE = 50000L;
+    @Value("${gopair.mq.websocket-chat-max-length:100000}")
+    private long chatMaxLength;
+    @Value("${gopair.mq.websocket-signaling-max-length:50000}")
+    private long signalingMaxLength;
+    @Value("${gopair.mq.websocket-file-max-length:10000}")
+    private long fileMaxLength;
+    @Value("${gopair.mq.websocket-system-max-length:20000}")
+    private long systemMaxLength;
+    @Value("${gopair.mq.websocket-offline-max-length:50000}")
+    private long offlineMaxLength;
 
     @PostConstruct
     public void init() {
         log.info("[WebSocket服务] RabbitMQ配置初始化完成");
     }
 
-    /**
-     * 声明 Topic Exchange
-     */
+    // ==================== Shared queues ====================
+
     @Bean
-    public TopicExchange websocketExchange() {
-        return ExchangeBuilder
-                .topicExchange(WEBSOCKET_EXCHANGE)
-                .durable(true)
+    public Queue websocketChatQueue() {
+        return QueueBuilder.durable(SystemConstants.QUEUE_WEBSOCKET_CHAT)
+                .ttl(chatTtl)
+                .maxLength(chatMaxLength)
+                .withArgument("x-dead-letter-exchange", SystemConstants.DL_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", SystemConstants.ROUTING_KEY_DL_WS_CHAT)
                 .build();
     }
 
-    /**
-     * 聊天消息队列
-     */
     @Bean
-    public Queue chatQueue() {
-        return QueueBuilder
-                .durable(CHAT_QUEUE)
-                .ttl(TTL_5_MINUTES)
-                .maxLength(MAX_LENGTH_CHAT)
+    public Queue websocketSignalingQueue() {
+        return QueueBuilder.durable(SystemConstants.QUEUE_WEBSOCKET_SIGNALING)
+                .ttl(signalingTtl)
+                .maxLength(signalingMaxLength)
+                .withArgument("x-dead-letter-exchange", SystemConstants.DL_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", SystemConstants.ROUTING_KEY_DL_WS_SIGNALING)
                 .build();
     }
 
-    /**
-     * 信令消息队列
-     */
     @Bean
-    public Queue signalingQueue() {
-        return QueueBuilder
-                .durable(SIGNALING_QUEUE)
-                .ttl(TTL_1_MINUTE)
-                .maxLength(MAX_LENGTH_SIGNALING)
+    public Queue websocketFileQueue() {
+        return QueueBuilder.durable(SystemConstants.QUEUE_WEBSOCKET_FILE)
+                .ttl(fileTtl)
+                .maxLength(fileMaxLength)
+                .withArgument("x-dead-letter-exchange", SystemConstants.DL_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", SystemConstants.ROUTING_KEY_DL_WS_FILE)
                 .build();
     }
 
-    /**
-     * 文件消息队列
-     */
     @Bean
-    public Queue fileQueue() {
-        return QueueBuilder
-                .durable(FILE_QUEUE)
-                .ttl(TTL_10_MINUTES)
-                .maxLength(MAX_LENGTH_FILE)
+    public Queue websocketSystemQueue() {
+        return QueueBuilder.durable(SystemConstants.QUEUE_WEBSOCKET_SYSTEM)
+                .ttl(systemTtl)
+                .maxLength(systemMaxLength)
+                .withArgument("x-dead-letter-exchange", SystemConstants.DL_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", SystemConstants.ROUTING_KEY_DL_WS_SYSTEM)
                 .build();
     }
 
-    /**
-     * 系统消息队列
-     */
-    @Bean
-    public Queue systemQueue() {
-        return QueueBuilder
-                .durable(SYSTEM_QUEUE)
-                .ttl(TTL_5_MINUTES)
-                .maxLength(MAX_LENGTH_SYSTEM)
-                .build();
-    }
-
-    /**
-     * 用户离线队列，供 room-service 消费以更新成员在线状态
-     */
     @Bean
     public Queue userOfflineQueue() {
-        return QueueBuilder
-                .durable(USER_OFFLINE_QUEUE)
-                .ttl(TTL_5_MINUTES)
-                .maxLength(MAX_LENGTH_OFFLINE)
+        return QueueBuilder.durable(SystemConstants.QUEUE_USER_OFFLINE)
+                .ttl(offlineTtl)
+                .maxLength(offlineMaxLength)
+                .withArgument("x-dead-letter-exchange", SystemConstants.DL_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", SystemConstants.ROUTING_KEY_DL_WS_OFFLINE)
                 .build();
     }
 
-    /**
-     * 绑定聊天队列到 Exchange
-     */
+    // ==================== Bindings ====================
+
     @Bean
-    public Binding chatBinding() {
-        return BindingBuilder
-                .bind(chatQueue())
-                .to(websocketExchange())
+    public Binding chatBinding(TopicExchange websocketTopicExchange) {
+        return BindingBuilder.bind(websocketChatQueue())
+                .to(websocketTopicExchange)
                 .with("chat.*");
     }
 
-    /**
-     * 绑定信令队列到 Exchange
-     */
     @Bean
-    public Binding signalingBinding() {
-        return BindingBuilder
-                .bind(signalingQueue())
-                .to(websocketExchange())
+    public Binding signalingBinding(TopicExchange websocketTopicExchange) {
+        return BindingBuilder.bind(websocketSignalingQueue())
+                .to(websocketTopicExchange)
                 .with("signaling.*");
     }
 
-    /**
-     * 绑定文件队列到 Exchange
-     */
     @Bean
-    public Binding fileBinding() {
-        return BindingBuilder
-                .bind(fileQueue())
-                .to(websocketExchange())
+    public Binding fileBinding(TopicExchange websocketTopicExchange) {
+        return BindingBuilder.bind(websocketFileQueue())
+                .to(websocketTopicExchange)
                 .with("file.*");
     }
 
-    /**
-     * 绑定系统队列到 Exchange
-     */
     @Bean
-    public Binding systemBinding() {
-        return BindingBuilder
-                .bind(systemQueue())
-                .to(websocketExchange())
+    public Binding systemBinding(TopicExchange websocketTopicExchange) {
+        return BindingBuilder.bind(websocketSystemQueue())
+                .to(websocketTopicExchange)
                 .with("system.*");
     }
 
-    /**
-     * 绑定用户离线队列到 Exchange（room-service 消费）
-     */
     @Bean
-    public Binding userOfflineBinding() {
-        return BindingBuilder
-                .bind(userOfflineQueue())
-                .to(websocketExchange())
-                .with(MessageConstants.ROUTING_KEY_SYSTEM_OFFLINE);
+    public Binding userOfflineBinding(TopicExchange websocketTopicExchange) {
+        return BindingBuilder.bind(userOfflineQueue())
+                .to(websocketTopicExchange)
+                .with(SystemConstants.ROUTING_KEY_SYSTEM_OFFLINE);
     }
 
+    // ==================== Listener factory ====================
+
     /**
-     * 配置消息监听器容器工厂
+     * 消息监听器容器工厂
+     *
+     * * [个性化参数]
+     * - concurrentConsumers: 3（最小并发消费线程数）
+     * - maxConcurrentConsumers: 10（最大并发消费线程数）
+     * - 消费者 prefetch/concurrency 在 gopair-shared.yml 中通过 spring.rabbitmq.listener.simple 统一配置
      */
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {

@@ -1,6 +1,6 @@
 package com.gopair.common.config;
 
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.amqp.core.Message;
@@ -26,7 +26,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 /**
  * RabbitMQ自动配置类
  * 为业务服务提供统一的RabbitMQ配置
- * 
+ *
  * @author gopair
  */
 @Slf4j
@@ -71,17 +71,17 @@ public class RabbitMQAutoConfiguration {
             }
             // 注入追踪上下文到消息头
             try {
-                String traceId = MDC.get(MessageConstants.MDC_TRACE_ID);
-                String userId = MDC.get(MessageConstants.MDC_USER_ID);
-                String nickname = MDC.get(MessageConstants.MDC_NICKNAME);
+                String traceId = MDC.get(SystemConstants.MDC_TRACE_ID);
+                String userId = MDC.get(SystemConstants.MDC_USER_ID);
+                String nickname = MDC.get(SystemConstants.MDC_NICKNAME);
                 if (StringUtils.hasText(traceId)) {
-                    message.getMessageProperties().setHeader(MessageConstants.HEADER_TRACE_ID, traceId);
+                    message.getMessageProperties().setHeader(SystemConstants.HEADER_TRACE_ID, traceId);
                 }
                 if (StringUtils.hasText(userId)) {
-                    message.getMessageProperties().setHeader(MessageConstants.HEADER_USER_ID, userId);
+                    message.getMessageProperties().setHeader(SystemConstants.HEADER_USER_ID, userId);
                 }
                 if (StringUtils.hasText(nickname)) {
-                    message.getMessageProperties().setHeader(MessageConstants.HEADER_NICKNAME, nickname);
+                    message.getMessageProperties().setHeader(SystemConstants.HEADER_NICKNAME, nickname);
                 }
                 log.debug("[RabbitMQ] 已注入追踪消息头 - traceId={}, userId={}, nickname={}",
                         traceId, userId, nickname);
@@ -141,4 +141,4 @@ public class RabbitMQAutoConfiguration {
 
         return template;
     }
-} 
+}

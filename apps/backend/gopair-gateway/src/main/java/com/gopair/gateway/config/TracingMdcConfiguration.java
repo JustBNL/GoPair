@@ -4,7 +4,7 @@ import brave.baggage.BaggageField;
 import brave.baggage.CorrelationScopeConfig;
 import brave.context.slf4j.MDCScopeDecorator;
 import brave.propagation.CurrentTraceContext;
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,11 +43,11 @@ public class TracingMdcConfiguration {
     public CurrentTraceContext.ScopeDecorator mdcScopeDecorator() {
         return MDCScopeDecorator.newBuilder()
                 .add(CorrelationScopeConfig.SingleCorrelationField.newBuilder(
-                        BaggageField.create(MessageConstants.MDC_USER_ID))
+                        BaggageField.create(SystemConstants.MDC_USER_ID))
                         .flushOnUpdate().build())
                 .add(CorrelationScopeConfig.SingleCorrelationField.newBuilder(
-                        BaggageField.create(MessageConstants.MDC_NICKNAME))
+                        BaggageField.create(SystemConstants.MDC_NICKNAME))
                         .flushOnUpdate().build())
                 .build();
     }
-} 
+}

@@ -1,12 +1,10 @@
 package com.gopair.roomservice.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.core.R;
 import com.gopair.roomservice.base.BaseIntegrationTest;
-import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
-import com.gopair.roomservice.domain.vo.RoomVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -32,10 +30,10 @@ class RoomApiContractTest extends BaseIntegrationTest {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Content-Type", "application/json");
         if (userId != null) {
-            headers.set(MessageConstants.HEADER_USER_ID, String.valueOf(userId));
+            headers.set(SystemConstants.HEADER_USER_ID, String.valueOf(userId));
         }
         if (nickname != null) {
-            headers.set(MessageConstants.HEADER_NICKNAME, nickname);
+            headers.set(SystemConstants.HEADER_NICKNAME, nickname);
         }
         return headers;
     }

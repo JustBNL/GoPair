@@ -2,6 +2,7 @@ package com.gopair.voiceservice.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gopair.common.service.WebSocketMessageProducer;
+import com.gopair.framework.logging.annotation.LogRecord;
 import com.gopair.voiceservice.domain.dto.SignalingDto;
 import com.gopair.voiceservice.domain.po.VoiceCall;
 import com.gopair.voiceservice.domain.po.VoiceCallParticipant;
@@ -43,6 +44,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "自动创建语音通话", module = "语音通话")
     public CallVO createAutoCall(Long roomId, Long roomOwnerId) {
         VoiceCall existing = voiceCallMapper.selectOne(
                 new LambdaQueryWrapper<VoiceCall>()
@@ -87,6 +89,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "用户加入通话", module = "语音通话")
     public CallVO joinCall(Long callId, Long userId) {
         VoiceCall call = getCallOrThrow(callId);
 
@@ -120,6 +123,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "创建或加入通话", module = "语音通话")
     public CallVO joinOrCreateCall(Long roomId, Long userId) {
         VoiceCall call = voiceCallMapper.selectOne(
                 new LambdaQueryWrapper<VoiceCall>()
@@ -169,6 +173,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
     }
 
     @Override
+    @LogRecord(operation = "用户通话就绪", module = "语音通话")
     public void notifyReady(Long callId, Long userId) {
         VoiceCall call = getCallOrThrow(callId);
         wsProducer.sendEventToRoom(call.getRoomId(), "voice_roster_update", Map.of(
@@ -179,6 +184,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "用户离开通话", module = "语音通话")
     public void leaveCall(Long callId, Long userId) {
         VoiceCallParticipant participant = participantMapper.selectOne(
                 new LambdaQueryWrapper<VoiceCallParticipant>()
@@ -215,6 +221,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "房主退出通话", module = "语音通话")
     public void ownerLeave(Long callId, Long userId) {
         VoiceCallParticipant participant = participantMapper.selectOne(
                 new LambdaQueryWrapper<VoiceCallParticipant>()
@@ -237,6 +244,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "结束通话", module = "语音通话")
     public void endCall(Long callId, Long userId) {
         VoiceCall call = getCallOrThrow(callId);
         if (call.getStatus() != CallStatus.IN_PROGRESS.getCode()) {
@@ -285,6 +293,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
     }
 
     @Override
+    @LogRecord(operation = "转发通话信令", module = "语音通话")
     public void forwardSignaling(SignalingDto dto, Long fromUserId) {
         boolean isParticipant = participantMapper.selectCount(
                 new LambdaQueryWrapper<VoiceCallParticipant>()

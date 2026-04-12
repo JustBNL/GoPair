@@ -1,6 +1,7 @@
 package com.gopair.roomservice.messaging;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.gopair.common.constants.SystemConstants;
 import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.domain.event.JoinRoomRequestedEvent;
 import com.gopair.roomservice.domain.po.Room;
@@ -60,7 +61,7 @@ public class JoinRoomConsumer {
      * @param event 加入房间事件，包含 roomId、userId、joinToken 等
      */
     @Transactional(rollbackFor = Exception.class)
-    @RabbitListener(queues = "${mq.room-join.queue}")
+    @RabbitListener(queues = SystemConstants.QUEUE_ROOM_JOIN)
     @LogRecord(operation = "消费加入房间事件", module = "消息消费")
     public void handle(JoinRoomRequestedEvent event) {
         Long roomId = event.getRoomId();

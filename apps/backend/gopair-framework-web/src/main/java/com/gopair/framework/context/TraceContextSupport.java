@@ -2,7 +2,7 @@ package com.gopair.framework.context;
 
 import brave.Tracer;
 import brave.baggage.BaggageField;
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -27,8 +27,8 @@ public class TraceContextSupport {
 
     private final Tracer tracer;
 
-    private static final BaggageField USER_ID_FIELD = BaggageField.create(MessageConstants.MDC_USER_ID);
-    private static final BaggageField NICKNAME_FIELD = BaggageField.create(MessageConstants.MDC_NICKNAME);
+    private static final BaggageField USER_ID_FIELD = BaggageField.create(SystemConstants.MDC_USER_ID);
+    private static final BaggageField NICKNAME_FIELD = BaggageField.create(SystemConstants.MDC_NICKNAME);
 
     public TraceContextSupport(Tracer tracer) {
         this.tracer = tracer;
@@ -79,10 +79,10 @@ public class TraceContextSupport {
         }
         // 双保险：无论 Baggage 是否成功，都直接写 MDC
         if (userId != null) {
-            MDC.put(MessageConstants.MDC_USER_ID, userId);
+            MDC.put(SystemConstants.MDC_USER_ID, userId);
         }
         if (nickname != null) {
-            MDC.put(MessageConstants.MDC_NICKNAME, nickname);
+            MDC.put(SystemConstants.MDC_NICKNAME, nickname);
         }
     }
 }

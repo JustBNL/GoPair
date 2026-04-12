@@ -2,9 +2,9 @@ package com.gopair.gateway.filter;
 
 import brave.Tracer;
 import brave.baggage.BaggageField;
-import com.gopair.common.constants.MessageConstants;
+import com.gopair.common.constants.SystemConstants;
+import com.gopair.common.config.JwtProperties;
 import com.gopair.gateway.config.GatewayAuthProperties;
-import com.gopair.gateway.config.JwtProperties;
 import com.gopair.gateway.enums.GatewayErrorCode;
 import com.gopair.gateway.util.JwtUtils;
 
@@ -54,8 +54,8 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
-    private static final BaggageField USER_ID_BAGGAGE = BaggageField.create(MessageConstants.MDC_USER_ID);
-    private static final BaggageField NICKNAME_BAGGAGE = BaggageField.create(MessageConstants.MDC_NICKNAME);
+    private static final BaggageField USER_ID_BAGGAGE = BaggageField.create(SystemConstants.MDC_USER_ID);
+    private static final BaggageField NICKNAME_BAGGAGE = BaggageField.create(SystemConstants.MDC_NICKNAME);
 
     private final JwtProperties jwtProperties;
     private final GatewayAuthProperties gatewayAuthProperties;
@@ -64,17 +64,17 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     @Nullable
     private final Tracer tracer;
 
-    private static final String JWT_COOKIE_NAME = MessageConstants.JWT_COOKIE_NAME;
-    private static final String AUTHORIZATION_HEADER = MessageConstants.AUTHORIZATION_HEADER;
-    private static final String BEARER_PREFIX = MessageConstants.BEARER_PREFIX;
-    private static final String USER_ID_HEADER = MessageConstants.HEADER_USER_ID;
-    private static final String NICKNAME_HEADER = MessageConstants.HEADER_NICKNAME;
+    private static final String JWT_COOKIE_NAME = SystemConstants.JWT_COOKIE_NAME;
+    private static final String AUTHORIZATION_HEADER = SystemConstants.AUTHORIZATION_HEADER;
+    private static final String BEARER_PREFIX = SystemConstants.BEARER_PREFIX;
+    private static final String USER_ID_HEADER = SystemConstants.HEADER_USER_ID;
+    private static final String NICKNAME_HEADER = SystemConstants.HEADER_NICKNAME;
 
     /**
-     * 启动时预解析白名单路径，List 用于保留顺序（日志展示），Set 用于 O(1) 查找。
+     * 启动时白名单路径快照，仅用于日志展示。
+     * 实际认证时每次请求实时读取最新配置。
      */
-    private List<String> preParsedSkipAuthPaths;
-    private Set<String> skipAuthPathsSet;
+    private List<String> skipAuthPathsSnapshot;
 
     /**
      * Baggage 注入失败告警标记，应用生命周期内只打印一次 WARN。
@@ -94,15 +94,18 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
     @PostConstruct
     public void init() {
-        preParsedSkipAuthPaths = parseSkipAuthPaths(gatewayAuthProperties.getSkipAuthPaths());
-        skipAuthPathsSet = new HashSet<>(preParsedSkipAuthPaths);
-        log.info("[网关服务] JWT认证过滤器初始化完成，Baggage追踪增强={}, 白名单路径={}",
+        skipAuthPathsSnapshot = parseSkipAuthPaths(gatewayAuthProperties.getSkipAuthPaths());
+        log.info("[网关服务] JWT认证过滤器初始化完成，Baggage追踪增强={}, 白名单路径（启动时快照）={}",
                 tracer != null ? "已启用" : "未启用(无Tracer)",
-                preParsedSkipAuthPaths);
+                skipAuthPathsSnapshot);
+        log.info("[网关服务] 注意：白名单配置支持运行时动态刷新，无需重启服务");
     }
 
     /**
      * 预解析白名单路径字符串，支持精确匹配和带尾部斜杠的精确匹配。
+     *
+     * 注意：由于 GatewayAuthProperties 已标注 @RefreshScope，
+     * 此方法在每次请求时实时读取最新配置，确保配置变更即时生效。
      */
     private List<String> parseSkipAuthPaths(String skipAuthPathsStr) {
         if (!StringUtils.hasText(skipAuthPathsStr)) {
@@ -121,8 +124,11 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
 
         log.info("[网关认证] 开始处理 - 路径: {}", path);
 
+        // 实时读取最新白名单配置，确保 Nacos 配置变更即时生效
+        Set<String> currentSkipAuthPathsSet = new HashSet<>(parseSkipAuthPaths(gatewayAuthProperties.getSkipAuthPaths()));
+
         // 检查是否为白名单路径
-        if (isSkipAuthPath(path)) {
+        if (isSkipAuthPath(path, currentSkipAuthPathsSet)) {
             log.info("[网关认证] 跳过认证 - 路径: {}", path);
             return chain.filter(exchange);
         }
@@ -225,8 +231,11 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
     /**
      * 检查是否为白名单路径，使用 HashSet 查找（O(1)），支持尾部斜杠变体。
      * 例如配置 "/ws" 可匹配 "/ws" 和 "/ws/"。
+     *
+     * @param path 当前请求路径
+     * @param skipAuthPathsSet 当前的白名单路径集合（每次请求实时获取）
      */
-    private boolean isSkipAuthPath(String path) {
+    private boolean isSkipAuthPath(String path, Set<String> skipAuthPathsSet) {
         return skipAuthPathsSet.contains(path) || skipAuthPathsSet.contains(path + "/");
     }
 

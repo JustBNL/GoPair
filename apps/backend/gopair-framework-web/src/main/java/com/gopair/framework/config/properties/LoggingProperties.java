@@ -1,15 +1,20 @@
 package com.gopair.framework.config.properties;
 
+import jakarta.validation.Valid;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.constraints.Min;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 
 /**
- * 
  * 日志功能属性配置
- * 
+ *
  * @author gopair
  */
+@Validated
 @Data
+@RefreshScope
 @ConfigurationProperties(prefix = "gopair.logging")
 public class LoggingProperties {
     
@@ -29,6 +34,7 @@ public class LoggingProperties {
     private Ops ops = new Ops();
     
     @Data
+    @Valid
     public static class Aop {
         
         /**
@@ -53,6 +59,7 @@ public class LoggingProperties {
     }
     
     @Data
+    @Valid
     public static class Ops {
         
         /**
