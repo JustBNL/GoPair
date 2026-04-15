@@ -37,7 +37,7 @@ const badge = computed<BadgeConfig>(() => {
     if (s === '1') return { label: '文本', color: 'default' }
     if (s === '2') return { label: '图片', color: 'processing' }
     if (s === '3') return { label: '文件', color: 'warning' }
-    if (s === '4') return { label: '语音', color: 'purple' }
+    if (s === '4') return { label: '语音', color: '#722ed1' }
   }
   return { label: s, color: 'default' }
 })

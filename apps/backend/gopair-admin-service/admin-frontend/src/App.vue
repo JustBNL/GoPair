@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterView } from 'vue-router'
-import { ConfigProvider } from 'ant-design-vue'
+import { ConfigProvider, theme } from 'ant-design-vue'
 import { useAppStore } from '@/stores/app'
 
 const app = useAppStore()
 
-const themeToken = computed(() => ({
-  colorPrimary: '#0d9488',
-  borderRadius: 8,
-  fontFamily: "'Noto Sans SC', sans-serif",
+const themeConfig = computed(() => ({
+  token: {
+    colorPrimary: '#0d9488',
+    borderRadius: 8,
+    fontFamily: "'Noto Sans SC', sans-serif",
+  },
+  algorithm: app.isDark ? theme.darkAlgorithm : undefined,
 }))
 </script>
 
 <template>
-  <ConfigProvider :theme="{ token: themeToken }">
+  <ConfigProvider :theme="themeConfig">
     <RouterView />
   </ConfigProvider>
 </template>
