@@ -169,7 +169,6 @@ export function useVoiceCall(
 
   async function drainPendingSignals(): Promise<void> {
     if (pendingSignals.length === 0) return
-    console.log('[WebRTC] Flushing buffered signals:', pendingSignals.length)
     const signals = pendingSignals.splice(0, pendingSignals.length)
     for (const sig of signals) {
       await handleSignalingInternal(sig)
@@ -203,7 +202,6 @@ export function useVoiceCall(
       try {
         await VoiceAPI.ownerLeaveCall(callId)
       } catch (e) {
-        console.warn('[WebRTC] ownerLeaveCall API failed:', e)
       } finally {
         leavingInProgress = false
       }
@@ -215,7 +213,6 @@ export function useVoiceCall(
       try {
         await VoiceAPI.leaveCall(callId)
       } catch (e) {
-        console.warn('[WebRTC] leaveCall API failed (may be ok on unload):', e)
       } finally {
         leavingInProgress = false
       }
@@ -275,7 +272,6 @@ export function useVoiceCall(
     } else {
       try {
         await webrtcManager.initializeLocalStream()
-        console.log('[WebRTC] Local audio stream ready, callId:', resolvedCallId)
       } catch (err: any) {
         const msg = err?.message ?? String(err)
         if (msg.includes('Permission') || msg.includes('NotAllowed') || msg.includes('权限')) {
@@ -295,12 +291,9 @@ export function useVoiceCall(
     isMuted.value = false
     isSpeakerOff.value = false
 
-    // 主动为已在通话中的参与者建立 PeerConnection
     if (webrtcManager) {
       let existingParticipants = currentCall.value?.participants ?? []
-      // 若 participants 为空但 participantCount > 0，重新拉取完整数据
       if (existingParticipants.length === 0 && (currentCall.value?.participantCount ?? 0) > 0) {
-        console.log('[WebRTC] participants array empty but participantCount > 0, fetching full call data...')
         try {
           const fullRes = await VoiceAPI.getCall(resolvedCallId)
           if (fullRes.data) {
@@ -308,9 +301,7 @@ export function useVoiceCall(
             currentCall.value = fullRes.data
             existingParticipants = fullRes.data.participants
           }
-        } catch (e) {
-          console.warn('[WebRTC] Failed to fetch full call data for participant setup:', e)
-          // 兜底：用 getActiveCall
+        } catch {
           try {
             const activeRes = await VoiceAPI.getActiveCall(roomId.value)
             if (activeRes.data) {
@@ -318,13 +309,10 @@ export function useVoiceCall(
               currentCall.value = activeRes.data
               existingParticipants = activeRes.data.participants
             }
-          } catch (e2) {
-            console.warn('[WebRTC] Fallback getActiveCall also failed:', e2)
-          }
+          } catch {}
         }
       }
       if (existingParticipants.length > 0) {
-        console.log('[WebRTC] Existing participants:', existingParticipants.map((p: any) => p.userId))
         for (const p of existingParticipants) {
           if (p.userId !== currentUserId.value) {
             await webrtcManager.addParticipant(p.userId, p.nickname)
@@ -334,20 +322,14 @@ export function useVoiceCall(
     }
 
     await VoiceAPI.notifyReady(resolvedCallId)
-    console.log('[WebRTC] notifyReady sent, callId:', resolvedCallId)
 
-    // Refresh currentCall after notifyReady so VoiceCallPanel shows the
-    // complete participant list including the current user.
     try {
       const refreshed = await VoiceAPI.getCall(resolvedCallId)
       if (refreshed.data) {
         if (!Array.isArray(refreshed.data.participants)) refreshed.data.participants = []
         currentCall.value = refreshed.data
-        console.log('[WebRTC] currentCall refreshed, participants:',
-          refreshed.data.participants.map((p) => p.userId))
       }
-    } catch (e) {
-      console.warn('[WebRTC] post-notifyReady getCall failed, trying getActiveCall:', e)
+    } catch {
       try {
         const ar = await VoiceAPI.getActiveCall(roomId.value)
         if (ar.data) {
@@ -517,13 +499,11 @@ export function useVoiceCall(
 
   async function handleSignalingInternal(data: any): Promise<void> {
     if (!webrtcManager) {
-      console.warn('[WebRTC] Manager not ready, signal dropped:', data?.type)
       return
     }
 
     const sigType = data?.type
     const fromUserId = data?.fromUserId ?? data?.userId
-    console.log('[WebRTC] Processing signal:', sigType, 'from:', fromUserId)
 
     try {
       if (sigType === 'offer' || sigType === 'answer') {
@@ -556,7 +536,6 @@ export function useVoiceCall(
             : new RTCIceCandidate(candidatePayload)
         })
       } else {
-        console.warn('[WebRTC] Unknown signal type (ignored):', sigType)
       }
     } catch (error) {
       console.error('[WebRTC] Error processing signal:', sigType, error)
@@ -565,7 +544,6 @@ export function useVoiceCall(
 
   async function handleSignaling(data: any): Promise<void> {
     if (!webrtcManager || callState.value !== 'in-call') {
-      console.log('[WebRTC] Not in-call, dropping signal:', data?.type)
       return
     }
     await handleSignalingInternal(data)
@@ -615,7 +593,6 @@ export function useVoiceCall(
       currentCall.value = res.data
       latestParticipants = res.data.participants
     } catch (e) {
-      console.warn('[WebRTC] executeRosterUpdate: getCall failed:', e)
       try {
         const activeRes = await VoiceAPI.getActiveCall(roomId.value)
         if (!activeRes.data) return
@@ -623,7 +600,6 @@ export function useVoiceCall(
         currentCall.value = activeRes.data
         latestParticipants = activeRes.data.participants
       } catch (e2) {
-        console.warn('[WebRTC] executeRosterUpdate: fallback also failed:', e2)
         return
       }
     }
@@ -639,7 +615,6 @@ export function useVoiceCall(
     const localIdsBefore = new Set(webrtcManager.getParticipantIds())
     for (const id of localIdsBefore) {
       if (!activeIds.has(id)) {
-        console.log('[WebRTC] roster: removing departed userId:', id)
         webrtcManager.removeParticipant(id)
       }
     }
@@ -649,11 +624,11 @@ export function useVoiceCall(
       if (p.userId === currentUserId.value) continue
       const uid = Number(p.userId)
       if (!localIdsAfterRemove.has(uid)) {
-        console.log('[WebRTC] roster: adding new userId:', uid)
         await webrtcManager.addParticipant(uid, p.nickname)
       }
     }
   }
+
   async function handleLeaveBeforeUnmount(): Promise<void> {
     await leaveAndCleanup()
   }

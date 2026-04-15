@@ -212,12 +212,9 @@ export class P2PConnectionManager {
       },
       
       onCallAccept: (message) => {
-        // 处理通话接受
-        console.log('通话被接受:', message)
       },
       
       onCallReject: (message, reason) => {
-        console.log('通话被拒绝:', message, reason)
       },
       
       onCallEnd: (message) => {
@@ -409,8 +406,6 @@ export class P2PConnectionManager {
       
       // 如果在通话中，需要更新WebRTC流
       if (this.callState.isInCall) {
-        // 这里需要实现流的替换逻辑
-        console.log('TODO: 更新WebRTC流')
       }
       
       this.updateDeviceLists()

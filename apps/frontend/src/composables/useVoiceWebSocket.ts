@@ -73,13 +73,11 @@ export function useVoiceWebSocket(callId: Ref<number | null>, handlers: VoiceEve
       const voiceUrl = WS_ENDPOINTS.voice(targetCallId)
       await connect(voiceUrl, {
         onConnected: () => {
-          console.log(`📞 语音WebSocket连接成功: ${targetCallId}`)
           subscribeToVoiceEvents(targetCallId)
         },
         onDisconnected: () => {
           subscribed.value = false
           voiceState.value.callState = 'idle'
-          console.log(`📞 语音WebSocket连接断开: ${targetCallId}`)
         },
         onError: (error) => {
           subscriptionError.value = error
@@ -110,7 +108,6 @@ export function useVoiceWebSocket(callId: Ref<number | null>, handlers: VoiceEve
     const success = send(subscribeMessage)
     if (success) {
       subscribed.value = true
-      console.log(`✅ 语音事件订阅成功: ${targetCallId}`)
     }
   }
 
@@ -122,7 +119,6 @@ export function useVoiceWebSocket(callId: Ref<number | null>, handlers: VoiceEve
       const msg = buildUnsubscribeMessage(`voice:${callId.value}`)
       send(msg)
       subscribed.value = false
-      console.log(`📤 取消语音订阅: ${callId.value}`)
     }
   }
 
@@ -168,7 +164,6 @@ export function useVoiceWebSocket(callId: Ref<number | null>, handlers: VoiceEve
         if (message.type === WsMessageType.VOICE_SIGNALING) {
           handlers.onSignaling?.(data)
         } else {
-          console.log('未处理的语音事件:', eventType, data)
         }
     }
   }
@@ -284,7 +279,6 @@ export function useVoiceWebSocket(callId: Ref<number | null>, handlers: VoiceEve
     
     if (newCallId) {
       connectToVoice(newCallId).catch(error => {
-        console.error('语音WebSocket连接失败:', error)
       })
     }
   }, { immediate: true })

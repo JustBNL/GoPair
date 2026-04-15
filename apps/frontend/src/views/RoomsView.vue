@@ -1,5 +1,8 @@
 <template>
   <div class="rooms-view">
+    <!-- 无障碍跳转链接：绝对定位跳到根元素顶部，视觉上不受影响 -->
+    <a href="#rooms-main" class="skip-link">跳转到房间列表</a>
+
     <!-- 页面头部 -->
     <div class="rooms-header">
       <div class="header-content">
@@ -22,7 +25,7 @@
     </div>
 
     <!-- 主要内容区域 -->
-    <div class="rooms-content">
+    <div class="rooms-content" id="rooms-main" role="main">
       <!-- 操作区域 -->
       <div class="rooms-actions">
         <div class="actions-container">
@@ -268,20 +271,40 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ==================== 无障碍跳转链接 ==================== */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--brand-primary);
+  color: var(--text-on-primary);
+  border-radius: 0 0 8px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
 /* ==================== 页面布局 ==================== */
 
 .rooms-view {
+  position: relative;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-primary);
   position: relative;
 }
 
 /* ==================== 页面头部 ==================== */
 
 .rooms-header {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--overlay-white-10);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid var(--overlay-white-20);
   padding: 20px 0;
 }
 
@@ -297,7 +320,7 @@ onMounted(async () => {
 .brand-section {
   display: flex;
   align-items: center;
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .logo-icon {
@@ -309,10 +332,7 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  background: linear-gradient(45deg, #fff, #e2e8f0);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-on-primary);
 }
 
 .user-section {
@@ -322,19 +342,19 @@ onMounted(async () => {
 }
 
 .welcome-text {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-on-primary-muted);
   font-size: 16px;
 }
 
 .logout-btn {
-  color: rgba(255, 255, 255, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: var(--text-on-primary-muted) !important;
+  border: 1px solid var(--overlay-white-30) !important;
 }
 
 .logout-btn:hover {
-  color: white !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: var(--text-on-primary) !important;
+  background: var(--overlay-white-10) !important;
+  border-color: var(--overlay-white-20) !important;
 }
 
 /* ==================== 主要内容区域 ==================== */
@@ -356,11 +376,11 @@ onMounted(async () => {
   display: inline-flex;
   gap: 24px;
   padding: 32px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--overlay-white-95);
   backdrop-filter: blur(20px);
   border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--overlay-white-20);
 }
 
 .action-btn {
@@ -377,36 +397,34 @@ onMounted(async () => {
 }
 
 .create-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-primary);
   border: none;
 }
 
 .create-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(var(--brand-primary-rgb), 0.3);
 }
 
 .join-btn {
-  border: 2px solid #667eea;
-  color: #667eea;
+  border: 2px solid var(--brand-primary);
+  color: var(--brand-primary);
 }
 
 .join-btn:hover {
-  background: #667eea;
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  background: var(--brand-primary);
+  color: var(--text-on-primary);
+  box-shadow: 0 8px 25px rgba(var(--brand-primary-rgb), 0.3);
 }
 
 /* ==================== 房间列表区域 ==================== */
 
 .rooms-list-section {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--overlay-white-95);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   padding: 32px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--overlay-white-20);
 }
 
 .list-header {
@@ -415,22 +433,22 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .list-header h2 {
   margin: 0;
   font-size: 20px;
-  color: #1a202c;
+  color: var(--text-primary);
 }
 
 .refresh-btn {
-  color: #667eea;
+  color: var(--brand-primary);
 }
 
 .refresh-btn:hover {
-  color: #764ba2;
-  background: rgba(102, 126, 234, 0.1);
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
 }
 
 /* ==================== 房间列表 ==================== */
@@ -446,7 +464,7 @@ onMounted(async () => {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -457,7 +475,7 @@ onMounted(async () => {
 .empty-state h3 {
   font-size: 20px;
   margin-bottom: 8px;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .empty-state p {
@@ -476,7 +494,7 @@ onMounted(async () => {
 .loading-state {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .loading-state p {
@@ -490,41 +508,41 @@ onMounted(async () => {
   .header-content {
     padding: 0 16px;
   }
-  
+
   .user-section {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .welcome-text {
     font-size: 14px;
   }
-  
+
   .rooms-content {
     padding: 20px 16px;
   }
-  
+
   .actions-container {
     flex-direction: column;
     gap: 16px;
     padding: 24px;
   }
-  
+
   .action-btn {
     width: 100%;
     min-width: auto;
   }
-  
+
   .rooms-list-section {
     padding: 20px;
   }
-  
+
   .list-header {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
   }
-  
+
   .rooms-list {
     grid-template-columns: 1fr;
   }
@@ -540,24 +558,24 @@ onMounted(async () => {
   padding: 6px 10px;
   border-radius: 30px;
   transition: background 0.2s;
-}
 
-.user-avatar-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  &:hover {
+    background: var(--overlay-white-10);
+  }
 }
 
 .user-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  color: #667eea;
+  background: var(--surface-card);
+  color: var(--brand-primary);
   font-size: 16px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(255, 255, 255, 0.6);
+  border: 2px solid var(--overlay-white-40);
   flex-shrink: 0;
 }
 
@@ -565,5 +583,25 @@ onMounted(async () => {
   background: none;
   object-fit: cover;
   display: block;
+}
+
+/* ==================== 尊重减少动画偏好 ==================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .action-btn {
+    transition: none;
+  }
+
+  .create-btn:hover,
+  .join-btn:hover {
+    transform: none;
+  }
+
+  .rooms-header,
+  .actions-container,
+  .rooms-list-section,
+  .user-avatar-btn {
+    backdrop-filter: none;
+  }
 }
 </style>

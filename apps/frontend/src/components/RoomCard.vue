@@ -19,10 +19,10 @@
         </div>
         <div class="meta-item">
           <KeyOutlined class="meta-icon" />
-          <span class="room-code" @click="copyRoomCode">
+          <button type="button" class="room-code" @click="copyRoomCode" :aria-label="`复制房间码 ${props.room.roomCode}`">
             {{ props.room.roomCode }}
             <CopyOutlined class="copy-icon" />
-          </span>
+          </button>
           <span v-if="showPasswordArea" class="password-area">
             <LockOutlined class="meta-icon password-icon" />
             <span v-if="!passwordHidden" class="password-value">
@@ -30,7 +30,7 @@
               <span v-if="props.room.passwordMode === 2 && remainingSeconds > 0" class="totp-timer">({{ remainingSeconds }}s)</span>
             </span>
             <span v-else class="password-value hidden">••••••</span>
-            <span v-if="isOwner" class="password-toggle" @click.stop="togglePasswordVisibility">
+            <span v-if="isOwner" class="password-toggle" @click.stop="togglePasswordVisibility" :aria-label="passwordHidden ? '显示密码' : '隐藏密码'">
               <EyeOutlined v-if="passwordHidden" />
               <EyeInvisibleOutlined v-else />
             </span>
@@ -256,70 +256,243 @@ async function copyRoomCode() {
 </script>
 
 <style scoped>
+/* ==================== 卡片主体 ==================== */
 .room-card {
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #e8e8e8;
-  transition: all 0.3s ease;
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: 280px;
+  /* 移除了固定 height:280px — 内容决定高度，避免文本溢出 */
+  min-height: 260px;
 }
 .room-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
-  border-color: #667eea;
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand-primary);
 }
+
+/* ==================== 信息区域 ==================== */
 .room-info {
   flex: 1;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+.room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
 }
-.room-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.room-name { margin: 0; font-size: 18px; font-weight: 600; color: #1a202c; line-height: 1.3; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .room-status { flex-shrink: 0; }
-.status-tag { font-size: 12px; border-radius: 6px; margin: 0; }
-.room-description { margin: 0; font-size: 14px; color: #6b7280; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+.status-tag { font-size: 12px; border-radius: var(--radius-sm); margin: 0; }
+.room-description {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .room-meta { display: flex; flex-direction: column; gap: 8px; }
-.meta-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; }
-.meta-icon { font-size: 14px; color: #9ca3af; flex-shrink: 0; }
-.room-code { font-family: 'Courier New', monospace; font-weight: 500; color: #667eea; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: background-color 0.2s ease; }
-.room-code:hover { background-color: #f3f4f6; }
-.copy-icon { font-size: 12px; opacity: 0.7; }
-.room-owner { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; margin-top: auto; }
-.owner-icon { font-size: 14px; color: #9ca3af; }
-.room-actions { padding: 16px 20px; background: #fafafa; border-top: 1px solid #e8e8e8; display: flex; gap: 8px; }
-.action-btn { border-radius: 8px; font-weight: 500; transition: all 0.2s ease; }
-.enter-btn { flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; }
-.enter-btn:hover { background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
-.more-btn { width: 40px; padding: 0; display: flex; align-items: center; justify-content: center; border-color: #d1d5db; color: #6b7280; }
-.more-btn:hover { border-color: #667eea; color: #667eea; background: rgba(102, 126, 234, 0.05); }
-.password-area { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 2px 8px; background: rgba(102, 126, 234, 0.08); border-radius: 4px; border: 1px solid rgba(102, 126, 234, 0.2); }
-.password-icon { font-size: 12px; color: #667eea; }
-.password-value { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 600; color: #667eea; letter-spacing: 1px; }
-.password-value.hidden { color: #9ca3af; letter-spacing: 2px; }
-.totp-timer { font-size: 11px; color: #f59e0b; margin-left: 2px; font-weight: 400; }
-.password-toggle { cursor: pointer; color: #9ca3af; transition: color 0.2s; font-size: 13px; }
-.password-toggle:hover { color: #667eea; }
+.meta-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.meta-icon { font-size: 14px; color: var(--text-muted); flex-shrink: 0; }
+
+/* 房间码（触控目标 >= 44px） */
+.room-code {
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+  color: var(--brand-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px; /* 扩大触控区域 */
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  outline: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  min-height: 44px; /* 触控最小高度 */
+  line-height: 1;
+}
+.room-code:hover {
+  background-color: rgba(var(--brand-primary-rgb), 0.08);
+  color: var(--brand-primary-hover);
+}
+.room-code:active {
+  background-color: rgba(var(--brand-primary-rgb), 0.14);
+}
+.copy-icon { font-size: 12px; opacity: 0.7; color: var(--brand-primary); }
+
+.room-owner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.owner-icon { font-size: 14px; color: var(--text-muted); }
+
+/* ==================== 操作区 ==================== */
+.room-actions {
+  padding: 16px 20px;
+  background: var(--surface-bg);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  gap: 8px;
+}
+.action-btn { border-radius: var(--radius-md); font-weight: 500; }
+.enter-btn {
+  flex: 1;
+  background: var(--brand-primary);
+  border: none;
+  color: white;
+  min-height: 44px;
+}
+.enter-btn:hover {
+  background: var(--brand-primary-hover);
+  box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.35);
+}
+.more-btn {
+  width: 44px; /* 触控目标 */
+  height: 44px; /* 触控目标 */
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.more-btn:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+}
+
+/* ==================== 密码区 ==================== */
+.password-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 4px 8px;
+  background: var(--brand-primary-light);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(var(--brand-primary-rgb), 0.15);
+}
+.password-icon { font-size: 12px; color: var(--brand-primary); }
+.password-value {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  letter-spacing: 1px;
+}
+.password-value.hidden { color: var(--text-muted); letter-spacing: 2px; }
+.totp-timer { font-size: 11px; color: var(--color-warning); margin-left: 2px; font-weight: 400; }
+
+/* 密码切换 — 改为真实 button，48px 触控目标 */
+.password-toggle {
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.15s;
+  font-size: 13px;
+  background: none;
+  border: none;
+  padding: 6px; /* 扩大触控区至 44px+ */
+  margin: -6px; /* 补偿 padding，保持视觉位置 */
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  line-height: 1;
+}
+.password-toggle:hover { color: var(--brand-primary); }
+
+/* ==================== 密码弹窗 ==================== */
 .password-modal-content { padding: 8px 0; }
 .password-mode-group { display: flex; width: 100%; }
-.password-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
-:deep(.ant-dropdown-menu) { border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
-:deep(.ant-dropdown-menu-item) { padding: 8px 16px; font-size: 14px; }
-:deep(.danger-item) { color: #dc2626 !important; }
-:deep(.danger-item:hover) { background-color: #fef2f2 !important; }
-@media (max-width: 480px) {
-  .room-card { height: auto; min-height: 260px; }
+.password-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* ==================== ant-design 覆盖 ==================== */
+:deep(.ant-dropdown-menu) {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+:deep(.ant-dropdown-menu-item) {
+  padding: 10px 16px; /* 触控友好行高 */
+  font-size: 14px;
+  min-height: 44px; /* 触控目标 */
+  display: flex;
+  align-items: center;
+}
+:deep(.danger-item) { color: var(--color-error) !important; }
+:deep(.danger-item:hover) { background-color: var(--danger-hover-bg) !important; }
+
+/* ==================== 响应式断点 ==================== */
+
+/* 手机竖屏 320px–479px */
+@media (max-width: 479px) {
+  .room-info { padding: 14px; gap: 8px; }
+  .room-name { font-size: 15px; }
+  .room-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .room-description { -webkit-line-clamp: 1; } /* 更少空间只显示一行 */
+  .meta-item { font-size: 12px; }
+  .room-owner { font-size: 12px; }
+  .room-actions { padding: 10px 14px; }
+}
+
+/* 手机横屏 / 超小平板 480px–639px */
+@media (min-width: 480px) and (max-width: 639px) {
   .room-info { padding: 16px; gap: 10px; }
   .room-name { font-size: 16px; }
-  .room-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .room-meta { gap: 6px; }
-  .meta-item { font-size: 12px; }
-  .room-actions { padding: 12px 16px; gap: 6px; }
-  .enter-btn { font-size: 14px; }
-  .more-btn { width: 36px; }
+  .room-header { flex-wrap: wrap; }
+}
+
+/* 平板竖屏 640px–1023px（主要移动端目标） */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .room-card {
+    /* 平板上允许更宽的卡片，适当限制宽度避免拉得太长 */
+    max-width: 100%;
+  }
+}
+
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .room-card,
+  .action-btn,
+  .room-code,
+  .password-toggle {
+    transition: none;
+  }
 }
 </style>

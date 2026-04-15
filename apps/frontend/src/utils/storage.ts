@@ -125,7 +125,6 @@ export class Storage {
     try {
       const cookieOptions = Storage.getOptimalCookieOptions()
       document.cookie = `token=${token}; ${cookieOptions}`
-      console.log(`✅ Cookie Token已设置 - 环境: ${import.meta.env.MODE}`)
     } catch (error) {
       console.error('❌ 设置Cookie Token失败:', error)
     }
@@ -157,7 +156,6 @@ export class Storage {
     try {
       // 设置过期时间为过去的时间来删除Cookie
       document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      console.log('✅ Cookie Token已移除')
     } catch (error) {
       console.error('❌ 移除Cookie Token失败:', error)
     }
@@ -173,10 +171,6 @@ export class Storage {
     const isConsistent = localToken === cookieToken
     
     if (!isConsistent) {
-      console.warn('⚠️ Token不一致:', {
-        localStorage: localToken ? '***' + localToken.slice(-6) : null,
-        cookie: cookieToken ? '***' + cookieToken.slice(-6) : null
-      })
     }
     
     return isConsistent
@@ -189,7 +183,6 @@ export class Storage {
     const localToken = Storage.getToken()
     if (localToken) {
       Storage.setCookieToken(localToken)
-      console.log('🔄 Token已同步到Cookie')
     }
   }
 

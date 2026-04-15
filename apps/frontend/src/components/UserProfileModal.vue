@@ -350,7 +350,7 @@ function handleClose() {
   height: 72px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #667eea;
+  border: 3px solid var(--brand-primary);
   display: block;
 }
 
@@ -358,21 +358,21 @@ function handleClose() {
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: #fff;
+  background: var(--brand-primary);
+  color: var(--text-on-primary);
   font-size: 28px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid #667eea;
+  border: 3px solid var(--brand-primary);
 }
 
 .avatar-overlay {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--overlay-dark-45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -385,7 +385,7 @@ function handleClose() {
 }
 
 .avatar-overlay-text {
-  color: #fff;
+  color: var(--text-on-primary);
   font-size: 11px;
   font-weight: 600;
   text-align: center;
@@ -400,13 +400,13 @@ function handleClose() {
 .avatar-tip-title {
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary);
   margin: 0 0 4px;
 }
 
 .avatar-tip-desc {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-muted);
   margin: 0;
   line-height: 1.6;
 }
@@ -414,7 +414,7 @@ function handleClose() {
 /* 密码折叠区 */
 .password-section {
   margin-bottom: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -425,21 +425,21 @@ function handleClose() {
   align-items: center;
   padding: 10px 16px;
   cursor: pointer;
-  background: #f9fafb;
+  background: var(--surface-bg);
   font-size: 14px;
-  color: #374151;
+  color: var(--text-primary);
   user-select: none;
   transition: background 0.2s;
 }
 
 .password-toggle:hover {
-  background: #f3f4f6;
+  background: var(--border-light);
 }
 
 .toggle-icon {
   transition: transform 0.25s;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .toggle-icon.rotated {
@@ -459,12 +459,12 @@ function handleClose() {
 }
 
 .save-btn {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--brand-primary);
   border: none;
 }
 
 .save-btn:hover {
-  opacity: 0.9;
+  background: var(--brand-primary-hover);
 }
 
 /* 注销账号区域 */
@@ -483,13 +483,13 @@ function handleClose() {
 .cancel-account-title {
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary);
   margin: 0 0 4px;
 }
 
 .cancel-account-desc {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-muted);
   margin: 0;
   line-height: 1.5;
 }
@@ -500,21 +500,20 @@ function handleClose() {
 
 /* 注销确认弹窗内容 */
 .cancel-confirm-content p {
+  color: var(--text-primary);
   margin: 0 0 8px;
-  color: #374151;
-  font-size: 14px;
 }
 
 .cancel-confirm-content ul {
   margin: 0 0 12px;
   padding-left: 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 2;
 }
 
 .cancel-confirm-warning {
-  color: #ef4444;
+  color: var(--color-error);
   font-size: 13px;
   margin: 0 !important;
 }

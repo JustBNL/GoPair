@@ -168,6 +168,7 @@
                 placeholder="请输入6位验证码"
                 :prefix="h(SafetyOutlined)"
                 maxlength="6"
+                :disabled="forgotCodeCooldown > 0 || !forgotForm.email"
                 class="code-input"
               />
               <a-button
@@ -473,7 +474,7 @@ onMounted(() => {
 .form-title {
   font-size: 28px;
   font-weight: 600;
-  color: #1a202c;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 

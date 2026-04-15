@@ -160,9 +160,9 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
     gap: 12px;
     text-align: center;
 
-    h3 { margin: 0; font-size: 20px; color: #262626; }
-    .desc { margin: 0; color: #8c8c8c; font-size: 14px; }
-    .desc-sub { margin: 0; color: #bfbfbf; font-size: 13px; }
+    h3 { margin: 0; font-size: 20px; color: var(--text-primary); }
+    .desc { margin: 0; color: var(--text-muted); font-size: 14px; }
+    .desc-sub { margin: 0; color: var(--text-placeholder); font-size: 13px; }
   }
 
   .voice-icon {
@@ -174,10 +174,10 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
     border-radius: 50%;
     font-size: 32px;
 
-    &.locked  { background: #f5f5f5; color: #bfbfbf; }
-    &.idle    { background: #f0f5ff; color: #1890ff; }
-    &.active  { background: #fff7e6; color: #fa8c16; animation: pulse 1.5s ease-in-out infinite; }
-    &.in-call { background: #f6ffed; color: #52c41a; }
+    &.locked  { background: var(--surface-bg); color: var(--text-placeholder); }
+    &.idle    { background: rgba(var(--brand-accent-rgb), 0.08); color: var(--brand-accent); }
+    &.active  { background: rgba(var(--color-warning-rgb), 0.1); color: var(--color-warning); animation: pulse 1.5s ease-in-out infinite; }
+    &.in-call { background: rgba(var(--brand-accent-rgb), 0.1); color: var(--brand-accent); }
   }
 
   .participant-avatars {
@@ -186,8 +186,8 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
     gap: 4px;
     margin: 8px 0;
 
-    .participant-avatar { border: 2px solid #fff; }
-    .more-count { font-size: 12px; color: #8c8c8c; margin-left: 4px; }
+    .participant-avatar { border: 2px solid white; }
+    .more-count { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
   }
 
   .state-in-call {
@@ -200,12 +200,12 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
       align-items: center;
       gap: 16px;
 
-      h3 { margin: 0; font-size: 18px; color: #262626; }
-      .desc { margin: 0; color: #8c8c8c; font-size: 13px; }
+      h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
+      .desc { margin: 0; color: var(--text-muted); font-size: 13px; }
     }
 
     .participants-list {
-      border: 1px solid #f0f0f0;
+      border: 1px solid var(--border-light);
       border-radius: 8px;
       overflow: hidden;
 
@@ -214,11 +214,11 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
         align-items: center;
         gap: 12px;
         padding: 10px 14px;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid var(--border-light);
 
         &:last-child { border-bottom: none; }
-        .participant-id { flex: 1; font-size: 14px; color: #262626; }
-        .muted-icon { color: #ff4d4f; font-size: 14px; }
+        .participant-id { flex: 1; font-size: 14px; color: var(--text-primary); }
+        .muted-icon { color: var(--color-error); font-size: 14px; }
       }
     }
 
@@ -228,13 +228,13 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
       gap: 16px;
 
       .ctrl-btn--off {
-        background: #ff4d4f;
-        border-color: #ff4d4f;
-        color: #fff;
+        background: var(--color-error);
+        border-color: var(--color-error);
+        color: white;
 
         &:hover {
-          background: #ff7875;
-          border-color: #ff7875;
+          background: var(--color-error);
+          border-color: var(--color-error);
         }
       }
     }
@@ -269,5 +269,9 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50%       { transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-icon.active { animation: none; }
 }
 </style>

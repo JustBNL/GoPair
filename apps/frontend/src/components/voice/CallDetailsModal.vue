@@ -56,6 +56,8 @@
             :pagination="false"
             size="small"
             :loading="loadingParticipants"
+            :locale="{ emptyText: '暂无参与者数据' }"
+            class="participants-table-inner"
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'userNickname'">
@@ -468,12 +470,19 @@ watch(() => props.open, (isOpen) => {
 
     .section-title {
       margin-bottom: 12px;
-      color: #262626;
+      color: var(--text-primary);
       font-size: 14px;
       font-weight: 500;
     }
 
     .participants-table {
+      .participants-table-inner {
+        :deep(.ant-table-placeholder) {
+          background: var(--surface-bg);
+          border-radius: 8px;
+        }
+      }
+
       .participant-name {
         display: flex;
         align-items: center;
@@ -495,9 +504,9 @@ watch(() => props.open, (isOpen) => {
         align-items: center;
         gap: 12px;
         padding: 16px;
-        background: #fafafa;
+        background: var(--surface-bg);
         border-radius: 8px;
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--border-light);
 
         .stat-icon {
           width: 40px;
@@ -505,7 +514,7 @@ watch(() => props.open, (isOpen) => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #1890ff;
+          background: var(--color-info);
           color: white;
           border-radius: 8px;
           font-size: 18px;
@@ -515,13 +524,13 @@ watch(() => props.open, (isOpen) => {
           .stat-value {
             font-size: 18px;
             font-weight: 600;
-            color: #262626;
+            color: var(--text-primary);
             margin-bottom: 2px;
           }
 
           .stat-label {
             font-size: 12px;
-            color: #8c8c8c;
+            color: var(--text-muted);
           }
         }
       }
@@ -530,7 +539,7 @@ watch(() => props.open, (isOpen) => {
 
   .actions-section {
     padding-top: 16px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--border-light);
     text-align: center;
   }
 }

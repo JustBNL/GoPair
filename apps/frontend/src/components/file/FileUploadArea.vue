@@ -6,6 +6,7 @@
       :multiple="true"
       :before-upload="beforeUpload"
       :show-upload-list="false"
+      :disabled="uploadingFiles.length > 0"
       @drop="handleDrop"
       @change="handleChange"
       class="upload-dragger"
@@ -231,15 +232,12 @@ const startUpload = async (file: File) => {
  * 处理文件变化
  */
 const handleChange = (info: any) => {
-  // 文件列表变化处理
-  console.log('File list changed:', info)
 }
 
 /**
  * 处理拖拽上传
  */
 const handleDrop = (event: DragEvent) => {
-  console.log('Files dropped:', event.dataTransfer?.files)
 }
 
 /**
@@ -302,19 +300,26 @@ const allowedTypes = computed(() => props.allowedTypes)
 .file-upload-area {
   .upload-dragger {
     :deep(.ant-upload-drag) {
-      border: 2px dashed #d9d9d9;
+      border: 2px dashed var(--border-default);
       border-radius: 8px;
-      background: #fafafa;
+      background: var(--surface-bg);
       transition: all 0.3s ease;
 
-      &:hover {
-        border-color: #1890ff;
-        background: #f0f8ff;
+      &:hover:not(:disabled) {
+        border-color: var(--brand-primary);
+        background: var(--brand-primary-light);
       }
 
       &.ant-upload-drag-hover {
-        border-color: #1890ff;
-        background: #f0f8ff;
+        border-color: var(--brand-primary);
+        background: var(--brand-primary-light);
+      }
+
+      &.ant-upload-drag-disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        border-color: var(--border-default);
+        background: var(--surface-bg);
       }
     }
 
@@ -324,20 +329,20 @@ const allowedTypes = computed(() => props.allowedTypes)
 
       .upload-icon {
         font-size: 48px;
-        color: #d9d9d9;
+        color: var(--border-default);
         margin-bottom: 16px;
       }
 
       .upload-text {
         h4 {
           margin-bottom: 8px;
-          color: #262626;
+          color: var(--text-primary);
           font-size: 16px;
         }
 
         p {
           margin: 0;
-          color: #8c8c8c;
+          color: var(--text-muted);
           font-size: 14px;
         }
       }
@@ -347,12 +352,12 @@ const allowedTypes = computed(() => props.allowedTypes)
   .upload-list {
     margin-top: 24px;
     padding: 16px;
-    background: #fafafa;
+    background: var(--surface-bg);
     border-radius: 8px;
 
     h4 {
       margin-bottom: 16px;
-      color: #262626;
+      color: var(--text-primary);
       font-size: 14px;
       font-weight: 500;
     }
@@ -366,7 +371,7 @@ const allowedTypes = computed(() => props.allowedTypes)
         background: white;
         border-radius: 6px;
         margin-bottom: 8px;
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--border-light);
 
         &:last-child {
           margin-bottom: 0;
@@ -391,7 +396,7 @@ const allowedTypes = computed(() => props.allowedTypes)
 
             .file-size {
               font-size: 12px;
-              color: #8c8c8c;
+              color: var(--text-muted);
             }
           }
         }
@@ -418,7 +423,7 @@ const allowedTypes = computed(() => props.allowedTypes)
       li {
         margin-bottom: 4px;
         font-size: 12px;
-        color: #595959;
+        color: var(--text-secondary);
 
         &:last-child {
           margin-bottom: 0;

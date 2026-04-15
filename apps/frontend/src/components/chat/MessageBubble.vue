@@ -60,14 +60,15 @@
               <div class="file-size">{{ message.fileSizeFormatted }}</div>
             </div>
             <div class="file-actions">
-              <a-button
-                type="link"
-                size="small"
-                @click="downloadFile"
-              >
-                <download-outlined />
-                下载
-              </a-button>
+            <a-button
+              type="link"
+              size="small"
+              aria-label="下载文件"
+              @click="downloadFile"
+            >
+              <download-outlined />
+              下载
+            </a-button>
             </div>
           </div>
         </div>
@@ -102,27 +103,33 @@
       </div>
     </div>
 
-    <!-- 消息操作菜单 -->
-    <div v-if="showActions" class="message-actions">
+    <!-- 消息操作菜单 - 移动端始终显示，桌面端hover显示 -->
+    <div
+      v-if="showActions"
+      class="message-actions"
+      role="toolbar"
+      aria-label="消息操作"
+      :class="{ 'always-visible': isMobile }"
+    >
       <a-dropdown :trigger="['click']">
-        <a-button type="text" size="small">
+        <a-button type="text" size="small" aria-label="更多操作" @keydown.enter.prevent="onReply">
           <more-outlined />
         </a-button>
         <template #overlay>
-          <a-menu>
-            <a-menu-item key="reply" @click="onReply">
+          <a-menu role="menu">
+            <a-menu-item key="reply" role="menuitem" @click="onReply">
               <message-outlined />
               回复
             </a-menu-item>
-            <a-menu-item key="copy" @click="onCopy">
+            <a-menu-item key="copy" role="menuitem" @click="onCopy">
               <copy-outlined />
               复制
             </a-menu-item>
-            <a-menu-item v-if="message.isOwn" key="recall" @click="onRecall">
+            <a-menu-item v-if="message.isOwn" key="recall" role="menuitem" @click="onRecall">
               <rollback-outlined />
               撤回
             </a-menu-item>
-            <a-menu-item v-if="message.isOwn" key="delete" danger @click="onDelete">
+            <a-menu-item v-if="message.isOwn" key="delete" danger role="menuitem" @click="onDelete">
               <delete-outlined />
               删除
             </a-menu-item>
@@ -134,9 +141,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { message as antMessage } from 'ant-design-vue'
-import dayjs from 'dayjs'
 import {
   FileOutlined,
   DownloadOutlined,
@@ -150,7 +156,7 @@ import {
   DeleteOutlined
 } from '@ant-design/icons-vue'
 import { MessageType, type MessageVO } from '@/types/api'
-import { FileAPI } from '@/api/file'
+import { formatTime } from '@/utils/format'
 
 interface Props {
   message: MessageVO
@@ -171,26 +177,26 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>()
 
+// 移动端检测（复用 RoomCard 同逻辑：768px 断点）
+const isMobile = ref(false)
+
+function updateMobileState() {
+  isMobile.value = window.innerWidth < 768
+}
+
+onMounted(() => {
+  updateMobileState()
+  window.addEventListener('resize', updateMobileState, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMobileState)
+})
+
 // 语音播放状态
 const isPlaying = ref(false)
 const voiceDuration = ref(0)
-
-/**
- * 格式化时间（统一 MM-DD HH:mm），兼容多种输入
- */
-const formatTime = (timeInput: any) => {
-  if (!timeInput) return ''
-  let d
-  if (typeof timeInput === 'number') {
-    d = dayjs(timeInput)
-  } else if (typeof timeInput === 'string' && /^\d+$/.test(timeInput)) {
-    d = dayjs(Number(timeInput))
-  } else {
-    d = dayjs(timeInput)
-  }
-  if (!d.isValid()) return ''
-  return d.format('MM-DD HH:mm')
-}
+let audioElement: HTMLAudioElement | null = null
 
 /**
  * 格式化语音时长
@@ -199,6 +205,36 @@ const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// formatTime 来自 @/utils/format（已在本文件顶部导入）
+
+/**
+ * 切换语音播放
+ */
+const togglePlay = async () => {
+  if (!audioElement) {
+    audioElement = new Audio(props.message.fileUrl)
+    audioElement.addEventListener('loadedmetadata', () => {
+      voiceDuration.value = Math.floor(audioElement!.duration || 0)
+    })
+    audioElement.addEventListener('ended', () => {
+      isPlaying.value = false
+      audioElement!.currentTime = 0
+    })
+  }
+
+  if (isPlaying.value) {
+    audioElement.pause()
+    isPlaying.value = false
+  } else {
+    try {
+      await audioElement.play()
+      isPlaying.value = true
+    } catch (error) {
+      isPlaying.value = false
+    }
+  }
 }
 
 /**
@@ -218,14 +254,6 @@ const downloadFile = async () => {
   } catch (error) {
     antMessage.error('下载失败')
   }
-}
-
-/**
- * 切换语音播放
- */
-const togglePlay = () => {
-  isPlaying.value = !isPlaying.value
-  // TODO: 实现语音播放逻辑
 }
 
 /**
@@ -271,14 +299,14 @@ const onDelete = () => {
 
   &.own-message {
     flex-direction: row-reverse;
-    
+
     .message-content {
       align-items: flex-end;
     }
 
     .message-body {
-      background-color: #1890ff;
-      color: white;
+      background-color: var(--bubble-own-bg);
+      color: var(--bubble-own-text);
     }
   }
 }
@@ -302,11 +330,11 @@ const onDelete = () => {
   gap: 8px;
   margin-bottom: 4px;
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--text-muted);
 
   .sender-name {
     font-weight: 500;
-    color: #595959;
+    color: var(--text-secondary);
   }
 }
 
@@ -315,11 +343,11 @@ const onDelete = () => {
 
   .reply-content {
     padding: 6px 8px;
-    background-color: #f5f5f5;
-    border-left: 3px solid #1890ff;
+    background-color: var(--bubble-reply-bg);
+    border-left: 3px solid var(--bubble-reply-border);
     border-radius: 4px;
     font-size: 12px;
-    color: #8c8c8c;
+    color: var(--text-muted);
 
     .reply-sender {
       font-weight: 500;
@@ -339,7 +367,8 @@ const onDelete = () => {
 
 .message-body {
   padding: 8px 12px;
-  background-color: #f5f5f5;
+  background-color: var(--bubble-other-bg);
+  color: var(--bubble-other-text);
   border-radius: 8px;
   position: relative;
   word-wrap: break-word;
@@ -369,7 +398,7 @@ const onDelete = () => {
       .image-caption {
         padding: 4px 8px;
         font-size: 12px;
-        color: #8c8c8c;
+        color: var(--text-muted);
         text-align: center;
       }
     }
@@ -378,7 +407,7 @@ const onDelete = () => {
   &.message-type-3 {
     // 文件消息
     padding: 8px;
-    
+
     .file-message {
       .file-info {
         display: flex;
@@ -387,7 +416,7 @@ const onDelete = () => {
 
         .file-icon {
           font-size: 24px;
-          color: #1890ff;
+          color: var(--color-info);
         }
 
         .file-details {
@@ -401,7 +430,7 @@ const onDelete = () => {
 
           .file-size {
             font-size: 12px;
-            color: #8c8c8c;
+            color: var(--text-muted);
           }
         }
 
@@ -422,7 +451,7 @@ const onDelete = () => {
 
         .voice-duration {
           font-size: 12px;
-          color: #8c8c8c;
+          color: var(--text-muted);
         }
       }
     }
@@ -436,20 +465,30 @@ const onDelete = () => {
   gap: 4px;
   margin-top: 4px;
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--text-muted);
 
   .message-status {
-    color: #52c41a;
+    color: var(--color-success);
   }
 }
 
 .message-actions {
   opacity: 0;
   transition: opacity 0.2s;
+
+  &.always-visible {
+    opacity: 1;
+  }
 }
 
 .message-bubble:hover .message-actions {
   opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .message-actions {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 768px) {
@@ -474,7 +513,7 @@ const onDelete = () => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #8c8c8c;
+  color: var(--text-muted);
 
   .emoji-char {
     font-size: 20px;

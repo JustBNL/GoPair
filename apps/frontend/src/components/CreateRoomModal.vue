@@ -268,11 +268,7 @@ async function handleSubmit(values: CreateRoomFormData) {
       resetForm()
     }
   } catch (error: any) {
-    console.error('创建房间失败:', error)
-
-    // 根据错误类型显示不同的提示
-    const errorMessage = error?.message || '创建房间失败，请重试'
-    message.error(errorMessage)
+    message.error('创建房间失败，请重试')
   }
 }
 
@@ -280,7 +276,6 @@ async function handleSubmit(values: CreateRoomFormData) {
  * 提交失败处理
  */
 function handleSubmitFailed(errorInfo: any) {
-  console.warn('表单验证失败:', errorInfo)
   message.warning('请检查表单信息')
 }
 
@@ -326,8 +321,8 @@ function resetForm() {
 .modal-header {
   text-align: center;
   padding: 32px 32px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--brand-primary);
+  color: var(--text-on-primary);
 }
 
 .header-icon {
@@ -356,7 +351,7 @@ function resetForm() {
 
 :deep(.create-form .ant-form-item-label > label) {
   font-weight: 500;
-  color: #1a202c;
+  color: var(--text-primary);
 }
 
 :deep(.create-form .ant-input),
@@ -368,8 +363,8 @@ function resetForm() {
 :deep(.create-form .ant-input:focus),
 :deep(.create-form .ant-select-focused .ant-select-selector),
 :deep(.create-form .ant-input-focused) {
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 2px var(--brand-primary-light);
 }
 
 /* ==================== 高级设置 ==================== */
@@ -383,7 +378,7 @@ function resetForm() {
   background: transparent !important;
   border: none !important;
   font-weight: 500;
-  color: #667eea;
+  color: var(--brand-primary);
 }
 
 :deep(.advanced-settings .ant-collapse-content-box) {
@@ -391,10 +386,10 @@ function resetForm() {
 }
 
 .advanced-content {
-  background: #f8fafc;
+  background: var(--surface-bg);
   border-radius: 8px;
   padding: 20px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-default);
 }
 
 /* ==================== 滑块样式 ==================== */
@@ -404,31 +399,31 @@ function resetForm() {
 }
 
 :deep(.member-slider .ant-slider-rail) {
-  background: #e2e8f0;
+  background: var(--border-default);
 }
 
 :deep(.member-slider .ant-slider-track) {
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-primary);
 }
 
 :deep(.member-slider .ant-slider-handle) {
-  border-color: #667eea;
+  border-color: var(--brand-primary);
 }
 
 :deep(.member-slider .ant-slider-handle:focus) {
-  box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 5px var(--brand-primary-light);
 }
 
 .slider-info {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .current-value {
   font-weight: 600;
-  color: #667eea;
+  color: var(--brand-primary);
 }
 
 /* ==================== 操作按钮 ==================== */
@@ -444,13 +439,13 @@ function resetForm() {
   height: 44px;
   border-radius: 8px;
   font-weight: 500;
-  border-color: #d1d5db;
-  color: #6b7280;
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
 
 .cancel-btn:hover {
-  border-color: #9ca3af;
-  color: #374151;
+  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .submit-btn {
@@ -458,7 +453,7 @@ function resetForm() {
   height: 44px;
   border-radius: 8px;
   font-weight: 500;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-primary);
   border: none;
   display: flex;
   align-items: center;
@@ -467,9 +462,9 @@ function resetForm() {
 }
 
 .submit-btn:hover {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  background: var(--brand-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.4);
 }
 
 .submit-btn:active {

@@ -100,7 +100,6 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
   const subscribeToRoomEvents = (): void => {
     const currentUser = authStore.user
     if (!currentUser) {
-      console.error('❌ 用户信息不存在，无法订阅房间事件')
       return
     }
 
@@ -125,9 +124,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
     const success = send(subscribeMessage)
     if (success) {
       subscribed.value = true
-      console.log(`✅ 房间事件订阅成功: ${roomId.value}, 频道: room:${roomId.value}`)
     } else {
-      console.error(`❌ 房间事件订阅失败: ${roomId.value}`)
     }
 
     // 额外订阅 user:{userId} 频道的信令消息
@@ -147,7 +144,6 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       const msg = buildUnsubscribeMessage(`room:${roomId.value}`, currentUser?.userId)
       send(msg)
       subscribed.value = false
-      console.log(`📤 取消房间订阅: ${roomId.value}`)
     }
   }
 
@@ -267,7 +263,6 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       }
 
       default:
-        console.log('未处理的房间事件:', eventType, data)
     }
   }
 
@@ -314,12 +309,10 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       disconnectFromRoom()
     }
     if (newRoomId && newRoomId > 0) {
-      console.log(`🔄 房间ID变化，准备连接WebSocket: ${newRoomId}`)
       connectToRoom().catch(error => {
         console.error('房间WebSocket连接失败:', error)
       })
     } else if (newRoomId === 0 || !newRoomId) {
-      console.log('⏰ 等待有效的房间ID...')
     }
   }, { immediate: true })
 

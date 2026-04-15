@@ -1,0 +1,187 @@
+/**
+ * GoPair 设计系统 — 全局 Design Token
+ * Cool Slate + Muted Steel Blue / Emerald 配色方案
+ * 冷调克制冷灰底，柔钢蓝主色 + 柔翠绿点缀
+ * 拒绝高饱和暖色，走淡雅克制路线
+ */
+
+:root {
+  /* ========== 品牌色系 ========== */
+  /* 柔钢蓝 — 主品牌色，低饱和冷调蓝，沉稳克制 */
+  --brand-primary: #5B87BD;
+  --brand-primary-rgb: 91, 135, 189;
+  --brand-primary-hover: #4A75AA;
+  --brand-primary-light: rgba(91, 135, 189, 0.08);
+  --brand-primary-medium: rgba(91, 135, 189, 0.14);
+  --brand-primary-subtle: rgba(91, 135, 189, 0.06);
+
+  /* 柔翠绿 — 点缀色，用于消息气泡、徽章、状态、在线等 */
+  --brand-accent: #3B9E7A;
+  --brand-accent-rgb: 59, 158, 122;
+  --brand-accent-hover: #2E8B68;
+  --brand-accent-light: rgba(59, 158, 122, 0.08);
+  --brand-accent-medium: rgba(59, 158, 122, 0.14);
+  --brand-accent-subtle: rgba(59, 158, 122, 0.06);
+
+  /* ========== 表面色 ========== */
+  /* 背景：冷调淡灰白，带极淡蓝灰底色，干净不冷白 */
+  --surface-bg: #F6F8FB;
+  --surface-card: #FFFFFF;
+  --surface-overlay: rgba(255, 255, 255, 0.96);
+
+  /* ========== 主品牌背景上的文字 ========== */
+  --text-on-primary: #FFFFFF;
+  --text-on-primary-muted: rgba(255, 255, 255, 0.75);
+
+  /* ========== 文本色 ========== */
+  --text-primary: #1E2432;
+  --text-secondary: #566476;
+  --text-muted: #8896AA;
+  --text-placeholder: #A8B5C7;
+
+  /* ========== 边框 & 分隔 ========== */
+  --border-default: #E2E8F0;
+  --border-light: #EFF2F7;
+  --border-medium: #D0D8E4;
+
+  /* ========== 状态色 ========== */
+  --color-success: #3B9E7A;
+  --color-success-rgb: 59, 158, 122;
+  --color-warning: #C48C2A;
+  --color-warning-rgb: 196, 140, 42;
+  --color-error: #C94D4D;
+  --color-error-rgb: 201, 77, 77;
+  --color-info: #4A7FB5;
+  --color-info-rgb: 74, 127, 181;
+
+  /* ========== 文件类型色（柔和不刺眼） ========== */
+  --file-pdf: #C97878;
+  --file-word: #6B8EAD;
+  --file-excel: #5E9E8A;
+  --file-powerpoint: #C49A6C;
+  --file-text: #7A8B9A;
+  --file-image: #8B7AAA;
+  --file-video: #B57B7B;
+  --file-audio: #6A96B0;
+  --file-archive: #9E7A5E;
+  --file-code: #6B8EAD;
+  --file-default: #9EAAB8;
+
+  /* ========== z-index 层级 ========== */
+  --z-above: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 500;
+  --z-modal: 1000;
+  --z-drawer: 1100;
+  --z-toast: 2000;
+  --z-tooltip: 3000;
+
+  /* ========== 中性叠加色 ========== */
+  /* 半透明白色：用于品牌背景上的卡片/文字底 */
+  --overlay-white-95: rgba(255, 255, 255, 0.95);
+  --overlay-white-90: rgba(255, 255, 255, 0.90);
+  --overlay-white-40: rgba(255, 255, 255, 0.40);
+  --overlay-white-20: rgba(255, 255, 255, 0.20);
+  --overlay-white-30: rgba(255, 255, 255, 0.30);
+  --overlay-white-15: rgba(255, 255, 255, 0.15);
+  --overlay-white-10: rgba(255, 255, 255, 0.10);
+
+  /* 头像叠加遮罩（深色） */
+  --overlay-dark-45: rgba(0, 0, 0, 0.45);
+
+  /* 危险色浅底 */
+  --danger-hover-bg: rgba(201, 77, 77, 0.06);
+
+  /* 通用阴影色 */
+  --shadow-color: rgba(30, 36, 50, 0.08);
+  --shadow-color-md: rgba(30, 36, 50, 0.10);
+  --shadow-color-lg: rgba(30, 36, 50, 0.15);
+
+  /* ========== 阴影 ========== */
+  /* 阴影色跟随 text-primary 的冷调，保持阴影干净 */
+  --shadow-sm: 0 1px 3px var(--shadow-color);
+  --shadow-md: 0 4px 12px var(--shadow-color-md);
+  --shadow-lg: 0 12px 40px var(--shadow-color-lg);
+
+  /* ========== 圆角 ========== */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 9999px;
+
+  /* ========== 消息气泡色 ========== */
+  --bubble-other-bg: #EFF2F7;
+  --bubble-other-text: #1E2432;
+  --bubble-own-bg: #3B9E7A;
+  --bubble-own-text: #FFFFFF;
+  --bubble-reply-border: #3B9E7A;
+  --bubble-reply-bg: rgba(59, 158, 122, 0.06);
+
+  /* ========== AI 抽屉主题色 ========== */
+  /* 深冷灰面板，与主应用视觉分离但不割裂 */
+  --ai-bg: #181D27;
+  --ai-surface: #1F2633;
+  --ai-surface-raised: #2A3344;
+  --ai-border: rgba(91, 135, 189, 0.18);
+  --ai-border-strong: rgba(91, 135, 189, 0.35);
+  --ai-accent: #5B87BD;
+  --ai-accent-hover: #6E9AD0;
+  --ai-accent-secondary: #3B9E7A;
+  --ai-accent-10: rgba(91, 135, 189, 0.10);
+  --ai-accent-15: rgba(91, 135, 189, 0.15);
+  --ai-accent-20: rgba(91, 135, 189, 0.20);
+  --ai-accent-60: rgba(91, 135, 189, 0.60);
+  --ai-text-primary: #EDF0F5;
+  --ai-text-secondary: #8896AA;
+  --ai-text-muted: #5C6A7A;
+  --ai-text-subtle: #3D4A5C;
+  --ai-danger: #CF6060;
+  --ai-danger-bg: rgba(207, 96, 96, 0.12);
+  --ai-danger-border: rgba(207, 96, 96, 0.3);
+  --ai-shadow: rgba(91, 135, 189, 0.25);
+  --ai-shadow-strong: rgba(91, 135, 189, 0.45);
+}
+
+/* ========== 无障碍支持 ========== */
+
+:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* 尊重用户减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 登录页/房间页保留背景（禁用浮动物流动画） */
+@media (prefers-reduced-motion: reduce) {
+  .login-view,
+  .rooms-view {
+    animation: none;
+  }
+  .decoration-circle {
+    animation: none;
+  }
+  .brand-section {
+    animation: none;
+  }
+  .form-card {
+    animation: none;
+  }
+}

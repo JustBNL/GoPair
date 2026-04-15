@@ -69,7 +69,7 @@
         <div v-if="fileList.length === 0" class="empty-state">
           <a-empty description="暂无文件">
             <template #image>
-              <folder-open-outlined style="font-size: 64px; color: #d9d9d9;" />
+              <folder-open-outlined style="font-size: 64px; color: var(--border-default);" />
             </template>
           </a-empty>
         </div>
@@ -130,26 +130,26 @@
                   v-if="file.previewable"
                   type="text"
                   size="small"
+                  aria-label="预览文件"
                   @click="previewFile(file)"
                 >
                   <eye-outlined />
                 </a-button>
               </a-tooltip>
 
-              <!-- 下载按钮 -->
               <a-tooltip title="下载">
                 <a-button
                   type="text"
                   size="small"
+                  aria-label="下载文件"
                   @click="downloadFile(file)"
                 >
                   <download-outlined />
                 </a-button>
               </a-tooltip>
 
-              <!-- 更多操作 -->
               <a-dropdown :trigger="['click']">
-                <a-button type="text" size="small">
+                <a-button type="text" size="small" aria-label="更多操作">
                   <more-outlined />
                 </a-button>
                 <template #overlay>
@@ -223,6 +223,7 @@ import {
 } from '@ant-design/icons-vue'
 import { FileAPI, type RoomFileStats } from '@/api/file'
 import type { FileVO, PageResult } from '@/types/api'
+import { useAuthStore } from '@/stores/auth'
 import FileIcon from './FileIcon.vue'
 import FileInfoModal from './FileInfoModal.vue'
 import FilePreviewModal from './FilePreviewModal.vue'
@@ -230,6 +231,7 @@ import FilePreviewModal from './FilePreviewModal.vue'
 interface Props {
   roomId: number
   refresh?: boolean
+  isOwner?: boolean
 }
 
 interface Emits {
@@ -237,8 +239,12 @@ interface Emits {
   (e: 'file-deleted', fileId: number): void
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isOwner: false
+})
 const emit = defineEmits<Emits>()
+
+const authStore = useAuthStore()
 
 // 数据状态
 const loading = ref(false)
@@ -484,11 +490,12 @@ const batchDelete = () => {
 }
 
 /**
- * 检查是否可以删除
+ * 检查是否可以删除（仅上传者或房主可删除）
  */
 const canDelete = (file: FileVO): boolean => {
-  // TODO: 检查权限，这里简化处理
-  return true
+  const authStore = useAuthStore()
+  const currentUserId = authStore.user?.userId
+  return file.uploaderId === currentUserId || isOwner.value
 }
 
 /**
@@ -528,18 +535,18 @@ onMounted(() => {
     display: flex;
     gap: 24px;
     padding: 16px;
-    background: #fafafa;
+    background: var(--surface-bg);
     border-radius: 8px;
     margin-bottom: 16px;
 
     .stats-item {
       .stats-label {
-        color: #8c8c8c;
+        color: var(--text-muted);
         font-size: 12px;
       }
 
       .stats-value {
-        color: #262626;
+        color: var(--text-primary);
         font-weight: 500;
         margin-left: 4px;
       }
@@ -551,17 +558,18 @@ onMounted(() => {
     align-items: center;
     gap: 12px;
     margin-bottom: 16px;
+    flex-wrap: wrap;
 
     .search-input {
-      width: 200px;
+      width: clamp(120px, 30%, 200px);
     }
 
     .type-filter {
-      width: 120px;
+      width: clamp(100px, 25%, 120px);
     }
 
     .sort-select {
-      width: 140px;
+      width: clamp(120px, 30%, 140px);
     }
   }
 
@@ -577,20 +585,20 @@ onMounted(() => {
         align-items: center;
         gap: 12px;
         padding: 12px;
-        border: 1px solid #f0f0f0;
+        border: 1px solid var(--border-light);
         border-radius: 8px;
         margin-bottom: 8px;
         cursor: pointer;
         transition: all 0.2s;
 
         &:hover {
-          background: #fafafa;
-          border-color: #d9d9d9;
+          background: var(--surface-bg);
+          border-color: var(--border-default);
         }
 
         &.selected {
-          background: #e6f7ff;
-          border-color: #91d5ff;
+          background: var(--brand-accent-light);
+          border-color: rgba(var(--brand-accent-rgb), 0.3);
         }
 
         .file-select {
@@ -619,21 +627,21 @@ onMounted(() => {
             align-items: center;
             gap: 12px;
             font-size: 12px;
-            color: #8c8c8c;
+            color: var(--text-muted);
             margin-bottom: 2px;
 
             .file-size {
               font-weight: 500;
-              color: #595959;
+              color: var(--text-secondary);
             }
           }
 
           .file-stats {
             font-size: 12px;
-            color: #8c8c8c;
+            color: var(--text-muted);
 
             .download-count {
-              color: #1890ff;
+              color: var(--color-info);
             }
           }
         }

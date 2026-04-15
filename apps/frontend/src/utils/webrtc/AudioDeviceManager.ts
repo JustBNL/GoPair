@@ -160,10 +160,6 @@ export class AudioDeviceManager {
   async selectOutputDevice(deviceId: string): Promise<void> {
     try {
       this.currentOutputDevice = deviceId
-      
-      // 注意：Web Audio API 目前不直接支持选择输出设备
-      // 这里记录选择的设备，在播放音频时使用
-      console.log(`选择输出设备: ${deviceId}`)
     } catch (error) {
       throw new Error(`选择输出设备失败: ${error}`)
     }
@@ -421,9 +417,6 @@ export class AudioDeviceManager {
    * 设置输入音量增益
    */
   setInputGain(gain: number): void {
-    // 注意：Web Audio API 中直接调整输入增益比较复杂
-    // 这里可以通过约束来尝试调整
-    console.log(`设置输入增益: ${gain}`)
   }
 
   /**

@@ -339,20 +339,20 @@ watch(() => props.file, (newFile) => {
   .info-section {
     margin-bottom: 24px;
 
-    .section-title {
-      margin-bottom: 12px;
-      color: #262626;
-      font-size: 14px;
-      font-weight: 500;
-    }
+  .section-title {
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+  }
 
-    .file-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 16px;
-      background: #fafafa;
-      border-radius: 8px;
+  .file-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: var(--surface-bg);
+    border-radius: 8px;
 
       .file-icon {
         font-size: 48px;
@@ -363,12 +363,12 @@ watch(() => props.file, (newFile) => {
           margin-bottom: 4px;
           font-size: 18px;
           font-weight: 500;
-          color: #262626;
+          color: var(--text-primary);
         }
 
         .file-type {
           margin: 0;
-          color: #8c8c8c;
+          color: var(--text-muted);
           font-size: 14px;
         }
       }
@@ -386,10 +386,10 @@ watch(() => props.file, (newFile) => {
 
         .copy-icon {
           cursor: pointer;
-          color: #1890ff;
+          color: var(--brand-accent);
 
           &:hover {
-            color: #40a9ff;
+            color: var(--brand-accent-hover);
           }
         }
       }
@@ -399,7 +399,7 @@ watch(() => props.file, (newFile) => {
       .image-preview {
         text-align: center;
         padding: 16px;
-        background: #fafafa;
+        background: var(--surface-bg);
         border-radius: 8px;
       }
 
@@ -415,7 +415,7 @@ watch(() => props.file, (newFile) => {
       .preview-placeholder {
         text-align: center;
         padding: 40px 16px;
-        background: #fafafa;
+        background: var(--surface-bg);
         border-radius: 8px;
       }
     }

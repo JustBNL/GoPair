@@ -1,5 +1,8 @@
 <template>
   <div class="room-detail-view">
+    <!-- 无障碍跳转链接：绝对定位跳到根元素顶部，视觉上不受影响 -->
+    <a href="#room-detail-main" class="skip-link">跳转到房间内容</a>
+
     <!-- 加载状态 -->
     <div class="loading-container" v-if="loading">
       <a-spin size="large" />
@@ -7,7 +10,7 @@
     </div>
 
     <!-- 房间详情内容 -->
-    <div class="room-detail-content" v-else-if="currentRoom">
+    <div class="room-detail-content" v-else-if="currentRoom" id="room-detail-main" role="main" aria-live="polite">
       <!-- 房间头部 -->
       <div class="room-header">
         <div class="header-left">
@@ -25,7 +28,7 @@
           <a-tag :color="statusColor" class="room-status">
             {{ statusText }}
           </a-tag>
-          <a-button type="primary" @click="copyRoomCode">
+          <a-button @click="copyRoomCode" aria-label="复制房间码">
             <CopyOutlined />
             复制房间码
           </a-button>
@@ -139,7 +142,7 @@
           v-model:activeKey="activeTab"
           type="card"
           class="communication-tabs"
-          :tab-bar-style="{ background: '#fafafa', margin: 0 }"
+          :tab-bar-style="{ background: 'var(--surface-bg)', margin: 0 }"
         >
           <!-- 聊天标签页 -->
           <a-tab-pane key="chat" class="tab-pane">
@@ -177,6 +180,7 @@
                   <div v-else class="message-items">
                     <message-bubble
                       v-for="message in messages"
+                      v-memo="[message.messageId, message.content, message.messageType, message.isOwn, message.senderNickname]"
                       :key="message.messageId"
                       :message="message"
                       :show-sender-info="true"
@@ -311,7 +315,7 @@
               <div v-else>
                 <div class="members-header">
                   <h4>房间成员</h4>
-                  <a-button type="text" size="small" @click="refreshMembers">
+                  <a-button type="text" size="small" aria-label="刷新成员列表" @click="refreshMembers">
                     <ReloadOutlined />
                     刷新
                   </a-button>
@@ -353,7 +357,7 @@
                     <!-- 成员操作 -->
                     <div class="member-actions">
                       <a-dropdown v-if="isOwner && member.userId !== currentUser?.userId">
-                        <a-button type="text" size="small">
+                        <a-button type="text" size="small" aria-label="成员操作">
                           <MoreOutlined />
                         </a-button>
                         <template #overlay>
@@ -423,7 +427,7 @@ import {
 } from '@ant-design/icons-vue'
 
 // API和工具导入
-import { getRoomMembers, updateRoomPassword, getRoomCurrentPassword } from '@/api/room'
+import { getRoomMembers, updateRoomPassword, getRoomCurrentPassword, RoomAPI } from '@/api/room'
 import { MessageAPI } from '@/api/message'
 import { FileAPI } from '@/api/file'
 import { VoiceAPI } from '@/api/voice'
@@ -468,7 +472,6 @@ const {
   replaceMessages 
 } = useRoomWebSocket(roomId, {
   onMessage: (message: any) => {
-    console.log('📨 收到聊天消息:', message)
     const normalized = { ...message }
     if (!normalized.createTime) {
       normalized.createTime = message.timestamp || new Date().toISOString()
@@ -480,39 +483,32 @@ const {
     scrollToBottom()
   },
   onMessageDelete: (messageId: number) => {
-    console.log('🗑️ 收到消息删除事件:', messageId)
     // 房间层已处理删除，这里无需重复修改数据
   },
   onFileUpload: () => {
-    console.log('📁 收到文件上传事件')
     fileCount.value++
     fileListRefresh.value = !fileListRefresh.value
   },
   onFileDelete: () => {
-    console.log('🗑️ 收到文件删除事件')
     fileCount.value = Math.max(0, fileCount.value - 1)
     fileListRefresh.value = !fileListRefresh.value
   },
   onMemberJoin: () => {
-    console.log('👋 收到成员加入事件')
     if (currentRoom.value) {
       currentRoom.value = { ...currentRoom.value, currentMembers: currentRoom.value.currentMembers + 1 }
     }
     loadRoomMembers()
   },
   onMemberLeave: () => {
-    console.log('👋 收到成员离开事件')
     if (currentRoom.value) {
       currentRoom.value = { ...currentRoom.value, currentMembers: Math.max(0, currentRoom.value.currentMembers - 1) }
     }
     loadRoomMembers()
   },
   onCallStart: (callId: number, initiatorId: number) => {
-    console.log('received call_start:', callId, initiatorId)
     notifyCallStart(callId)
   },
   onCallEnd: (callId: number) => {
-    console.log('received call_end:', callId)
     notifyCallEnd(callId)
   },
   onSignaling: (data: any) => {
@@ -570,7 +566,6 @@ const loadCurrentPassword = async () => {
       remainingSeconds.value = data.data.remainingSeconds || 0
     }
   } catch (e) {
-    console.warn('[密码] 获取当前密码失败', e)
   }
 }
 
@@ -731,8 +726,6 @@ const safeServiceCall = async <T>(
     
     return result
   } catch (error: any) {
-    console.warn(`${serviceName}服务调用失败:`, error)
-    
     // 失败时更新状态
     state.available = false
     state.retryCount++
@@ -846,17 +839,14 @@ const loadRoomInfo = async () => {
     // 独立加载相关数据，实现故障隔离
     // 每个服务调用都有独立的错误处理，确保单个服务故障不影响其他服务
     loadMessages().catch(error => {
-      console.warn('消息服务不可用:', error)
       serviceStates.value.messages.error = '消息服务暂时不可用'
     })
     
     loadFileCount().catch(error => {
-      console.warn('文件服务不可用:', error)
       serviceStates.value.files.error = '文件服务暂时不可用'
     })
     
     loadRoomMembers().catch(error => {
-      console.warn('成员服务不可用:', error)
       serviceStates.value.members.error = '成员服务暂时不可用'
     })
     
@@ -994,15 +984,6 @@ const retryService = (serviceName: 'messages' | 'files' | 'members') => {
  */
 const initRoomSubscription = async () => {
   if (!currentRoom.value || !currentUser.value) return
-  
-  try {
-    console.log('🎯 新架构：房间WebSocket自动管理:', currentRoom.value.roomId)
-    // 所有订阅逻辑已通过useRoomWebSocket composable自动处理
-    // 无需手动管理事件处理器和清理逻辑
-    console.log('✅ 房间订阅初始化完成（自动管理）')
-  } catch (error) {
-    console.error('❌ 房间订阅初始化失败:', error)
-  }
 }
 
 /**
@@ -1013,7 +994,6 @@ const handleSendMessage = async (messageData: any) => {
     if (!currentRoom.value) {
       throw new Error('房间信息不存在')
     }
-    // 始终通过HTTP发送，由后端持久化并通过WebSocket广播
     const payload = {
       roomId: currentRoom.value.roomId,
       ...messageData
@@ -1021,49 +1001,6 @@ const handleSendMessage = async (messageData: any) => {
     await MessageAPI.sendMessage(payload)
   } catch (error: any) {
     antMessage.error(error.response?.data?.msg || '发送消息失败')
-  }
-}
-
-/**
- * 简单的发送消息
- */
-const sendMessage = async () => {
-  if (!newMessage.value.trim() || !currentRoom.value) {
-    console.warn('消息内容为空或房间信息不存在')
-    return
-  }
-  
-  const messageData = {
-    roomId: currentRoom.value.roomId,
-    messageType: 1, // TEXT
-    content: newMessage.value.trim()
-  }
-  
-  console.log('发送消息请求:', messageData)
-  
-  try {
-    const response = await MessageAPI.sendMessage(messageData)
-    console.log('消息发送成功:', response)
-    newMessage.value = ''
-  } catch (error: any) {
-    console.error('发送消息失败:', error)
-    console.error('错误详情:', {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      config: error.config
-    })
-    
-    // 提供更详细的错误信息
-    if (error.response?.status === 500) {
-      antMessage.error('服务器内部错误，请检查网络连接或稍后重试')
-    } else if (error.response?.status === 404) {
-      antMessage.error('消息服务不可用，请联系管理员')
-    } else if (error.response?.status === 401) {
-      antMessage.error('请重新登录后再试')
-    } else {
-      antMessage.error(error.response?.data?.msg || error.message || '发送消息失败')
-    }
   }
 }
 
@@ -1148,13 +1085,16 @@ const handleFileDeleted = (fileId: number) => {
 /**
  * 踢出成员
  */
-const kickMember = (member: RoomMember) => {
+const kickMember = async (member: RoomMember) => {
   Modal.confirm({
     title: '确认操作',
     content: `确定要将 ${member.nickname} 移出房间吗？`,
+    okText: '确定移出',
+    okType: 'danger',
     onOk: async () => {
       try {
-        // TODO: 实现踢出成员API
+        if (!currentRoom.value) return
+        await RoomAPI.kickMember(currentRoom.value.roomId, member.userId)
         antMessage.success('成员已移出')
         await loadRoomMembers()
       } catch (error: any) {
@@ -1261,12 +1201,17 @@ async function sendEmoji(emoji: string) {
   }
 }
 
+/**
+ * 滚动到底部（使用 requestAnimationFrame 避免布局抖动）
+ */
 const scrollToBottom = () => {
-  nextTick(() => {
-    const messageContainer = document.querySelector('.message-list-container')
-    if (messageContainer) {
-      messageContainer.scrollTop = messageContainer.scrollHeight
-    }
+  requestAnimationFrame(() => {
+    nextTick(() => {
+      const messageContainer = document.querySelector('.message-list-container')
+      if (messageContainer) {
+        messageContainer.scrollTop = messageContainer.scrollHeight
+      }
+    })
   })
 }
 
@@ -1287,123 +1232,144 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // 新架构：自动清理已通过useRoomWebSocket composable处理
-  console.log('🧹 房间组件卸载（自动清理）')
   stopTotpTimer()
 })
 </script>
 
 <style scoped lang="scss">
+/* ==================== 无障碍跳转链接 ==================== */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--brand-primary);
+  color: white;
+  border-radius: 0 0 8px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
 .room-detail-view {
+  position: relative;
   min-height: 100vh;
-  background: #f5f5f5;
-  
+  background: var(--surface-bg);
+
   .loading-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 50vh;
-    
+
     p {
       margin-top: 16px;
-      color: #8c8c8c;
+      color: var(--text-muted);
     }
   }
-  
+
   .room-detail-content {
     max-width: 1400px;
     margin: 0 auto;
     padding: 24px;
-    
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-height: calc(100vh - 48px);
+
     .room-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 24px;
       padding: 24px;
-      background: white;
+      background: var(--surface-card);
       border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      
+      box-shadow: var(--shadow-sm);
+
       .header-left {
         display: flex;
         align-items: center;
         gap: 16px;
-        
+
         .back-btn {
           border-radius: 8px;
         }
-        
+
         .room-title {
           h1 {
             margin: 0;
-            color: #262626;
+            color: var(--text-primary);
             font-size: 24px;
             font-weight: 600;
           }
-          
+
           p {
             margin: 4px 0 0 0;
-            color: #8c8c8c;
+            color: var(--text-muted);
             font-size: 14px;
           }
         }
       }
-      
+
       .header-right {
         display: flex;
         align-items: center;
         gap: 12px;
-        
+
         .room-status {
           font-weight: 500;
         }
       }
     }
-    
+
     .room-info-cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
-      
+
       .info-card {
         padding: 20px;
-        background: white;
+        background: var(--surface-card);
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow-sm);
         transition: all 0.3s ease;
-        
-        &:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-        }
-        
+
+      &:hover {
+        box-shadow: var(--shadow-md);
+      }
+
         &.active-call {
-          border: 2px solid #52c41a;
-          background: linear-gradient(135deg, #f6ffed 0%, #fff 100%);
+          border: 2px solid var(--color-success);
+          background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.06) 0%, var(--surface-card) 100%);
         }
-        
+
         .card-header {
           display: flex;
           align-items: center;
           gap: 8px;
           margin-bottom: 12px;
-          
+
           .card-icon {
             font-size: 18px;
-            color: #1890ff;
+            color: var(--color-info);
           }
-          
+
           h3 {
             margin: 0;
-            color: #262626;
+            color: var(--text-primary);
             font-size: 14px;
             font-weight: 500;
           }
         }
-        
+
         .card-content {
           .member-count,
           .expire-time,
@@ -1411,35 +1377,35 @@ onUnmounted(() => {
           .call-status {
             font-size: 16px;
             font-weight: 600;
-            color: #262626;
+            color: var(--text-primary);
           }
-          
+
           .room-code {
             display: flex;
             align-items: center;
             gap: 8px;
             cursor: pointer;
             transition: color 0.2s;
-            
+
             &:hover {
-              color: #1890ff;
+              color: var(--color-info);
             }
-            
+
             .copy-icon {
               font-size: 14px;
             }
           }
-          
-          // 独立密码卡片内容
+
           &.password-card {
-            border: 1px solid rgba(24, 144, 255, 0.2);
-            
+            border: 1px solid rgba(var(--color-info-rgb), 0.2);
+
             &:hover {
-              border-color: #1890ff;
+              border-color: var(--color-info);
             }
-            
+            }
+
             .card-icon {
-              color: #1890ff;
+              color: var(--color-info);
             }
           }
           
@@ -1457,115 +1423,118 @@ onUnmounted(() => {
                 font-family: 'Courier New', monospace;
                 font-size: 16px;
                 font-weight: 700;
-                color: #1890ff;
+                color: var(--color-info);
                 letter-spacing: 1.5px;
                 flex: 1;
-                
+
                 &.hidden {
-                  color: #bbb;
+                  color: var(--text-muted);
                   letter-spacing: 3px;
                 }
-                
+
                 .totp-timer {
                   font-size: 12px;
-                  color: #faad14;
+                  color: var(--color-warning);
                   margin-left: 6px;
                   font-weight: 400;
                   letter-spacing: 0;
                 }
               }
-              
+
               .password-toggle {
                 cursor: pointer;
-                color: #bbb;
+                color: var(--text-muted);
                 font-size: 16px;
                 transition: color 0.2s;
                 flex-shrink: 0;
-                
+
                 &:hover {
-                  color: #1890ff;
+                  color: var(--color-info);
                 }
               }
             }
-            
+
             .password-visibility-control {
               display: flex;
               align-items: center;
               padding-top: 8px;
-              border-top: 1px solid #f0f0f0;
+              border-top: 1px solid var(--border-light);
             }
           }
-          
+
           .call-status {
             display: flex;
             align-items: center;
             gap: 8px;
-            
+
             .status-indicator {
               width: 8px;
               height: 8px;
               border-radius: 50%;
-              
+
               &.idle {
-                background: #d9d9d9;
+                background: var(--border-default);
               }
-              
+
               &.calling {
-                background: #faad14;
+                background: var(--color-warning);
                 animation: pulse 2s infinite;
               }
-              
+
               &.in-call {
-                background: #52c41a;
+                background: var(--color-success);
                 animation: pulse 2s infinite;
               }
             }
           }
         }
-        
-        // 卡片状态样式
+
         .card-loading {
           display: flex;
           align-items: center;
           gap: 8px;
-          color: #8c8c8c;
+          color: var(--text-muted);
           font-size: 14px;
         }
-        
+
         .card-error {
           display: flex;
           flex-direction: column;
           gap: 4px;
-          
+
           .error-text {
-            color: #ff4d4f;
+            color: var(--color-error);
             font-size: 12px;
           }
         }
       }
     }
-    
+
     .communication-section {
-      background: white;
+      flex: 1;
+      min-height: 0;
+      background: var(--surface-card);
       border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--shadow-sm);
       overflow: hidden;
-      
+      display: flex;
+      flex-direction: column;
+
       .communication-tabs {
         :deep(.ant-tabs-nav) {
           margin: 0;
-          background: #fafafa;
-          
+          background: var(--surface-bg);
+
           .ant-tabs-tab {
             padding: 12px 16px;
             border-radius: 0;
-            
+
             .tab-title {
               display: flex;
               align-items: center;
               gap: 8px;
               font-weight: 500;
-              
+
               .tab-badge {
                 :deep(.ant-badge-count) {
                   font-size: 10px;
@@ -1576,51 +1545,59 @@ onUnmounted(() => {
               }
             }
           }
-          
+
           .ant-tabs-tab-active {
-            background: white;
-            
+            background: var(--surface-card);
+
             .tab-title {
-              color: #1890ff;
+              color: var(--color-info);
             }
           }
         }
-        
+
         :deep(.ant-tabs-content-holder) {
+          flex: 1;
+          overflow: hidden;
+
           .ant-tabs-content {
-            height: 600px;
-            
+            height: 100%;
+
             .tab-pane {
               height: 100%;
               padding: 0;
+              display: flex;
+              flex-direction: column;
             }
           }
         }
       }
-      
-      // 聊天容器
+
       .chat-container {
-        height: 100%;
+        flex: 1;
         display: flex;
         flex-direction: column;
-        
+        overflow: hidden;
+        min-height: 0;
+
         .chat-content {
-          height: 100%;
+          flex: 1;
           display: flex;
           flex-direction: column;
-          
+          overflow: hidden;
+          min-height: 0;
+
           .service-loading,
           .service-error {
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100%;
             padding: 20px;
-            
+
             p {
               margin-top: 16px;
-              color: #8c8c8c;
+              color: var(--text-muted);
             }
           }
 
@@ -1628,6 +1605,7 @@ onUnmounted(() => {
             flex: 1;
             overflow-y: auto;
             padding: 16px;
+            min-height: 0;
             
             .message-item {
               margin-bottom: 12px;
@@ -1645,118 +1623,110 @@ onUnmounted(() => {
             }
           }
           
+          .emoji-bar-container {
+            height: 72px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-light);
+            overflow: hidden;
+          }
+
           .message-input-container {
-            border-top: 1px solid #f0f0f0;
+            border-top: 1px solid var(--border-light);
             padding: 16px;
+            flex-shrink: 0;
           }
         }
       }
-      
-      // 文件容器
-      .files-container {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        
-        .file-list-section {
-          flex: 1;
-          overflow: hidden;
-          padding: 16px;
-        }
-      }
-      
-      // 语音容器
-      .voice-container {
-        height: 100%;
+
+      .members-container {
+        flex: 1;
         padding: 16px;
         overflow-y: auto;
-      }
-      
-      // 成员容器
-      .members-container {
-        height: 100%;
-        padding: 16px;
-        
+        min-height: 0;
+
         .members-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 16px;
-          
+
           h4 {
             margin: 0;
-            color: #262626;
+            color: var(--text-primary);
             font-size: 16px;
             font-weight: 500;
           }
         }
-        
+
         .members-list {
           .member-item {
             display: flex;
             align-items: center;
             gap: 12px;
             padding: 12px;
-            border: 1px solid #f0f0f0;
+            border: 1px solid var(--border-light);
             border-radius: 8px;
             margin-bottom: 8px;
             transition: all 0.2s;
-            
+
             &:hover {
-              background: #fafafa;
-              border-color: #d9d9d9;
+              background: var(--surface-bg);
+              border-color: var(--border-default);
             }
-            
+
             .member-avatar {
               position: relative;
               flex-shrink: 0;
 
               :deep(.ant-avatar) {
-                border: 2px solid #f0f0f0;
+                border: 2px solid var(--border-light);
                 object-fit: cover;
               }
 
               :deep(.ant-avatar-image img) {
                 object-fit: cover;
               }
-              
+
               .online-indicator {
                 position: absolute;
                 bottom: 0;
                 right: 0;
                 width: 12px;
                 height: 12px;
-                background: #52c41a;
+                background: var(--color-success);
                 border: 2px solid white;
                 border-radius: 50%;
               }
             }
-            
+
             .member-info {
               flex: 1;
-              
+
               .member-name {
                 font-weight: 500;
                 margin-bottom: 4px;
               }
-              
+
               .member-meta {
                 display: flex;
                 gap: 12px;
                 font-size: 12px;
-                color: #8c8c8c;
-                
+                color: var(--text-muted);
+
                 .status {
                   &.online {
-                    color: #52c41a;
+                    color: var(--color-success);
                   }
-                  
+
                   &.offline {
-                    color: #8c8c8c;
+                    color: var(--text-muted);
                   }
-                  
+
                   &.away {
-                    color: #faad14;
+                    color: var(--color-warning);
                   }
                 }
               }
@@ -1766,46 +1736,45 @@ onUnmounted(() => {
       }
     }
   }
-  
+
   .room-not-found {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 60vh;
-    
+
     .not-found-content {
       text-align: center;
-      
+
       .not-found-icon {
         font-size: 64px;
         margin-bottom: 16px;
       }
-      
+
       h3 {
-        color: #262626;
+        color: var(--text-primary);
         margin-bottom: 8px;
       }
-      
+
       p {
-        color: #8c8c8c;
+        color: var(--text-muted);
         margin-bottom: 24px;
       }
     }
   }
-  
+
   .global-loading {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.8);
+    background: var(--surface-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
   }
-}
 
 @keyframes pulse {
   0% {
@@ -1823,29 +1792,30 @@ onUnmounted(() => {
   .room-detail-view {
     .room-detail-content {
       padding: 16px;
-      
+
       .room-header {
         flex-direction: column;
         gap: 16px;
-        
+
         .header-left {
           width: 100%;
         }
-        
+
         .header-right {
           width: 100%;
           justify-content: flex-start;
         }
       }
-      
+
       .room-info-cards {
         grid-template-columns: repeat(2, 1fr);
       }
-      
+
       .communication-section {
         .communication-tabs {
-          :deep(.ant-tabs-content) {
-            height: 500px;
+          :deep(.ant-tabs-content-holder) {
+            flex: 1;
+            overflow: hidden;
           }
         }
       }
@@ -1853,7 +1823,20 @@ onUnmounted(() => {
   }
 }
 
-.message-header {
-  .message-time { margin-left: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .info-card {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+
+  .status-indicator {
+    &.calling,
+    &.in-call {
+      animation: none;
+    }
+  }
 }
 </style>

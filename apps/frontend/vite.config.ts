@@ -4,6 +4,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import basicSsl from '@vitejs/plugin-basic-ssl'
+import Components from 'unplugin-vue-components/vite'
+import AutoImport from 'unplugin-auto-import/vite'
+import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,6 +15,21 @@ export default defineConfig({
     vueDevTools(),
     // 启用自签名 HTTPS，移动端跨网段访问 getUserMedia 必须使用 HTTPS
     basicSsl(),
+
+    // ant-design-vue / @ant-design/icons 按需引入，减小 bundle 体积
+    AutoImport({
+      resolvers: [AntDesignVueResolver()],
+      imports: ['vue'],
+      dts: 'src/auto-imports.d.ts',
+    }),
+    Components({
+      resolvers: [
+        AntDesignVueResolver({
+          importStyle: false, // 不内联样式，利用 antd 默认样式
+        }),
+      ],
+      dts: 'src/components.d.ts',
+    }),
   ],
   resolve: {
     alias: {

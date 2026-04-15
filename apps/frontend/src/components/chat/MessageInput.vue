@@ -17,10 +17,10 @@
     </div>
 
     <!-- 工具栏 -->
-    <div class="input-toolbar">
+    <div class="input-toolbar" :class="{ 'toolbar-disabled': sending || props.disabled }">
       <!-- 表情按钮 -->
       <a-tooltip title="表情">
-        <a-button type="text" size="small">
+        <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="表情">
           <smile-outlined />
         </a-button>
       </a-tooltip>
@@ -31,8 +31,9 @@
           :show-upload-list="false"
           :before-upload="handleFileUpload"
           accept="*/*"
+          :disabled="sending || props.disabled"
         >
-          <a-button type="text" size="small">
+          <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="发送文件">
             <paper-clip-outlined />
           </a-button>
         </a-upload>
@@ -44,8 +45,9 @@
           :show-upload-list="false"
           :before-upload="handleImageUpload"
           accept="image/*"
+          :disabled="sending || props.disabled"
         >
-          <a-button type="text" size="small">
+          <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="发送图片">
             <picture-outlined />
           </a-button>
         </a-upload>
@@ -53,13 +55,15 @@
 
       <!-- 语音录制 -->
       <a-tooltip title="语音消息">
-        <a-button 
-          type="text" 
+        <a-button
+          type="text"
           size="small"
+          :disabled="sending || props.disabled"
           :class="{ 'recording': isRecording }"
           @mousedown="startRecording"
           @mouseup="stopRecording"
           @mouseleave="stopRecording"
+          aria-label="语音录制"
         >
           <audio-outlined />
         </a-button>
@@ -393,50 +397,77 @@ const handleImageUpload = async (file: File) => {
  * 开始录制语音
  */
 const startRecording = async () => {
+  let stream: MediaStream | null = null
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
     mediaRecorder.value = new MediaRecorder(stream)
     audioChunks.value = []
     recordingDuration.value = 0
-    
+
     mediaRecorder.value.ondataavailable = (event) => {
       audioChunks.value.push(event.data)
     }
-    
-    mediaRecorder.value.onstop = () => {
-      const audioBlob = new Blob(audioChunks.value, { type: 'audio/wav' })
-      
-      // TODO: 上传语音文件
-      const fileUrl = URL.createObjectURL(audioBlob)
-      
-      emit('send-message', {
-        messageType: MessageType.VOICE,
-        fileUrl,
-        fileName: `voice_${Date.now()}.wav`,
-        fileSize: audioBlob.size,
-        replyToId: props.replyMessage?.messageId
-      })
 
-      // 取消回复
-      if (props.replyMessage) {
-        cancelReply()
+    mediaRecorder.value.onstop = async () => {
+      // 确保无论 onstop 如何被触发，都清理 stream tracks
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+        stream = null
       }
-      
-      // 停止所有轨道
-      stream.getTracks().forEach(track => track.stop())
+
+      const audioBlob = new Blob(audioChunks.value, { type: 'audio/wav' })
+
+      // 上传语音文件到文件服务
+      try {
+        sending.value = true
+        const { FileAPI } = await import('@/api/file')
+        const file = new File([audioBlob], `voice_${Date.now()}.wav`, { type: 'audio/wav' })
+        const response = await FileAPI.uploadFile(
+          { roomId: props.roomId, file },
+          (progressEvent) => {
+            const progress = Math.round((progressEvent.loaded / (progressEvent.total || 1)) * 100)
+            uploadProgress.value = progress
+            emit('upload-progress', uploadProgress.value)
+          }
+        )
+        const fileVO = response.data
+        uploadProgress.value = 100
+        setTimeout(() => { uploadProgress.value = 0 }, 1000)
+
+        emit('send-message', {
+          messageType: MessageType.VOICE,
+          fileUrl: fileVO.previewUrl,
+          content: fileVO.downloadUrl,
+          fileName: file.name,
+          fileSize: audioBlob.size,
+          replyToId: props.replyMessage?.messageId
+        })
+
+        if (props.replyMessage) cancelReply()
+      } catch (error: any) {
+        antMessage.error(error.response?.data?.msg || '语音上传失败')
+        uploadProgress.value = 0
+      } finally {
+        sending.value = false
+      }
     }
-    
+
     mediaRecorder.value.start()
     isRecording.value = true
     showRecordingModal.value = true
-    
+
     // 开始计时
     recordingTimer.value = window.setInterval(() => {
       recordingDuration.value++
     }, 1000)
-    
+
   } catch (error) {
+    // 无论 getUserMedia 还是 MediaRecorder 创建失败，都要清理已获取的流
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop())
+    }
     antMessage.error('无法访问麦克风')
   }
 }
@@ -449,7 +480,7 @@ const stopRecording = () => {
     mediaRecorder.value.stop()
     isRecording.value = false
     showRecordingModal.value = false
-    
+
     if (recordingTimer.value) {
       clearInterval(recordingTimer.value)
       recordingTimer.value = null
@@ -476,8 +507,8 @@ watch(() => props.replyMessage, (newVal) => {
 
 <style scoped lang="scss">
 .message-input {
-  background: white;
-  border-top: 1px solid #f0f0f0;
+  background: var(--surface-card);
+  border-top: 1px solid var(--border-light);
   padding: 16px;
 }
 
@@ -487,8 +518,8 @@ watch(() => props.replyMessage, (newVal) => {
   justify-content: space-between;
   padding: 8px 12px;
   margin-bottom: 12px;
-  background-color: #f5f5f5;
-  border-left: 3px solid #1890ff;
+  background-color: var(--bubble-reply-bg);
+  border-left: 3px solid var(--bubble-reply-border);
   border-radius: 4px;
 
   .reply-info {
@@ -499,17 +530,17 @@ watch(() => props.replyMessage, (newVal) => {
     font-size: 12px;
 
     .reply-label {
-      color: #1890ff;
+      color: var(--color-info);
       font-weight: 500;
     }
 
     .reply-target {
-      color: #595959;
+      color: var(--text-secondary);
       font-weight: 500;
     }
 
     .reply-content {
-      color: #8c8c8c;
+      color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -521,14 +552,42 @@ watch(() => props.replyMessage, (newVal) => {
 .input-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 12px;
   padding: 0 4px;
 
+  :deep(.ant-btn-text) {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+
+    &:hover:not(:disabled) {
+      background: var(--brand-accent-light);
+      color: var(--brand-accent);
+    }
+
+    &:active:not(:disabled) {
+      background: var(--brand-accent-medium);
+      color: var(--brand-accent-hover);
+    }
+
+    &:disabled {
+      color: var(--border-default);
+      cursor: not-allowed;
+    }
+  }
+
   .recording {
-    color: #ff4d4f;
+    color: var(--color-error);
     animation: pulse 1s infinite;
   }
+}
+
+.toolbar-disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .input-area {
@@ -562,7 +621,7 @@ watch(() => props.replyMessage, (newVal) => {
 
   .upload-text {
     font-size: 12px;
-    color: #8c8c8c;
+    color: var(--text-muted);
   }
 }
 
@@ -583,27 +642,27 @@ watch(() => props.replyMessage, (newVal) => {
       position: absolute;
       width: 100%;
       height: 100%;
-      border: 2px solid #ff4d4f;
+      border: 2px solid var(--color-error);
       border-radius: 50%;
       animation: pulse-ring 2s infinite;
     }
 
     .audio-icon {
       font-size: 32px;
-      color: #ff4d4f;
+      color: var(--color-error);
       z-index: 1;
     }
   }
 
   .recording-tip {
     margin: 16px 0 8px;
-    color: #595959;
+    color: var(--text-secondary);
   }
 
   .recording-duration {
     font-size: 18px;
     font-weight: 500;
-    color: #ff4d4f;
+    color: var(--color-error);
     margin: 0;
   }
 }
@@ -615,6 +674,10 @@ watch(() => props.replyMessage, (newVal) => {
   50% {
     opacity: 0.5;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording { animation: none; }
 }
 
 @keyframes pulse-ring {

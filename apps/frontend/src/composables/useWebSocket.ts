@@ -63,7 +63,6 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
     callbacks = { ...callbacks, ...wsCallbacks }
     
     if (ws?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket已连接，跳过重复连接')
       return
     }
 
@@ -75,7 +74,6 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
     // 连接前检查Token一致性并同步（确保WebSocket认证成功）
     try {
       if (!Storage.validateTokenConsistency()) {
-        console.log('🔄 Token不一致，正在同步到Cookie...')
         Storage.syncTokenToCookie()
         
         // 验证同步是否成功
@@ -88,10 +86,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
       if (!cookieToken) {
         throw new Error('Cookie中未找到认证Token，请重新登录')
       }
-      
-      console.log('✅ Token一致性检查通过，准备建立WebSocket连接')
     } catch (error) {
-      console.error('❌ WebSocket连接前置检查失败:', error)
       throw error
     }
 
@@ -115,7 +110,6 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
           try {
             const message: WsMessage = JSON.parse(event.data)
             handleMessage(message)
-            // 拦截心跳消息，不向上层透传
             if (message.type === WsMessageType.HEARTBEAT) {
               return
             }
@@ -159,7 +153,6 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
    */
   const send = (message: Partial<WsMessage>): boolean => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn('WebSocket未连接，无法发送消息')
       return false
     }
 

@@ -115,49 +115,16 @@ const fileType = computed(() => {
   justify-content: center;
   font-size: 24px;
 
-  // 不同文件类型的颜色
-  &.file-type-pdf {
-    color: #d32f2f;
-  }
-
-  &.file-type-word {
-    color: #1976d2;
-  }
-
-  &.file-type-excel {
-    color: #388e3c;
-  }
-
-  &.file-type-powerpoint {
-    color: #f57c00;
-  }
-
-  &.file-type-text {
-    color: #616161;
-  }
-
-  &.file-type-image {
-    color: #7b1fa2;
-  }
-
-  &.file-type-video {
-    color: #c62828;
-  }
-
-  &.file-type-audio {
-    color: #00796b;
-  }
-
-  &.file-type-archive {
-    color: #5d4037;
-  }
-
-  &.file-type-code {
-    color: #1565c0;
-  }
-
-  &.file-type-default {
-    color: #757575;
-  }
+  &.file-type-pdf    { color: var(--file-pdf); }
+  &.file-type-word   { color: var(--file-word); }
+  &.file-type-excel  { color: var(--file-excel); }
+  &.file-type-powerpoint { color: var(--file-powerpoint); }
+  &.file-type-text   { color: var(--file-text); }
+  &.file-type-image  { color: var(--file-image); }
+  &.file-type-video  { color: var(--file-video); }
+  &.file-type-audio  { color: var(--file-audio); }
+  &.file-type-archive { color: var(--file-archive); }
+  &.file-type-code   { color: var(--file-code); }
+  &.file-type-default { color: var(--file-default); }
 }
 </style> 

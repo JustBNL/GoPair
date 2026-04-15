@@ -90,10 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
         try {
           const wsStore = useWebSocketStore()
           await wsStore.connectGlobal(currentUser.userId)
-          if (WS_FEATURES.debug) console.log('✅ WebSocket全局连接建立成功')
         } catch (error) {
-          if (WS_FEATURES.debug) console.error('❌ WebSocket全局连接建立失败:', error)
-          // WebSocket连接失败不影响登录成功，只记录错误
         }
       }
       
@@ -167,9 +164,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const wsStore = useWebSocketStore()
       wsStore.disconnectGlobal()
-      if (WS_FEATURES.debug) console.log('🔌 WebSocket全局连接已断开')
     } catch (error) {
-      if (WS_FEATURES.debug) console.error('❌ 断开WebSocket连接失败:', error)
     }
 
     user.value = null
@@ -192,24 +187,14 @@ export const useAuthStore = defineStore('auth', () => {
   function initAuth(): void {
     // 防止重复初始化
     if (isInitialized.value) {
-      if (WS_FEATURES.debug) console.log('🔒 Auth already initialized, skipping')
       return
     }
-    
-    if (WS_FEATURES.debug) console.log('🔄 Starting auth initialization...')
     
     // 从本地存储恢复状态
     const storedToken = Storage.getToken()
     const storedUser = Storage.getUser()
     const storedRemember = Storage.getRememberEmail()
     const storedEmail = Storage.getSavedEmail()
-    
-    if (WS_FEATURES.debug) console.log('📦 Storage data:', {
-      hasToken: !!storedToken,
-      hasUser: !!storedUser,
-      remember: storedRemember,
-      savedEmail: storedEmail
-    })
     
     if (storedToken && storedUser) {
       token.value = storedToken
@@ -218,22 +203,15 @@ export const useAuthStore = defineStore('auth', () => {
       // 恢复Cookie，确保WebSocket认证正常
       Storage.setCookieToken(storedToken)
       
-      if (WS_FEATURES.debug) console.log('✅ Auth state restored from storage')
-      
       // 根据开关决定是否建立全局WebSocket连接
       if (WS_FEATURES.enableGlobal) {
         setTimeout(async () => {
           try {
             const wsStore = useWebSocketStore()
             await wsStore.connectGlobal(storedUser.userId)
-            if (WS_FEATURES.debug) console.log('✅ WebSocket全局连接建立成功（从存储恢复）')
-          } catch (error) {
-            if (WS_FEATURES.debug) console.error('❌ WebSocket全局连接建立失败（从存储恢复）:', error)
-          }
+          } catch {}
         }, 100)
       }
-    } else {
-      if (WS_FEATURES.debug) console.log('ℹ️ No valid auth data in storage')
     }
     
     rememberEmail.value = storedRemember
@@ -241,7 +219,6 @@ export const useAuthStore = defineStore('auth', () => {
     
     // 标记为已初始化
     isInitialized.value = true
-    if (WS_FEATURES.debug) console.log('🏁 Auth initialization complete')
   }
 
   /**

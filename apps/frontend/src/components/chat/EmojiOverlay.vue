@@ -1,5 +1,5 @@
 <template>
-  <div class="emoji-overlay">
+  <div class="emoji-overlay" role="presentation" aria-hidden="true">
     <span
       v-for="p in particles"
       :key="p.id"
@@ -42,6 +42,7 @@ defineEmits<{
   line-height: 1;
   user-select: none;
   animation: emoji-float-up linear forwards;
+  will-change: transform, opacity;
 }
 
 @keyframes emoji-float-up {

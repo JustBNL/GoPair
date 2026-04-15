@@ -327,8 +327,8 @@ function resetForm() {
 .modal-header {
   text-align: center;
   padding: 32px 32px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--brand-primary);
+  color: var(--text-on-primary);
 }
 
 .header-icon {
@@ -357,7 +357,7 @@ function resetForm() {
 
 :deep(.join-form .ant-form-item-label > label) {
   font-weight: 500;
-  color: #1a202c;
+  color: var(--text-primary);
 }
 
 :deep(.join-form .ant-input),
@@ -367,8 +367,8 @@ function resetForm() {
 
 :deep(.join-form .ant-input:focus),
 :deep(.join-form .ant-input-focused) {
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 2px var(--brand-primary-light);
 }
 
 /* ==================== 房间码输入 ==================== */
@@ -387,14 +387,14 @@ function resetForm() {
   gap: 6px;
   margin-top: 8px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 /* ==================== 房间预览 ==================== */
 
 .room-preview {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   padding: 20px;
   margin: 16px 0;
@@ -406,12 +406,12 @@ function resetForm() {
   gap: 8px;
   margin-bottom: 16px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .preview-icon {
   font-size: 16px;
-  color: #667eea;
+  color: var(--brand-primary);
 }
 
 .preview-content {
@@ -429,13 +429,13 @@ function resetForm() {
   margin: 0 0 8px;
   font-size: 18px;
   font-weight: 600;
-  color: #1a202c;
+  color: var(--text-primary);
 }
 
 .room-description {
   margin: 0 0 12px;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -450,12 +450,12 @@ function resetForm() {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .meta-icon {
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 .room-status {
@@ -475,12 +475,12 @@ function resetForm() {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #f0f9ff;
-  border: 1px solid #e0f2fe;
+  background: var(--brand-accent-light);
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.2);
   border-radius: 8px;
   margin: 16px 0;
   font-size: 14px;
-  color: #0369a1;
+  color: var(--brand-accent);
 }
 
 .room-not-found {
@@ -488,12 +488,12 @@ function resetForm() {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: rgba(var(--color-error-rgb), 0.06);
+  border: 1px solid rgba(var(--color-error-rgb), 0.2);
   border-radius: 8px;
   margin: 16px 0;
   font-size: 14px;
-  color: #dc2626;
+  color: var(--color-error);
 }
 
 .warning-icon {
@@ -513,13 +513,13 @@ function resetForm() {
   height: 44px;
   border-radius: 8px;
   font-weight: 500;
-  border-color: #d1d5db;
-  color: #6b7280;
+  border-color: var(--border-default);
+  color: var(--text-secondary);
 }
 
 .cancel-btn:hover {
-  border-color: #9ca3af;
-  color: #374151;
+  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .submit-btn {
@@ -527,7 +527,7 @@ function resetForm() {
   height: 44px;
   border-radius: 8px;
   font-weight: 500;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-primary);
   border: none;
   display: flex;
   align-items: center;
@@ -536,14 +536,14 @@ function resetForm() {
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  background: var(--brand-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--brand-primary-rgb), 0.4);
 }
 
 .submit-btn:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
+  background: var(--border-light);
+  color: var(--text-muted);
   transform: none;
   box-shadow: none;
 }

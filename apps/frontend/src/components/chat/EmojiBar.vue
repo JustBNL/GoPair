@@ -49,8 +49,8 @@ function handleEmojiClick(emoji: string) {
 .emoji-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 0;
+  gap: 6px;
+  padding: 8px 0;
   transition: opacity 0.2s;
 
   &.throttled {
@@ -60,21 +60,21 @@ function handleEmojiClick(emoji: string) {
 }
 
 .emoji-btn {
-  width: 32px;
-  height: 32px;
-  font-size: 20px;
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.15s, transform 0.15s;
 
   &:hover {
-    background: #f0f0f0;
+    background: var(--border-light);
     transform: scale(1.2);
   }
 

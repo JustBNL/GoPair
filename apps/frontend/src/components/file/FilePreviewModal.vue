@@ -36,24 +36,25 @@
           <!-- 图片预览 -->
           <div v-if="isImageFile" class="image-preview">
             <div class="image-container">
-              <a-image
+              <img
                 :src="previewUrl"
                 :alt="file.fileName"
-                :preview="false"
-                style="max-width: 100%; max-height: 70vh; object-fit: contain;"
+                class="preview-image"
+                :style="{ transform: `scale(${zoomLevel / 100})` }"
                 @load="handleImageLoad"
                 @error="handleImageError"
               />
             </div>
             <div class="image-controls">
               <a-button-group>
-                <a-button @click="zoomIn">
-                  <zoom-in-outlined />
-                </a-button>
-                <a-button @click="zoomOut">
+                <a-button @click="zoomOut" :disabled="zoomLevel <= MIN_ZOOM" aria-label="缩小">
                   <zoom-out-outlined />
                 </a-button>
-                <a-button @click="resetZoom">
+                <a-button disabled style="min-width: 60px;">{{ zoomLevel }}%</a-button>
+                <a-button @click="zoomIn" :disabled="zoomLevel >= MAX_ZOOM" aria-label="放大">
+                  <zoom-in-outlined />
+                </a-button>
+                <a-button @click="resetZoom" aria-label="适应窗口">
                   <compress-outlined />
                   适应窗口
                 </a-button>
@@ -182,6 +183,11 @@ const loading = ref(false)
 const error = ref('')
 const textContent = ref('')
 const previewUrl = ref('')
+const zoomLevel = ref(100)
+
+const MIN_ZOOM = 25
+const MAX_ZOOM = 400
+const ZOOM_STEP = 25
 
 /**
  * 文件类型判断
@@ -302,18 +308,19 @@ const openInNewTab = () => {
  * 图片缩放控制
  */
 const zoomIn = () => {
-  // TODO: 实现图片放大功能
-  antMessage.info('放大功能开发中')
+  if (zoomLevel.value < MAX_ZOOM) {
+    zoomLevel.value = Math.min(MAX_ZOOM, zoomLevel.value + ZOOM_STEP)
+  }
 }
 
 const zoomOut = () => {
-  // TODO: 实现图片缩小功能
-  antMessage.info('缩小功能开发中')
+  if (zoomLevel.value > MIN_ZOOM) {
+    zoomLevel.value = Math.max(MIN_ZOOM, zoomLevel.value - ZOOM_STEP)
+  }
 }
 
 const resetZoom = () => {
-  // TODO: 实现图片重置缩放功能
-  antMessage.info('重置缩放功能开发中')
+  zoomLevel.value = 100
 }
 
 /**
@@ -358,6 +365,7 @@ const handleVideoError = () => {
 // 监听文件变化，自动加载预览
 watch(() => props.file, (newFile) => {
   if (newFile && props.open) {
+    zoomLevel.value = 100 // 重置缩放
     loadPreview()
   }
 })
@@ -365,6 +373,7 @@ watch(() => props.file, (newFile) => {
 // 监听模态框打开状态
 watch(() => props.open, (isOpen) => {
   if (isOpen && props.file) {
+    zoomLevel.value = 100 // 重置缩放
     loadPreview()
   } else {
     // 清理状态
@@ -372,36 +381,37 @@ watch(() => props.open, (isOpen) => {
     error.value = ''
     textContent.value = ''
     previewUrl.value = ''
+    zoomLevel.value = 100
   }
 })
 </script>
 
 <style scoped lang="scss">
 .file-preview-modal {
-  .preview-toolbar {
+.preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--surface-bg);
+  border-radius: 8px;
+  margin-bottom: 16px;
+
+  .file-info {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 12px;
-    background: #fafafa;
-    border-radius: 8px;
-    margin-bottom: 16px;
+    gap: 12px;
 
-    .file-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-
-      .file-name {
-        font-weight: 500;
-        color: #262626;
-      }
-
-      .file-size {
-        color: #8c8c8c;
-        font-size: 12px;
-      }
+    .file-name {
+      font-weight: 500;
+      color: var(--text-primary);
     }
+
+    .file-size {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+  }
 
     .preview-actions {
       display: flex;
@@ -419,14 +429,28 @@ watch(() => props.open, (isOpen) => {
 
       .image-container {
         margin-bottom: 16px;
-        background: #fafafa;
+        background: var(--surface-bg);
         border-radius: 8px;
         padding: 16px;
+        overflow: auto;
+        max-height: calc(70vh - 80px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .preview-image {
+          max-width: 100%;
+          max-height: calc(70vh - 80px);
+          object-fit: contain;
+          transition: transform 0.2s ease;
+          transform-origin: center center;
+        }
       }
 
       .image-controls {
         display: flex;
         justify-content: center;
+        gap: 8px;
       }
     }
 
@@ -437,7 +461,7 @@ watch(() => props.open, (isOpen) => {
 
     .text-preview {
       :deep(.ant-input) {
-        background: #fafafa;
+        background: var(--surface-bg);
         border: none;
         resize: none;
       }
@@ -452,7 +476,7 @@ watch(() => props.open, (isOpen) => {
       }
 
       .audio-info {
-        color: #8c8c8c;
+        color: var(--text-muted);
         font-size: 14px;
 
         p {
@@ -464,7 +488,7 @@ watch(() => props.open, (isOpen) => {
     .video-preview {
       text-align: center;
       padding: 20px;
-      background: #000;
+      background: var(--ai-surface);
       border-radius: 8px;
     }
 

@@ -7,24 +7,32 @@ import { ConnectionState } from '@/types/websocket'
 /**
  * WebSocket全局状态管理Store
  * 提供响应式的WebSocket连接状态和自动管理
+ *
+ * * [核心策略]
+ * - 单例模式：全局 WebSocket 实例由 store 统一持有，connectGlobal / disconnectGlobal 保证不重复创建
  */
 export const useWebSocketStore = defineStore('websocket', () => {
   // ==================== 状态定义 ====================
-  
+
   // 全局连接状态
   const globalConnectionState = ref<ConnectionState>(ConnectionState.DISCONNECTED)
   const currentUserId = ref<number | null>(null)
   const lastConnectionError = ref<Error | null>(null)
-  
+
   // 连接统计
   const connectionAttempts = ref(0)
   const lastConnectTime = ref<Date | null>(null)
   const totalReconnects = ref(0)
-  
+
   // 活跃连接追踪
   const activeConnections = ref<Set<string>>(new Set())
   const roomConnections = ref<Map<number, boolean>>(new Map())
   const voiceConnections = ref<Map<number, boolean>>(new Map())
+
+  // ==================== 单例 WebSocket 实例（模块级，同 store 生命周期） ====================
+  // 避免在 store 方法内调用 useWebSocket()，否则每次 connectGlobal 都会新建实例
+  // 而 useWebSocket 内部的 onBeforeUnmount 会在组件卸载时意外关闭连接
+  let globalWs: ReturnType<typeof useWebSocket> | null = null
 
   // ==================== 计算属性 ====================
   
@@ -54,32 +62,38 @@ export const useWebSocketStore = defineStore('websocket', () => {
   // ==================== 全局连接管理 ====================
 
   /**
-   * 建立全局WebSocket连接
+   * 建立全局WebSocket连接（单例：多次调用复用同一实例）
    */
   async function connectGlobal(userId: number): Promise<void> {
+    // 已存在且处于连接/连接中状态，直接返回
+    if (globalWs && globalWs.isConnected.value) {
+      return
+    }
+
     connectionAttempts.value++
     currentUserId.value = userId
     lastConnectionError.value = null
 
     try {
-      console.log(`🔗 建立全局WebSocket连接: userId=${userId}`)
-      
+      if (WS_FEATURES.debug) console.log(`🔗 建立全局WebSocket连接: userId=${userId}`)
+
       // 使用全局连接端点
       const globalUrl = WS_ENDPOINTS.connect()
-      
-      const { connect, connectionState } = useWebSocket()
-      
-      await connect(globalUrl, {
+
+      // 单例：仅在 globalWs 不存在时创建一次
+      if (!globalWs) {
+        globalWs = useWebSocket()
+      }
+
+      await globalWs.connect(globalUrl, {
         onConnected: () => {
           globalConnectionState.value = ConnectionState.CONNECTED
           lastConnectTime.value = new Date()
           activeConnections.value.add('global')
-          console.log(`✅ 全局WebSocket连接成功`)
         },
         onDisconnected: (event) => {
           globalConnectionState.value = ConnectionState.DISCONNECTED
           activeConnections.value.delete('global')
-          console.log(`🔌 全局WebSocket连接断开:`, event.code)
         },
         onError: (error) => {
           globalConnectionState.value = ConnectionState.ERROR
@@ -100,22 +114,21 @@ export const useWebSocketStore = defineStore('websocket', () => {
    */
   function disconnectGlobal(): void {
     try {
-      console.log(`🔌 断开全局WebSocket连接`)
-      
+      // 通过单例实例断开，而非每次新建
+      globalWs?.disconnect()
+
       // 清理所有连接状态
       globalConnectionState.value = ConnectionState.DISCONNECTED
       currentUserId.value = null
       activeConnections.value.clear()
       roomConnections.value.clear()
       voiceConnections.value.clear()
-      
+
       // 重置统计
       connectionAttempts.value = 0
       totalReconnects.value = 0
       lastConnectTime.value = null
       lastConnectionError.value = null
-      
-      console.log(`✅ 全局WebSocket断开完成`)
     } catch (error) {
       console.error(`❌ 断开全局WebSocket失败:`, error)
     }
@@ -129,7 +142,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function registerRoomConnection(roomId: number): void {
     roomConnections.value.set(roomId, true)
     activeConnections.value.add(`room:${roomId}`)
-    console.log(`📝 注册房间连接: ${roomId}`)
   }
 
   /**
@@ -138,7 +150,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function unregisterRoomConnection(roomId: number): void {
     roomConnections.value.delete(roomId)
     activeConnections.value.delete(`room:${roomId}`)
-    console.log(`📝 注销房间连接: ${roomId}`)
   }
 
   /**
@@ -147,7 +158,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function registerVoiceConnection(callId: number): void {
     voiceConnections.value.set(callId, true)
     activeConnections.value.add(`voice:${callId}`)
-    console.log(`📝 注册语音连接: ${callId}`)
   }
 
   /**
@@ -156,7 +166,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
   function unregisterVoiceConnection(callId: number): void {
     voiceConnections.value.delete(callId)
     activeConnections.value.delete(`voice:${callId}`)
-    console.log(`📝 注销语音连接: ${callId}`)
   }
 
   // ==================== 连接状态查询 ====================
@@ -198,8 +207,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
    * 初始化WebSocket Store
    */
   function initializeWebSocket(): void {
-    console.log(`🔄 初始化WebSocket Store`)
-    
     // 重置所有状态
     globalConnectionState.value = ConnectionState.DISCONNECTED
     currentUserId.value = null
@@ -218,7 +225,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
    * 清理WebSocket Store
    */
   function cleanupWebSocket(): void {
-    console.log(`🧹 清理WebSocket Store`)
     disconnectGlobal()
   }
 
@@ -242,6 +248,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
     // 全局连接方法
     connectGlobal,
     disconnectGlobal,
+    wsSend: (msg: Parameters<ReturnType<typeof useWebSocket>['send']>[0]) => globalWs?.send(msg),
     
     // 连接追踪方法
     registerRoomConnection,

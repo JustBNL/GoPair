@@ -227,7 +227,6 @@ export class SignalingProtocol {
         this.callbacks.onSpeakingStatus?.(message, message.data as ParticipantStatusData)
         break
       default:
-        console.warn('未知的信令消息类型:', message.type)
     }
   }
 
