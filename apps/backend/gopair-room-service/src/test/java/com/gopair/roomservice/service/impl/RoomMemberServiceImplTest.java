@@ -13,14 +13,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * 房间成员服务单元测试
@@ -50,12 +48,15 @@ class RoomMemberServiceImplTest {
     @Mock
     private RestTemplate restTemplate;
 
+    @Mock
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
     private RoomMemberServiceImpl roomMemberService;
 
     @BeforeEach
     void setUp() {
         roomMemberService = new RoomMemberServiceImpl(
-            roomMemberMapper, roomMapper, userPublicMapper, restTemplate, null
+            roomMemberMapper, roomMapper, userPublicMapper, restTemplate, objectMapper
         );
     }
 

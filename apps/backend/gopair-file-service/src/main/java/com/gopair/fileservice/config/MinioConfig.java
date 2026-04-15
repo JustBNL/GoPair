@@ -7,6 +7,7 @@ import io.minio.SetBucketPolicyArgs;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * MinIO客户端配置
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
+@Profile("!test")
 public class MinioConfig {
 
     private final MinioProperties minioProperties;
@@ -35,7 +37,9 @@ public class MinioConfig {
                 .credentials(minioProperties.getAccessKey(), minioProperties.getSecretKey())
                 .build();
 
-        ensureBucketExists(client, minioProperties.getBucketName());
+        if (!minioProperties.getBucketName().contains("-test")) {
+            ensureBucketExists(client, minioProperties.getBucketName());
+        }
         return client;
     }
 

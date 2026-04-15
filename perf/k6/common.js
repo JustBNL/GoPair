@@ -18,7 +18,7 @@ export const DURATION = __ENV.DURATION || '60s';
 // ====================================================================
 
 export const userData = new SharedArray('user_info', () => {
-  const raw = open('../../user_info.txt');
+  const raw = open('../user_info.txt');
   const lines = raw.split('\n').filter(l => l.trim());
   return lines.map(line => {
     const [token, userId, nickname] = line.split(',');
@@ -120,10 +120,15 @@ export function requestJoinAsync(httpParams) {
 
   const json = JSON.parse(res.body);
   const data = json?.data;
-  const message = data?.message || '';
+  const message = data?.message || json?.msg || '';
+  const code = json?.code || 0;
 
   if (message === '已在房间' || message === '已有加入请求正在处理中，请稍候') {
     // 快速拒绝，无需轮询
+    return { accepted: false, joinToken: null, fastReject: true, statusCode: 200, message };
+  }
+
+  if (code === 20202 || message === '房间已满') {
     return { accepted: false, joinToken: null, fastReject: true, statusCode: 200, message };
   }
 

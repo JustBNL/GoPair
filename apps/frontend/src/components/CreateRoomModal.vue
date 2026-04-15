@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <a-modal
     :open="visible"
     :title="null"
@@ -70,7 +70,7 @@
               <a-slider
                 v-model:value="formData.maxMembers"
                 :min="2"
-                :max="50"
+                :max="1000"
                 :step="1"
                 :tooltip-formatter="(value: number) => `${value} 人`"
                 class="member-slider"
@@ -78,7 +78,7 @@
               <div class="slider-info">
                 <span>2人</span>
                 <span class="current-value">{{ formData.maxMembers }}人</span>
-                <span>50人</span>
+                <span>1000人</span>
               </div>
             </a-form-item>
 
@@ -229,7 +229,7 @@ const formRules = {
   ],
   maxMembers: [
     { required: true, message: '请设置最大成员数' },
-    { type: 'number', min: 2, max: 50, message: '成员数必须在2-50之间' }
+    { type: 'number', min: 2, max: 1000, message: '成员数必须在2-1000之间' }
   ],
   expireHours: [
     { required: true, message: '请选择房间有效期' }

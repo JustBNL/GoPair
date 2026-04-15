@@ -30,65 +30,63 @@ import org.springframework.util.StringUtils;
 @ConditionalOnClass(name = "org.springframework.amqp.core.Message")
 public class TracingAmqpConsumerSupport {
 
-    /** 消息头 key：追踪 ID */
-    public static final String HEADER_TRACE_ID = "X-Trace-Id";
-    /** 消息头 key：用户 ID */
-    public static final String HEADER_USER_ID = "X-User-Id";
-    /** 消息头 key：用户昵称 */
-    public static final String HEADER_NICKNAME = "X-Nickname";
-
     /**
      * 从 AMQP 消息头恢复追踪上下文，执行任务后清理
+     *
+     * * [核心策略]
+     * - 无论消息头是否含 traceId，finally 块始终执行清理（MDC.remove() 幂等），防止线程池复用时污染
+     * - traceId/userId/nickname 三项各自独立追踪写入状态，互不耦合
+     *
+     * * [执行链路]
+     * 1. 从消息头提取 traceId/userId/nickname
+     * 2. 若值有效则写入 MDC，记录该键被写入
+     * 3. 执行业务逻辑
+     * 4. finally 块中，只清理本次写入过的 MDC 键（未写入则不清理，避免误覆盖其他 Span 遗留的值）
      *
      * @param message AMQP 消息（org.springframework.amqp.core.Message）
      * @param task    需要在追踪上下文中执行的业务逻辑
      */
     public void runWithTracing(org.springframework.amqp.core.Message message, Runnable task) {
-        String traceId = null;
-        String userId = null;
-        String nickname = null;
-        boolean tracingRestored = false;
+        boolean traceIdWritten = false;
+        boolean userIdWritten = false;
+        boolean nicknameWritten = false;
 
         try {
-            // 从消息头提取追踪信息
             if (message != null && message.getMessageProperties() != null) {
                 var headers = message.getMessageProperties().getHeaders();
-                traceId = getHeaderStr(headers, HEADER_TRACE_ID);
-                userId = getHeaderStr(headers, HEADER_USER_ID);
-                nickname = getHeaderStr(headers, HEADER_NICKNAME);
+                String traceId = getHeaderStr(headers, SystemConstants.HEADER_TRACE_ID);
+                String userId = getHeaderStr(headers, SystemConstants.HEADER_USER_ID);
+                String nickname = getHeaderStr(headers, SystemConstants.HEADER_NICKNAME);
+
+                if (StringUtils.hasText(traceId)) {
+                    MDC.put(SystemConstants.MDC_TRACE_ID, traceId);
+                    traceIdWritten = true;
+                }
+                if (StringUtils.hasText(userId)) {
+                    MDC.put(SystemConstants.MDC_USER_ID, userId);
+                    userIdWritten = true;
+                }
+                if (StringUtils.hasText(nickname)) {
+                    MDC.put(SystemConstants.MDC_NICKNAME, nickname);
+                    nicknameWritten = true;
+                }
             }
 
-            // 写入 MDC
-            if (StringUtils.hasText(traceId)) {
-                MDC.put(SystemConstants.MDC_TRACE_ID, traceId);
-                tracingRestored = true;
-            }
-            if (StringUtils.hasText(userId)) {
-                MDC.put(SystemConstants.MDC_USER_ID, userId);
-            }
-            if (StringUtils.hasText(nickname)) {
-                MDC.put(SystemConstants.MDC_NICKNAME, nickname);
-            }
-
-            if (tracingRestored) {
-                log.debug("[MQ追踪] 已从消息头恢复追踪上下文 - traceId={}, userId={}, nickname={}",
-                        traceId, userId, nickname);
+            if (traceIdWritten) {
+                log.debug("[MQ追踪] 已从消息头恢复追踪上下文 - traceId={}", MDC.get(SystemConstants.MDC_TRACE_ID));
             } else {
                 log.debug("[MQ追踪] 消息头中无追踪信息，使用当前上下文");
             }
 
-            // 执行业务逻辑
             task.run();
-
         } finally {
-            // 清理本次写入的 MDC 条目，避免污染线程池中后续任务
-            if (tracingRestored) {
+            if (traceIdWritten) {
                 MDC.remove(SystemConstants.MDC_TRACE_ID);
             }
-            if (StringUtils.hasText(userId)) {
+            if (userIdWritten) {
                 MDC.remove(SystemConstants.MDC_USER_ID);
             }
-            if (StringUtils.hasText(nickname)) {
+            if (nicknameWritten) {
                 MDC.remove(SystemConstants.MDC_NICKNAME);
             }
         }

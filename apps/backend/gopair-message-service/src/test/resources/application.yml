@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: message-service-test
+
+  config:
+    import: "optional:nacos:"
+
+  cloud:
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+
+  # RabbitMQ 测试配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        auto-startup: false
+    virtual-host: /
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
+  # 使用H2内存数据库（H2原生模式，兼容MyBatis-Plus）
+  datasource:
+    url: jdbc:h2:mem:testdb;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  # 通过 schema.sql 初始化 H2 内存数据库
+  sql:
+    init:
+      mode: embedded
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:NOOP.sql
+
+  # Redis 测试配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 0
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  mapper-locations: classpath:/test-mapper/**/*.xml
+  type-aliases-package: com.gopair.messageservice.domain.po
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+logging:
+  level:
+    com.gopair.messageservice: DEBUG
+    org.springframework.web: INFO
+    org.springframework.test: INFO
+    org.h2: INFO
+
+gopair:
+  message:
+    max-content-length: 2000
+    max-websocket-connections: 1000
+    history-retention-days: 30
+    redis-channel-prefix: "message"
+    emoji-max-length: 8
+  rest-template:
+    enabled: true

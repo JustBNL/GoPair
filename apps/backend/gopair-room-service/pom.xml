@@ -70,12 +70,6 @@
             <artifactId>micrometer-tracing-bridge-brave</artifactId>
         </dependency>
         
-        <!-- Zipkin Reporter -->
-        <dependency>
-            <groupId>io.zipkin.reporter2</groupId>
-            <artifactId>zipkin-reporter-brave</artifactId>
-        </dependency>
-
         <!-- Redis -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -76,11 +76,26 @@
 			<artifactId>micrometer-tracing-bridge-brave</artifactId>
 		</dependency>
 		
-		<!-- Zipkin Reporter -->
-		<dependency>
-			<groupId>io.zipkin.reporter2</groupId>
-			<artifactId>zipkin-reporter-brave</artifactId>
-		</dependency>
+        <!-- OpenTelemetry SDK（Spring Cloud Gateway WebFlux 原生支持 OTel Logging） -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-extension-autoconfigure</artifactId>
+        </dependency>
+        <!-- OpenTelemetry Logback Appender（将 Logback 日志通过 OTLP 上报到 OpenObserve） -->
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-logback-appender-1.0</artifactId>
+        </dependency>
+        <!-- OpenTelemetry OTLP Exporter（gRPC 协议导出 Traces 和 Logs 到 OpenObserve） -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry.semconv</groupId>
+            <artifactId>opentelemetry-semconv</artifactId>
+            <version>1.25.0-alpha</version>
+        </dependency>
 		
 		<!-- 测试依赖 -->
 		<dependency>
@@ -95,6 +110,11 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<jvmArguments>
+						-Dotel.java.global-autoconfigure.enabled=false
+					</jvmArguments>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.gopair</groupId>
+        <artifactId>gopair-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>gopair-admin-service</artifactId>
+    <packaging>jar</packaging>
+    <description>GoPair 管理员面板服务</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.gopair</groupId>
+            <artifactId>gopair-framework-web</artifactId>
+        </dependency>
+
+        <!-- gopair-common（MVC追踪上下文、RabbitMQ基础设施） -->
+        <dependency>
+            <groupId>com.gopair</groupId>
+            <artifactId>gopair-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

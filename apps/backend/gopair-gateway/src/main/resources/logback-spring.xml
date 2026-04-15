@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!--
+        MDC 感知型 OpenTelemetry Logback Appender
+        直接实现 Appender 接口，同步发送日志到 OpenObserve。
+        自动从 MDC 提取 traceId/userId/nickname，以 OTel Attributes 形式注入。
+    -->
+        <appender name="OTEL" class="com.gopair.common.logback.MdcAwareOtelAppender"/>
+
+    <!--
+        本地控制台 Appender（仅 dev 环境生效）
+        prod 环境关闭，只输出到 OpenObserve。
+    -->
+    <springProfile name="dev">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <!--
+        Root Logger 配置
+        OTEL Appender 默认开启，prod 环境下 CONSOLE 不启用。
+    -->
+    <root level="${LOG_LEVEL:-INFO}">
+        <appender-ref ref="OTEL"/>
+    </root>
+
+    <!-- dev 环境额外启用本地控制台输出 -->
+    <springProfile name="dev">
+        <root level="${LOG_LEVEL:-INFO}">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- GoPair 业务日志默认 DEBUG，additivity=true 将日志向上传递到 root 的 OTEL Appender -->
+    <logger name="com.gopair" level="${BUSINESS_LOG_LEVEL:-DEBUG}" additivity="true"/>
+</configuration>

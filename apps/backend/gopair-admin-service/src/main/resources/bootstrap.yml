@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: admin-service
+  config:
+    import:
+      - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
+      - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
+  cloud:
+    nacos:
+      server-addr: ${NACOS_HOST:localhost}:${NACOS_PORT:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        enabled: true
+        namespace: ${NACOS_NAMESPACE:}

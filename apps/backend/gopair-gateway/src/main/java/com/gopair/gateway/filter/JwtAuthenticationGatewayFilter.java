@@ -27,6 +27,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
@@ -177,15 +178,22 @@ public class JwtAuthenticationGatewayFilter implements GlobalFilter, Ordered {
                     GatewayErrorCode.INVALID_USER_INFO.getMessage());
         }
 
-        log.info("[网关认证] 认证成功 - 用户: {}, ID: {}, 路径: {}", nickname, userId, path);
-
         // 将用户信息注入 Brave BaggageField
         injectUserBaggage(userId, nickname);
 
         // 将用户信息添加到请求头，传递给下游服务
+        // URL 编码 nickname（UTF-8）：绕过 HTTP Header 非 ASCII 字符限制
+        // 下游 ContextInitFilter 会进行 URL 解码还原
+        String encodedNickname;
+        try {
+            encodedNickname = URLEncoder.encode(nickname, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("[网关认证] nickname URL编码失败，降级使用原始值: {}", nickname);
+            encodedNickname = nickname;
+        }
         ServerHttpRequest modifiedRequest = request.mutate()
                 .header(USER_ID_HEADER, userId)
-                .header(NICKNAME_HEADER, nickname)
+                .header(NICKNAME_HEADER, encodedNickname)
                 .build();
 
         return chain.filter(exchange.mutate().request(modifiedRequest).build())

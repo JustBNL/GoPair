@@ -1,0 +1,93 @@
+# 测试环境配置
+spring:
+  application:
+    name: file-service-test
+
+  # 允许测试环境下的 Bean 定义覆盖（使 TestConfiguration Mock Bean 覆盖生产 Bean）
+  main:
+    allow-bean-definition-overriding: true
+
+  # 禁用 Nacos 配置中心
+  config:
+    import: "optional:nacos:"
+
+  cloud:
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+
+  # H2 内存数据库
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  # H2 初始化脚本（仅 schema，无初始数据）
+  sql:
+    init:
+      mode: embedded
+      schema-locations: classpath:schema.sql
+
+  # RabbitMQ 测试配置（禁用避免队列不存在错误）
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        auto-startup: false
+    virtual-host: /
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+      - com.gopair.common.config.RabbitMQAutoConfiguration
+      - io.minio.MinioAutoConfiguration
+
+  # Redis 测试配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+# 服务器配置
+server:
+  port: 0
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.gopair.fileservice.domain.po
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# 文件服务业务配置
+gopair:
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+    access-key: admin
+    secret-key: 12345678
+    bucket-name: gopair-files-test
+    presigned-url-expire-seconds: 3600
+  file:
+    max-file-size: 104857600
+    max-room-size: 1073741824
+    thumbnail-size: 200
+    allowed-types: pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,json,xml,csv,jpg,jpeg,png,gif,bmp,webp,svg,mp4,avi,mov,mp3,wav,flac,aac,zip,rar,7z,tar,gz
+    avatar-max-size: 5242880
+
+# 日志配置
+logging:
+  level:
+    com.gopair.fileservice: DEBUG
+    org.springframework.web: INFO
+    org.springframework.test: INFO
+    org.h2: INFO
+    org.mybatis: INFO

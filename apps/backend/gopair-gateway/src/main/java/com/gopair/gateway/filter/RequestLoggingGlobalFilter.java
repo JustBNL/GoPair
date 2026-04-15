@@ -80,8 +80,11 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
     }
 
     private String getTraceId() {
-        if (tracer != null && tracer.currentSpan() != null) {
-            return tracer.currentSpan().context().traceId();
+        if (tracer != null) {
+            var span = tracer.currentSpan();
+            if (span != null) {
+                return span.context().traceId();
+            }
         }
         return null;
     }

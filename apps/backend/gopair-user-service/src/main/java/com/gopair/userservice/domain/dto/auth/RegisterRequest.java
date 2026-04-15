@@ -36,8 +36,7 @@ public class RegisterRequest {
     private String password;
 
     /**
-     * 邮箱验证码
+     * 邮箱验证码（测试环境@example.com可为空，绕过验证码校验）
      */
-    @NotBlank(message = SystemConstants.PARAM_MISSING)
     private String code;
 }

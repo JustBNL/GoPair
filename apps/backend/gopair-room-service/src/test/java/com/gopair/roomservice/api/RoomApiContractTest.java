@@ -41,16 +41,16 @@ class RoomApiContractTest extends BaseIntegrationTest {
     @Test
     void testCreateRoom() throws Exception {
         RoomDto roomDto = new RoomDto();
-        roomDto.setRoomName("测试房间");
-        roomDto.setDescription("这是一个测试房间");
+        roomDto.setRoomName("TestRoom");
+        roomDto.setDescription("A test room");
         roomDto.setMaxMembers(5);
         roomDto.setExpireHours(1);
         roomDto.setPasswordMode(0);
 
-        HttpHeaders headers = createHeaders(1L, "测试用户");
+        HttpHeaders headers = createHeaders(1L, "TestUser");
         HttpEntity<RoomDto> request = new HttpEntity<>(roomDto, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
+        ResponseEntity<String> response = testRestTemplate.exchange(
             getRoomUrl(""),
             HttpMethod.POST,
             request,
@@ -68,16 +68,16 @@ class RoomApiContractTest extends BaseIntegrationTest {
     void testCreateAndJoinRoomFlow() throws Exception {
         // 1. 创建房间
         RoomDto roomDto = new RoomDto();
-        roomDto.setRoomName("流程测试房间");
-        roomDto.setDescription("测试完整流程");
+        roomDto.setRoomName("TestRoom");
+        roomDto.setDescription("Test flow");
         roomDto.setMaxMembers(3);
         roomDto.setExpireHours(1);
         roomDto.setPasswordMode(0);
 
-        HttpHeaders headers = createHeaders(1L, "测试用户");
+        HttpHeaders headers = createHeaders(1L, "TestUser");
         HttpEntity<RoomDto> createRequest = new HttpEntity<>(roomDto, headers);
 
-        ResponseEntity<String> createResponse = restTemplate.exchange(
+        ResponseEntity<String> createResponse = testRestTemplate.exchange(
             getRoomUrl(""),
             HttpMethod.POST,
             createRequest,
@@ -94,7 +94,7 @@ class RoomApiContractTest extends BaseIntegrationTest {
         String roomCode = "12345678";
 
         // 2. 根据房间码查询房间信息
-        ResponseEntity<String> queryResponse = restTemplate.exchange(
+        ResponseEntity<String> queryResponse = testRestTemplate.exchange(
             getRoomUrl("/code/" + roomCode),
             HttpMethod.GET,
             null,
@@ -109,10 +109,10 @@ class RoomApiContractTest extends BaseIntegrationTest {
         RoomDto invalidDto = new RoomDto();
         // 故意不设置 roomName 和 maxMembers
 
-        HttpHeaders headers = createHeaders(1L, "测试用户");
+        HttpHeaders headers = createHeaders(1L, "TestUser");
         HttpEntity<RoomDto> request = new HttpEntity<>(invalidDto, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
+        ResponseEntity<String> response = testRestTemplate.exchange(
             getRoomUrl(""),
             HttpMethod.POST,
             request,
@@ -127,7 +127,7 @@ class RoomApiContractTest extends BaseIntegrationTest {
 
     @Test
     void testRoomCodeQuery() throws Exception {
-        ResponseEntity<String> response = restTemplate.exchange(
+        ResponseEntity<String> response = testRestTemplate.exchange(
             getRoomUrl("/code/99999999"),
             HttpMethod.GET,
             null,

@@ -6,6 +6,7 @@ import com.gopair.roomservice.service.JoinReservationService;
 import com.gopair.roomservice.service.JoinReservationService.PreReserveResult;
 import com.gopair.roomservice.service.JoinReservationService.ReserveStatus;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author gopair
  */
+@Disabled("需要真实 Redis 基础设施，CI 环境跳过")
 @DisplayName("预占层压力测试：Redis Lua 脚本并发安全")
 public class JoinRoomPreReserveStressTest extends BaseStressTest {
 

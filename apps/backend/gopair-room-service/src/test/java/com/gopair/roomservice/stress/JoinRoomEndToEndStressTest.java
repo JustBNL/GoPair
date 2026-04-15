@@ -13,14 +13,17 @@ import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;
 import com.gopair.roomservice.service.JoinResultQueryService.JoinStatusVO;
 import com.gopair.roomservice.service.JoinResultQueryService.JoinStatusVO.Status;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
@@ -67,6 +70,7 @@ import static org.junit.jupiter.api.Assertions.*;
     }
 )
 @ActiveProfiles("stress")
+@Disabled("需要真实 Redis + RabbitMQ 基础设施，CI 环境跳过")
 @DisplayName("端到端压力测试：HTTP → Redis → MQ → Consumer → Redis 结果")
 public class JoinRoomEndToEndStressTest {
 
@@ -90,6 +94,12 @@ public class JoinRoomEndToEndStressTest {
 
     @SpyBean
     private RabbitTemplate rabbitTemplate;
+
+    @MockBean
+    private ConnectionFactory connectionFactory;
+
+    @MockBean
+    private org.springframework.web.client.RestTemplate userProfileRestTemplate;
 
     private static final Long TEST_ROOM_ID = 998002L;
     private static final Long OWNER_ID = 20000L;

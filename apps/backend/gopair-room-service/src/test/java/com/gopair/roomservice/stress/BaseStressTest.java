@@ -1,12 +1,14 @@
 package com.gopair.roomservice.stress;
 
+import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.config.RoomConfig;
-import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.domain.po.Room;
 import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -49,6 +51,15 @@ public abstract class BaseStressTest {
 
     @Autowired
     protected RoomMemberMapper roomMemberMapper;
+
+    @MockBean
+    protected ConnectionFactory connectionFactory;
+
+    @MockBean
+    protected RabbitTemplate rabbitTemplate;
+
+    @MockBean
+    protected WebSocketMessageProducer webSocketMessageProducer;
 
     /**
      * 每个测试方法执行前：

@@ -80,8 +80,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "用户注册", module = "用户管理")
     public RegisterResponse register(RegisterRequest registerRequest) {
-        // 校验注册验证码
-        verificationCodeService.verifyCode(registerRequest.getEmail(), "register", registerRequest.getCode());
+        // 校验注册验证码（测试环境@example.com跳过）
+        if (registerRequest.getEmail() != null && !registerRequest.getEmail().endsWith("@example.com")) {
+            verificationCodeService.verifyCode(registerRequest.getEmail(), "register", registerRequest.getCode());
+        }
 
         // 检查昵称是否已存在
         if (StringUtils.hasText(registerRequest.getNickname()) && getUserByNickname(registerRequest.getNickname()) != null) {

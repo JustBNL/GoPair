@@ -89,6 +89,8 @@ gopair:
       rate-limit-per-ms: 100
     password:
       master-key: test-master-key-for-testing
+  rest-template:
+    enabled: true  # 激活 RestTemplate Bean，RoomMemberService 依赖此 Bean
   schedule:
     room-cleanup-interval: 10000
     message-cleanup-interval: 10000

@@ -3,7 +3,6 @@ package com.gopair.roomservice.service;
 import com.gopair.common.core.PageResult;
 import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.po.Room;
-import com.gopair.roomservice.domain.po.RoomMember;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;

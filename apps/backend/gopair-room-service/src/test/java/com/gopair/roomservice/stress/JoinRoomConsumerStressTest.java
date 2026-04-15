@@ -11,6 +11,7 @@ import com.gopair.roomservice.messaging.JoinRoomConsumer;
 import com.gopair.roomservice.messaging.JoinRoomProducer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -18,6 +19,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -59,6 +61,7 @@ import static org.junit.jupiter.api.Assertions.*;
     }
 )
 @ActiveProfiles("stress")
+@Disabled("需要真实 Redis + RabbitMQ 基础设施，CI 环境跳过")
 @DisplayName("MQ 消费层压力测试：JoinRoomConsumer 吞吐与幂等性")
 public class JoinRoomConsumerStressTest {
 
@@ -71,7 +74,7 @@ public class JoinRoomConsumerStressTest {
     @SpyBean
     private RabbitTemplate rabbitTemplate;
 
-    @SpyBean
+    @MockBean
     private ConnectionFactory connectionFactory;
 
     @Autowired

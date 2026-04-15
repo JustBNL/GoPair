@@ -12,6 +12,8 @@ import org.springframework.util.StringUtils;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -26,7 +28,7 @@ import java.util.UUID;
  *
  * userId/nickname 优先级：
  *   1. 从请求头 X-User-Id / X-Nickname 提取（网关注入）
- *   2. 若 TraceContextSupport 可用，同步写入 Brave BaggageField（供 Zipkin 关联）
+ *   2. 若 TraceContextSupport 可用，同步写入 Brave BaggageField（用于链路关联）
  *   3. 无论如何都写入 MDC（保证日志格式输出正确）
  *
  * @author gopair
@@ -112,7 +114,7 @@ public class ContextInitFilter implements Filter {
                 UserContext userContext = UserContext.of(userId, nickname);
                 UserContextHolder.setContext(userContext);
 
-                // 写入 MDC（日志格式输出）+ 可选写入 Brave BaggageField（Zipkin 关联）
+                // 写入 MDC（日志格式输出）+ 可选写入 Brave BaggageField（链路关联）
                 if (traceContextSupport != null) {
                     // TraceContextSupport 内部同时写 BaggageField 和 MDC
                     traceContextSupport.enrichMdcWithUserBaggage(userIdStr, nickname);
@@ -197,18 +199,65 @@ public class ContextInitFilter implements Filter {
     }
 
     /**
-     * 从请求头提取用户昵称
+     * 从请求头提取用户昵称。
+     *
+     * * [核心策略]
+     * - 双层编码兜底：Gateway 使用 URL 编码（UTF-8）传递 nickname，下游优先尝试 URL 解码；
+     *   若 Gateway 降级未编码，则用 ISO-8859-1 往返编解码反推原始字节，无损恢复中文字符。
+     *
+     * * [执行链路]
+     * 1. 尝试 URL 解码（Gateway 正常模式）：URLDecoder.decode(rawNickname, UTF_8)。
+     * 2. URL 解码失败时，降级为 ISO-8859-1 往返兜底（Gateway 降级模式）。
+     *
+     * @param request HTTP 请求
+     * @return 正确编码的用户昵称，若不存在或提取失败则返回 null
      */
     private String extractNickname(HttpServletRequest request) {
         try {
-            String nicknameHeader = request.getHeader(SystemConstants.HEADER_NICKNAME);
-            if (StringUtils.hasText(nicknameHeader)) {
-                return nicknameHeader.trim();
+            String rawNickname = request.getHeader(SystemConstants.HEADER_NICKNAME);
+            String corrected;
+            try {
+                // 优先尝试 URL 解码：Gateway 使用 URL 编码传递 nickname（UTF-8）
+                corrected = URLDecoder.decode(rawNickname, StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                // URL 解码失败时（Gateway 降级未编码），用 ISO-8859-1 往返编解码兜底
+                corrected = new String(rawNickname.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+            }
+            if (corrected != null && !corrected.isEmpty()) {
+                return corrected.trim();
             }
         } catch (Exception e) {
             log.debug("[上下文管理] 提取用户昵称失败", e);
         }
         return null;
+    }
+
+    /**
+     * 以 UTF-8 编码读取 HTTP Header，修正 Tomcat ISO-8859-1 解码导致的乱码问题。
+     *
+     * Tomcat 对所有 HTTP Header 默认使用 ISO-8859-1 解码，导致 UTF-8 编码的中文字符被误读为 "?"。
+     * 本方法通过 ISO-8859-1 往返编解码反推原始字节，再以 UTF-8 正确解码。
+     * 对于纯 ASCII 字符（英文字母、数字、符号），往返编解码零损耗，完全向后兼容。
+     *
+     * @param request     HTTP 请求
+     * @param headerName  请求头名称
+     * @return UTF-8 解码后的值，若不存在则返回 null
+     */
+    private String getHeaderUtf8(HttpServletRequest request, String headerName) {
+        String value = request.getHeader(headerName);
+        if (value == null) {
+            return null;
+        }
+        try {
+            String corrected = new String(value.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+            if (!corrected.equals(value)) {
+                log.info("[上下文管理] 编码修正 - header={}, raw={}, corrected={}", headerName, value, corrected);
+            }
+            return corrected;
+        } catch (Exception e) {
+            log.warn("[上下文管理] header {} UTF-8 解码失败, raw={}", headerName, value);
+            return value;
+        }
     }
 
     /**

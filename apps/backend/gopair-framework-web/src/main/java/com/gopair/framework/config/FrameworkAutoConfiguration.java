@@ -15,7 +15,8 @@ import org.springframework.context.annotation.Import;
 @Import({
     MybatisPlusConfiguration.class,    // 数据层配置
     ContextConfiguration.class,        // 上下文配置
-    LoggingConfiguration.class,        // 日志配置
+    LoggingConfiguration.class,        // 日志配置（AOP + 运维）
+    OtelLoggingAutoConfiguration.class, // OTel 日志导出配置（OTLP → OpenObserve）
     JacksonConfiguration.class,        // Jackson 全局序列化配置
     RestTemplateConfiguration.class    // RestTemplate 服务间 HTTP 调用配置
 })

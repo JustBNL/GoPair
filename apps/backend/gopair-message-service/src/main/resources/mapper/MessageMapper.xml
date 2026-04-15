@@ -73,7 +73,7 @@
                 AND m.sender_id = #{senderId}
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (m.content LIKE CONCAT('%', #{keyword}, '%') 
+                AND (m.content LIKE CONCAT('%', #{keyword}, '%')
                      OR m.file_name LIKE CONCAT('%', #{keyword}, '%'))
             </if>
         </where>
@@ -111,4 +111,4 @@
         </if>
     </select>
 
-</mapper> 
+</mapper>

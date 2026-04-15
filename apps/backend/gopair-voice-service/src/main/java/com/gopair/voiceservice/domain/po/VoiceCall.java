@@ -36,8 +36,6 @@ public class VoiceCall {
     /** 通话时长（秒） */
     private Integer duration;
 
-    private Integer participantCount;
-
     /** 是否为自动创建（随房间自动创建） */
     private Boolean isAutoCreated;
 }

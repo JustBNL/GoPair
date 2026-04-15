@@ -67,17 +67,18 @@ management:
       # 与 TracingMdcConfiguration 的 MDCScopeDecorator 协同工作
       correlation-fields: userId,nickname
 
-  # Zipkin配置
-  zipkin:
-    tracing:
-      # Zipkin服务端点，本地开发默认上报到 localhost:9411，生产环境通过 ZIPKIN_URL 环境变量覆盖
-      endpoint: "http://127.0.0.1:9411/api/v2/spans"
-
   # OTLP配置 (OpenTelemetry Protocol)
   otlp:
     tracing:
-      # OTLP服务端点
-      endpoint: "${OTLP_URL:}"
+      endpoint: ${OTLP_TRACING_URL:http://localhost:5081}
+    logging:
+      endpoint: ${OTLP_LOGGING_URL:http://localhost:5081}
+      compression: ${OTLP_LOGGING_COMPRESSION:gzip}
+
+  # 启用 OTLP 日志导出（设为 none 则关闭，仅输出到控制台或文件）
+  observability:
+    logging:
+      exporter: ${LOGGING_OTEL_EXPORTER:otlp}
 
   # Prometheus指标配置
   metrics:
@@ -124,3 +125,13 @@ gopair:
         - /webjars/**
         - /user/login
         - /user/register
+
+  # OpenTelemetry 日志导出配置（OTLP → OpenObserve）
+  otel:
+    # OpenObserve Basic Auth Base64 凭证
+    # 生成方式: Base64(账号:密码)，账号=811790017@qq.com，密码=811790017
+    authorization: ${OTEL_AUTHORIZATION:Basic ODExNzkwMDE3QHFxLmNvbTo4MTE3OTAwMTc=}
+    # OpenObserve 组织名称
+    organization: ${OTEL_ORGANIZATION:default}
+    # OpenObserve 日志 Stream 名称（各服务可通过 application.yml 覆盖为自身的 spring.application.name）
+    stream-name: ${OTEL_STREAM_NAME:${spring.application.name:-gopair-service}}

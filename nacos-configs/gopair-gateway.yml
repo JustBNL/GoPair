@@ -40,7 +40,7 @@ spring:
       retry:
         enabled: true
 
-# 网关专属 Actuator 配置（含 gateway 端点）
+# 网关 Actuator + OTLP 可观测性配置
 management:
   endpoints:
     web:
@@ -53,6 +53,15 @@ management:
     export:
       prometheus:
         enabled: true
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_URL:http://localhost:5081}
+    logging:
+      endpoint: ${OTLP_LOGGING_URL:http://localhost:5081}
+      compression: ${OTLP_LOGGING_COMPRESSION:gzip}
+  observability:
+    logging:
+      exporter: ${LOGGING_OTEL_EXPORTER:otlp}
 
 # JWT 验证配置（网关层面，仅用于验证令牌）
 gopair:
@@ -74,3 +83,8 @@ gopair:
     # 生产环境：https://your-domain.com
     # 可通过 CORS_ALLOWED_ORIGINS 环境变量覆盖
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,https://localhost:*,http://127.0.0.1:*,https://127.0.0.1:*}
+
+# ============================================================
+# Spring Cloud Gateway OpenTelemetry 可观测性配置
+# 适用于 WebFlux 响应式架构，通过 Spring Boot OTel Auto-configuration 导出日志和链路
+# ============================================================

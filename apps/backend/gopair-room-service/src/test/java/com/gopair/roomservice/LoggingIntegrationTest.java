@@ -3,7 +3,8 @@ package com.gopair.roomservice;
 import com.gopair.framework.context.UserContext;
 import com.gopair.framework.context.UserContextHolder;
 import com.gopair.framework.logging.annotation.LogRecord;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,8 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author gopair
  */
-@Slf4j
 class LoggingIntegrationTest {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LoggingIntegrationTest.class);
 
     @BeforeEach
     void setUp() {
@@ -95,6 +96,7 @@ class LoggingIntegrationTest {
     }
 
     static class TestService {
+        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TestService.class);
 
         @LogRecord(operation = "业务测试方法", module = "TEST")
         public String businessTestMethod(String param, Integer count) {

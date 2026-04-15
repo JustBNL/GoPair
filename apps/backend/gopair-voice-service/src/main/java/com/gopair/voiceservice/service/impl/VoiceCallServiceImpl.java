@@ -63,7 +63,6 @@ public class VoiceCallServiceImpl implements VoiceCallService {
         call.setCallType(CallType.MULTI_USER.getCode());
         call.setStatus(CallStatus.IN_PROGRESS.getCode());
         call.setStartTime(LocalDateTime.now());
-        call.setParticipantCount(1);
         call.setIsAutoCreated(true);
 
         try {
@@ -106,16 +105,6 @@ public class VoiceCallServiceImpl implements VoiceCallService {
 
         addOrUpdateParticipant(callId, userId);
 
-        if (!wasActive) {
-            // 使用原子 SQL 避免并发竞态：两个事务同时读 count=N，各自 +1 会导致最终 count=N+1 而非 N+2
-            voiceCallMapper.update(
-                    null,
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<VoiceCall>()
-                            .eq(VoiceCall::getCallId, callId)
-                            .setSql("participant_count = participant_count + 1")
-            );
-        }
-
         log.info("[语音] 用户加入通话（等待就绪信号）: callId={}, userId={}, wasActive={}",
                 callId, userId, wasActive);
         return buildCallVO(call);
@@ -140,7 +129,6 @@ public class VoiceCallServiceImpl implements VoiceCallService {
             call.setCallType(CallType.MULTI_USER.getCode());
             call.setStatus(CallStatus.IN_PROGRESS.getCode());
             call.setStartTime(LocalDateTime.now());
-            call.setParticipantCount(0);
             call.setIsAutoCreated(false);
 
             try {

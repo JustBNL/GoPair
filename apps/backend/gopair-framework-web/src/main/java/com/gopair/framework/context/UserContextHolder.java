@@ -37,10 +37,18 @@ public class UserContextHolder {
         // 设置业务上下文
         CONTEXT_HOLDER.set(context);
 
-        // 同步设置日志上下文
+        // 同步设置日志上下文（值为 null 时移除键，避免日志中出现空占位符）
         if (context != null) {
-            MDC.put(MDC_USER_ID, context.getUserId() != null ? String.valueOf(context.getUserId()) : "");
-            MDC.put(MDC_NICKNAME, context.getNickname() != null ? context.getNickname() : "");
+            if (context.getUserId() != null) {
+                MDC.put(MDC_USER_ID, String.valueOf(context.getUserId()));
+            } else {
+                MDC.remove(MDC_USER_ID);
+            }
+            if (context.getNickname() != null) {
+                MDC.put(MDC_NICKNAME, context.getNickname());
+            } else {
+                MDC.remove(MDC_NICKNAME);
+            }
         } else {
             // 清空MDC
             clearMDC();
@@ -123,7 +131,11 @@ public class UserContextHolder {
         UserContext context = CONTEXT_HOLDER.get();
         if (context != null) {
             context.setUserId(userId);
-            MDC.put(MDC_USER_ID, userId != null ? String.valueOf(userId) : "");
+            if (userId != null) {
+                MDC.put(MDC_USER_ID, String.valueOf(userId));
+            } else {
+                MDC.remove(MDC_USER_ID);
+            }
         }
     }
 
@@ -136,7 +148,11 @@ public class UserContextHolder {
         UserContext context = CONTEXT_HOLDER.get();
         if (context != null) {
             context.setNickname(nickname);
-            MDC.put(MDC_NICKNAME, nickname != null ? nickname : "");
+            if (nickname != null) {
+                MDC.put(MDC_NICKNAME, nickname);
+            } else {
+                MDC.remove(MDC_NICKNAME);
+            }
         }
     }
 }
