@@ -1,0 +1,21 @@
+/* ================================================
+   Ant Design Vue Token 覆盖
+   使 Ant Design 组件色彩与 variables.css 保持一致
+   ================================================ */
+
+/* Ant Design Vue Token — Light */
+:root {
+  --ant-primary-color:           var(--color-primary);
+  --ant-primary-color-hover:     var(--color-primary-hover);
+  --ant-primary-color-active:    var(--color-primary-active);
+  --ant-border-radius-base:      var(--radius-md);
+  --ant-border-color-base:       var(--color-border);
+  --ant-font-size-base:          14px;
+  --ant-line-height-base:        1.6;
+}
+
+/* Ant Design Vue Token — Dark */
+:root.dark {
+  --ant-primary-color:           var(--color-primary);
+  --ant-primary-color-hover:    var(--color-primary-hover);
+}
