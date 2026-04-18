@@ -5,6 +5,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import com.gopair.common.config.RabbitMQAutoConfiguration;
 
 /**
  * 语音通话服务启动类
@@ -12,7 +13,9 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  * @author gopair
  */
 @Slf4j
-@SpringBootApplication
+@SpringBootApplication(exclude = {
+        RabbitMQAutoConfiguration.class
+})
 @MapperScan("com.gopair.voiceservice.mapper")
 @EnableDiscoveryClient
 public class VoiceServiceApplication {

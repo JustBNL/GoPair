@@ -7,9 +7,9 @@ spring:
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
   cloud:
     nacos:
-      server-addr: ${NACOS_HOST:localhost}:${NACOS_PORT:8848}
-      username: ${NACOS_USERNAME:nacos}
-      password: ${NACOS_PASSWORD:nacos}
+      server-addr: localhost:8848
+      username: nacos
+      password: nacos
       discovery:
         enabled: true
-        namespace: ${NACOS_NAMESPACE:}
+        namespace: ''

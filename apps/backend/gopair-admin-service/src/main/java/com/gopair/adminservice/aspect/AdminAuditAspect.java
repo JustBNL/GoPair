@@ -1,19 +1,18 @@
 package com.gopair.adminservice.aspect;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gopair.adminservice.annotation.AdminAudit;
 import com.gopair.adminservice.context.AdminContext;
 import com.gopair.adminservice.context.AdminContextHolder;
 import com.gopair.adminservice.domain.po.AdminAuditLog;
 import com.gopair.adminservice.mapper.AdminAuditLogMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -23,28 +22,37 @@ import java.lang.reflect.Parameter;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
- * 管理员操作审计切面，拦截所有标注了 @AdminAudit 的方法并异步记录审计日志
+ * 管理员操作审计切面，拦截所有标注了 @AdminAudit 的方法并异步记录审计日志。
  */
 @Slf4j
 @Aspect
 @Component
-@RequiredArgsConstructor
 public class AdminAuditAspect {
 
     private final AdminAuditLogMapper auditLogMapper;
     private final ObjectMapper objectMapper;
+    private final Executor auditTaskExecutor;
+
+    public AdminAuditAspect(
+            AdminAuditLogMapper auditLogMapper,
+            ObjectMapper objectMapper,
+            @Qualifier("adminAuditTaskExecutor") Executor auditTaskExecutor) {
+        this.auditLogMapper = auditLogMapper;
+        this.objectMapper = objectMapper;
+        this.auditTaskExecutor = auditTaskExecutor;
+    }
 
     @Around("@annotation(adminAudit)")
     public Object around(ProceedingJoinPoint joinPoint, AdminAudit adminAudit) throws Throwable {
         Object result = joinPoint.proceed();
-        asyncWriteLog(adminAudit, joinPoint, result);
+        auditTaskExecutor.execute(() -> writeLog(adminAudit, joinPoint, result));
         return result;
     }
 
-    @Async
-    public void asyncWriteLog(AdminAudit adminAudit, ProceedingJoinPoint joinPoint, Object result) {
+    private void writeLog(AdminAudit adminAudit, ProceedingJoinPoint joinPoint, Object result) {
         try {
             AdminContext context = AdminContextHolder.get();
             if (context == null) {

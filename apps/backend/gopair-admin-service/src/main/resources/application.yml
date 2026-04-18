@@ -4,16 +4,16 @@ server:
 spring:
   config:
     import:
-      # 共享基础设施配置
+      # 共享基础设施配置（可选，本地开发时可注释）
       - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
-      # 统一日志与可观测性配置
+      # 统一日志与可观测性配置（可选）
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
 gopair:
   admin:
     jwt:
-      secret: ${ADMIN_JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}
-      expiration: ${ADMIN_JWT_EXPIRATION:28800000}
+      secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
+      expiration: 28800000
 
 mybatis-plus:
   type-aliases-package: com.gopair.adminservice.domain.po

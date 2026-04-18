@@ -17,11 +17,11 @@ const pageTitle = computed(() => {
 <template>
   <header class="app-header">
     <div class="app-header__left">
-      <h1 class="app-header__title">{{ pageTitle }}</h1>
+      <p class="app-header__title" aria-label="{{ pageTitle }}">{{ pageTitle }}</p>
     </div>
     <div class="app-header__right">
       <span class="app-header__greeting">{{ auth.nickname || '管理员' }}</span>
-      <button class="app-header__theme-btn" @click="app.toggleTheme">
+      <button class="app-header__theme-btn" @click="app.toggleTheme" :aria-label="app.isDark ? '切换至亮色模式' : '切换至暗色模式'">
         {{ app.isDark ? '亮色' : '暗色' }}
       </button>
     </div>
@@ -51,6 +51,8 @@ const pageTitle = computed(() => {
   font-weight: 600;
   color: var(--color-text-primary);
   letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 0;
 }
 
 .app-header__right {

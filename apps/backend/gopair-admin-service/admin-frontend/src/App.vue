@@ -8,7 +8,7 @@ const app = useAppStore()
 
 const themeConfig = computed(() => ({
   token: {
-    colorPrimary: '#0d9488',
+    colorPrimary: app.isDark ? '#14b8a6' : '#0d9488',
     borderRadius: 8,
     fontFamily: "'Noto Sans SC', sans-serif",
   },

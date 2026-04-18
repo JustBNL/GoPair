@@ -19,6 +19,7 @@ import com.gopair.messageservice.exception.MessageException;
 import com.gopair.messageservice.mapper.MessageMapper;
 import com.gopair.messageservice.service.MessageService;
 import com.gopair.messageservice.service.UserProfileFallbackService;
+import com.gopair.framework.context.UserContextHolder;
 import com.gopair.framework.logging.annotation.LogRecord;
 import org.springframework.context.ApplicationEventPublisher;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +41,7 @@ import java.util.Map;
 @Service
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
-    private static final String ROOM_SERVICE_URL = "http://room-service/room/";
+    private static final String ROOM_SERVICE_URL = "http://localhost:8081/room/";
 
     private final MessageMapper messageMapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -251,13 +252,20 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
         try {
             String url = ROOM_SERVICE_URL + roomId + "/members/" + userId + "/check";
+            log.info("[DEBUG] 调用成员校验, URL={}, 当前线程上下文UserId={}",
+                    url, UserContextHolder.getCurrentUserId());
+
             R<Boolean> response = restTemplate.getForObject(url, R.class);
             Boolean isMember = (response != null) ? response.getData() : false;
+            log.info("[DEBUG] 成员校验响应: code={}, data={}, raw={}",
+                    response != null ? response.getCode() : "null",
+                    isMember,
+                    response);
             log.info("房间成员校验结果, 房间ID: {}, 用户ID: {}, 成员状态: {}", roomId, userId, isMember);
             return Boolean.TRUE.equals(isMember);
         } catch (Exception e) {
             log.warn("房间成员校验接口调用失败, 房间ID: {}, 用户ID: {}, 错误: {}",
-                     roomId, userId, e.getMessage());
+                     roomId, userId, e.getMessage(), e);
             return false;
         }
     }

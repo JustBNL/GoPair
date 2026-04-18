@@ -63,6 +63,7 @@ loadMessages()
     <div class="message-manage-view__toolbar">
       <a-input-search
         v-model:value="searchKw"
+        aria-label="搜索消息内容"
         placeholder="搜索消息内容"
         @search="onSearch"
         @change="() => { pagination.current = 1; loadMessages() }"

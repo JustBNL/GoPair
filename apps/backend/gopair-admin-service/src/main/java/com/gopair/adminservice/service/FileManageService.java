@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.domain.po.RoomFile;
 import com.gopair.adminservice.mapper.RoomFileMapper;
+import com.gopair.adminservice.annotation.AdminAudit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,7 @@ public class FileManageService {
         return roomFileMapper.selectById(fileId);
     }
 
+    @AdminAudit(operation = "FILE_DELETE", targetType = "FILE")
     public void deleteFile(Long fileId) {
         RoomFile file = roomFileMapper.selectById(fileId);
         if (file == null) {

@@ -12,35 +12,35 @@ logging:
     # 设置根日志级别
     root: INFO
     # GoPair相关包的日志级别
-    com.gopair: ${GOPAIR_LOG_LEVEL:DEBUG}
+    com.gopair: DEBUG
     # Spring相关日志级别
-    org.springframework.web: ${SPRING_WEB_LOG_LEVEL:INFO}
-    org.springframework.security: ${SPRING_SECURITY_LOG_LEVEL:INFO}
-    org.springframework.cloud: ${SPRING_CLOUD_LOG_LEVEL:INFO}
-    org.springframework.cloud.gateway: ${GATEWAY_LOG_LEVEL:INFO}
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.springframework.cloud: INFO
+    org.springframework.cloud.gateway: INFO
     # 数据库相关日志
-    org.springframework.jdbc: ${SPRING_JDBC_LOG_LEVEL:INFO}
-    com.baomidou.mybatisplus: ${MYBATIS_LOG_LEVEL:INFO}
-    com.zaxxer.hikari: ${HIKARI_LOG_LEVEL:INFO}
+    org.springframework.jdbc: INFO
+    com.baomidou.mybatisplus: INFO
+    com.zaxxer.hikari: INFO
     # SQL日志级别（如果使用MyBatis）
-    com.gopair.*.mapper: ${SQL_LOG_LEVEL:DEBUG}
+    com.gopair.*.mapper: DEBUG
     # WebSocket调试
-    org.springframework.web.socket: ${WEBSOCKET_LOG_LEVEL:INFO}
+    org.springframework.web.socket: INFO
     # HTTP请求日志
-    org.springframework.web.servlet.DispatcherServlet: ${SPRING_DISPATCHER_LOG_LEVEL:INFO}
+    org.springframework.web.servlet.DispatcherServlet: INFO
     # 第三方组件日志级别
-    redis.clients.jedis: ${REDIS_LOG_LEVEL:INFO}
-    com.alibaba.nacos.client: ${NACOS_CLIENT_LOG_LEVEL:INFO}
+    redis.clients.jedis: INFO
+    com.alibaba.nacos.client: INFO
     # 网关特定日志
-    org.springframework.cloud.loadbalancer: ${LOADBALANCER_LOG_LEVEL:INFO}
-    reactor.netty: ${REACTOR_NETTY_LOG_LEVEL:WARN}
+    org.springframework.cloud.loadbalancer: INFO
+    reactor.netty: WARN
 
   # 可选的文件配置
   file:
-    name: ${LOG_FILE_PATH:./logs}/${spring.application.name}.log
-    max-size: ${LOG_FILE_MAX_SIZE:100MB}
-    max-history: ${LOG_FILE_MAX_HISTORY:30}
-    total-size-cap: ${LOG_FILE_TOTAL_SIZE:1GB}
+    name: ./logs/${spring.application.name}.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 1GB
 
 # Spring Boot Actuator基础配置
 management:
@@ -49,10 +49,10 @@ management:
     web:
       exposure:
         # 基础监控端点
-        include: ${ACTUATOR_ENDPOINTS:health,metrics,info,tracing}
+        include: health,metrics,info,tracing
   endpoint:
     health:
-      show-details: ${HEALTH_SHOW_DETAILS:when-authorized}
+      show-details: when-authorized
 
   # 链路追踪配置
   tracing:
@@ -70,21 +70,21 @@ management:
   # OTLP配置 (OpenTelemetry Protocol)
   otlp:
     tracing:
-      endpoint: ${OTLP_TRACING_URL:http://localhost:5081}
+      endpoint: http://localhost:5081
     logging:
-      endpoint: ${OTLP_LOGGING_URL:http://localhost:5081}
-      compression: ${OTLP_LOGGING_COMPRESSION:gzip}
+      endpoint: http://localhost:5081
+      compression: gzip
 
   # 启用 OTLP 日志导出（设为 none 则关闭，仅输出到控制台或文件）
   observability:
     logging:
-      exporter: ${LOGGING_OTEL_EXPORTER:otlp}
+      exporter: otlp
 
   # Prometheus指标配置
   metrics:
     export:
       prometheus:
-        enabled: ${PROMETHEUS_ENABLED:true}
+        enabled: true
 
 # ============================================================
 # GoPair 业务框架配置（从 gopair-business.yml 迁入）
@@ -94,27 +94,27 @@ gopair:
   # AOP 日志配置
   logging:
     # 日志功能总开关
-    enabled: ${GOPAIR_LOGGING_ENABLED:true}
+    enabled: true
 
     # AOP 方法日志配置
     aop:
-      enabled: ${AOP_LOGGING_ENABLED:true}
-      logArgs: ${BUSINESS_LOG_RECORD_PARAMS:true}
-      logResult: ${BUSINESS_LOG_RECORD_RESULT:true}
-      logExecutionTime: ${PERFORMANCE_LOG_ENABLED:true}
+      enabled: true
+      logArgs: true
+      logResult: true
+      logExecutionTime: true
 
     # 运维日志配置
     ops:
-      enabled: ${LOGGING_OPS_ENABLED:false}
-      mvcEnabled: ${LOGGING_MVC_ENABLED:false}
-      actuatorEnabled: ${LOGGING_ACTUATOR_ENABLED:false}
-      healthEnabled: ${LOGGING_HEALTH_ENABLED:false}
-      metricsEnabled: ${LOGGING_METRICS_ENABLED:false}
+      enabled: false
+      mvcEnabled: false
+      actuatorEnabled: false
+      healthEnabled: false
+      metricsEnabled: false
 
   # 用户上下文配置
   context:
     # 上下文功能总开关
-    enabled: ${GOPAIR_CONTEXT_ENABLED:true}
+    enabled: true
     user:
       excludedPaths:
         - /health
@@ -130,8 +130,8 @@ gopair:
   otel:
     # OpenObserve Basic Auth Base64 凭证
     # 生成方式: Base64(账号:密码)，账号=811790017@qq.com，密码=811790017
-    authorization: ${OTEL_AUTHORIZATION:Basic ODExNzkwMDE3QHFxLmNvbTo4MTE3OTAwMTc=}
+    authorization: Basic ODExNzkwMDE3QHFxLmNvbTo4MTE3OTAwMTc=
     # OpenObserve 组织名称
-    organization: ${OTEL_ORGANIZATION:default}
+    organization: default
     # OpenObserve 日志 Stream 名称（各服务可通过 application.yml 覆盖为自身的 spring.application.name）
-    stream-name: ${OTEL_STREAM_NAME:${spring.application.name:-gopair-service}}
+    stream-name: ${spring.application.name:-gopair-service}

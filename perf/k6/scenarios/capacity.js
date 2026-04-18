@@ -8,28 +8,30 @@
  *   k6 run -e BASE_URL=http://localhost:8081 \
  *          -e ROOM_CODE=54273898 \
  *          -e CAPACITY=10 \
+ *          -e VUS=100 \
  *          scenarios/capacity.js
  *
  * 环境变量：
  *   BASE_URL  - 服务地址，默认 http://localhost:8081
- *   ROOM_CODE - 房间码，默认 54273898
+ *   ROOM_CODE - 房间码，默认 54273898（setup 自动创建）
  *   CAPACITY  - 房间容量，默认 10
  *   VUS       - 虚拟用户数（应远大于 CAPACITY），默认 100
  */
 
 import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { SharedArray } from 'k6/data';
+import { check } from 'k6';
 import {
   BASE_URL,
   ROOM_CODE,
   CAPACITY,
-  VUS,
   userData,
   pollJoinResult,
   makeHttpParams,
   requestJoinAsync,
+  createTestRoom,
 } from '../common.js';
+
+const VUS = parseInt(__ENV.VUS || '100', 10);
 
 // ====================================================================
 // 脉冲测试选项：per-vu-iterations 让每个 VU 执行一次迭代后结束
@@ -48,17 +50,39 @@ export const options = {
 };
 
 // ====================================================================
+// setup：自动创建测试房间（幂等：已存在则复用）
+// ====================================================================
+
+export function setup() {
+  const roomCode = ROOM_CODE;
+  const maxMembers = CAPACITY;
+
+  const { roomId, roomCode: actualRoomCode } = createTestRoom(BASE_URL, roomCode, maxMembers);
+
+  if (!roomId) {
+    throw new Error(`[setup] 无法获取有效 roomId，capacity 测试无法进行`);
+  }
+
+  console.log(`[setup] capacity 场景就绪 roomCode=${actualRoomCode}(${roomCode}) roomId=${roomId} capacity=${maxMembers}`);
+
+  return { roomId, roomCode: actualRoomCode, capacity: maxMembers };
+}
+
+// ====================================================================
 // 每个 VU 的主逻辑：发起 join，等待结果，记录状态
 // ====================================================================
 
-export default function () {
+export default function (data) {
+  // 从 setup 阶段获取房间信息
+  const roomCode = data.roomCode;
+
   // 按 VU 编号取用户数据（循环复用，避免 userData 不足）
   const vuId = (__VU - 1) % userData.length;
   const params = makeHttpParams(vuId);
   const user = userData[vuId];
 
-  // 1. 发起 join/async
-  const joinRes = requestJoinAsync(params);
+  // 1. 发起 join/async（直接传入 roomCode，避免 __ENV 传递问题）
+  const joinRes = requestJoinAsync(params, roomCode);
   const joinStart = Date.now();
 
   if (joinRes.fastReject) {
@@ -69,7 +93,7 @@ export default function () {
   }
 
   if (!joinRes.accepted || !joinRes.joinToken) {
-    console.error(`[VU ${__VU}] join/async unexpected response: ${joinRes.statusCode}`);
+    console.error(`[VU ${__VU}] join/async unexpected response: ${joinRes.statusCode} fastReject=${joinRes.fastReject}`);
     return;
   }
 

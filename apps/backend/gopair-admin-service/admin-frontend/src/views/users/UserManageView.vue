@@ -114,6 +114,7 @@ loadUsers()
     <div class="user-manage-view__toolbar">
       <a-input-search
         v-model:value="searchKw"
+        aria-label="搜索昵称或邮箱"
         placeholder="搜索昵称或邮箱"
         class="user-manage-view__search"
         @search="onSearch"

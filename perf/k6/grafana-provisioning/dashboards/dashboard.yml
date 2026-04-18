@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'K6 压测仪表盘'
+    orgId: 1
+    folder: 'GoPair 压测'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

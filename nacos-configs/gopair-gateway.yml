@@ -8,12 +8,12 @@ spring:
   cloud:
     nacos:
       # Nacos 服务地址
-      server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+      server-addr: 127.0.0.1:8848
       # 配置中心
       config:
         file-extension: yml
-        group: ${NACOS_GROUP:DEFAULT_GROUP}
-        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        namespace: ''
       # 服务发现
       discovery:
         enabled: true
@@ -21,8 +21,8 @@ spring:
         heart-beat-interval: 5
         heart-beat-timeout: 15
         ip-delete-timeout: 30
-        group: ${NACOS_GROUP:DEFAULT_GROUP}
-        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        namespace: ''
         metadata:
           version: ${app.version:1.0.0}
           zone: ${app.zone:default}
@@ -55,34 +55,34 @@ management:
         enabled: true
   otlp:
     tracing:
-      endpoint: ${OTLP_TRACING_URL:http://localhost:5081}
+      endpoint: http://localhost:5081
     logging:
-      endpoint: ${OTLP_LOGGING_URL:http://localhost:5081}
-      compression: ${OTLP_LOGGING_COMPRESSION:gzip}
+      endpoint: http://localhost:5081
+      compression: gzip
   observability:
     logging:
-      exporter: ${LOGGING_OTEL_EXPORTER:otlp}
+      exporter: otlp
 
 # JWT 验证配置（网关层面，仅用于验证令牌）
 gopair:
   jwt:
     # JWT 密钥，与 user-service 保持一致（通过环境变量统一注入）
-    secret: ${JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}
+    secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
     # JWT 过期时间（毫秒），必须为正数，与 user-service 保持一致
-    expiration: ${JWT_EXPIRATION:86400000}
+    expiration: 86400000
 
   # 网关认证白名单（kebab-case，统一命名规范）
   gateway:
     # 说明：支持精确匹配及尾部斜杠变体（如 /ws 可匹配 /ws 和 /ws/）
     # /user/{userId} 等 Ant 风格需网关过滤器扩展支持
     # /actuator/health 用于负载均衡探活
-    skip-auth-paths: ${GATEWAY_SKIP_AUTH_PATHS:/user/login,/user/register,/user/sendCode,/user/forgotPassword,/user/page,/user/by-ids,/user/{userId},/favicon.ico,/error,/actuator/health,/doc.html,/swagger-ui.html,/v3/api-docs}
+    skip-auth-paths: /user/login,/user/register,/user/sendCode,/user/forgotPassword,/user/page,/user/by-ids,/user/{userId},/favicon.ico,/error,/actuator/health,/doc.html,/swagger-ui.html,/v3/api-docs
     # CORS 跨域来源配置（多个用逗号分隔，支持 * 通配符）
     # 本地开发：https://localhost:*,http://localhost:*
     # 移动端/局域网：https://192.168.x.x:*
     # 生产环境：https://your-domain.com
     # 可通过 CORS_ALLOWED_ORIGINS 环境变量覆盖
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,https://localhost:*,http://127.0.0.1:*,https://127.0.0.1:*}
+    allowed-origins: http://localhost:*,https://localhost:*,http://127.0.0.1:*,https://127.0.0.1:*
 
 # ============================================================
 # Spring Cloud Gateway OpenTelemetry 可观测性配置

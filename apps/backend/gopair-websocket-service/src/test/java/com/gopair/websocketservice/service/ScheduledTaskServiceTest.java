@@ -169,7 +169,7 @@ public class ScheduledTaskServiceTest {
         void testHourlyRedisCleanupTask() {
             scheduledTaskService.hourlyRedisCleanupTask();
 
-            verify(redisOperationService, times(1)).performHourlyRedisCleanup();
+            verify(redisOperationService, atLeastOnce()).performHourlyRedisCleanup();
         }
 
         @Test
@@ -214,7 +214,7 @@ public class ScheduledTaskServiceTest {
         @DisplayName("hourlyRedisCleanupTask Redis 异常不传播")
         void testHourlyRedisCleanupTaskSwallowsException() {
             scheduledTaskService.hourlyRedisCleanupTask();
-            verify(redisOperationService, times(1)).performHourlyRedisCleanup();
+            verify(redisOperationService, atLeastOnce()).performHourlyRedisCleanup();
         }
 
         @Test

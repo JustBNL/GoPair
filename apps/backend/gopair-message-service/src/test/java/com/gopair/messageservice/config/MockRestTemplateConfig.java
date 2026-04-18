@@ -79,11 +79,6 @@ public class MockRestTemplateConfig {
 
             String url = request.getURI().toString();
 
-            // 本地请求（Controller 测试向 localhost 发起的 HTTP 调用）不拦截，直接执行真实请求
-            if (!url.startsWith("http://room-service") && !url.startsWith("http://user-service")) {
-                return execution.execute(request, body);
-            }
-
             // 优先查找 HTTP stub（字符串响应，用于 user-service 降级）
             String httpStub = HTTP_STUBS.get(url);
             if (httpStub != null) {
@@ -94,6 +89,25 @@ public class MockRestTemplateConfig {
             Boolean boolStub = BOOL_STUBS.get(url);
             if (boolStub != null) {
                 return new MockClientHttpResponse(boolStub);
+            }
+
+            // 本地请求（Controller 测试向 localhost 发起的 HTTP 调用）或外部服务请求
+            // 若请求的是 localhost 且包含 /room/，尝试映射到 room-service stub
+            if (url.contains("localhost") && url.contains("/room/")) {
+                String mapped = url.replaceFirst("http://[^/]+", "http://room-service");
+                Boolean mappedStub = BOOL_STUBS.get(mapped);
+                if (mappedStub != null) {
+                    return new MockClientHttpResponse(mappedStub);
+                }
+                // 精确匹配本地端口的 room-service stub（格式：http://localhost:8081/room/{id}/members/{uid}/check）
+                for (Map.Entry<String, Boolean> entry : BOOL_STUBS.entrySet()) {
+                    String stubUrl = entry.getKey();
+                    // 匹配格式：localhost:PORT/room/{id}/members/{uid}/check
+                    String pattern = stubUrl.replaceFirst("http://[^/]+", "");
+                    if (url.contains(pattern)) {
+                        return new MockClientHttpResponse(entry.getValue());
+                    }
+                }
             }
 
             // 未配置的外部服务 URL 返回 200 OK + 空响应体（模拟服务不可用时的降级）

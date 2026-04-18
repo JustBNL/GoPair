@@ -8,6 +8,7 @@ import com.gopair.adminservice.domain.po.User;
 import com.gopair.adminservice.mapper.RoomMapper;
 import com.gopair.adminservice.mapper.RoomMemberMapper;
 import com.gopair.adminservice.mapper.UserMapper;
+import com.gopair.adminservice.annotation.AdminAudit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,9 +36,9 @@ public class UserManageService {
         Page<User> page = new Page<>(query.pageNum(), query.pageSize());
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(query.keyword())) {
-            wrapper.like(User::getNickname, query.keyword())
-                   .or()
-                   .like(User::getEmail, query.keyword());
+            wrapper.and(w -> w.like(User::getNickname, query.keyword())
+                    .or()
+                    .like(User::getEmail, query.keyword()));
         }
         wrapper.orderByDesc(User::getCreateTime);
         return userMapper.selectPage(page, wrapper);
@@ -63,6 +64,7 @@ public class UserManageService {
         return detail;
     }
 
+    @AdminAudit(operation = "USER_DISABLE", targetType = "USER")
     public void disableUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -73,6 +75,7 @@ public class UserManageService {
         log.info("[UserManage] 停用用户: userId={}", userId);
     }
 
+    @AdminAudit(operation = "USER_ENABLE", targetType = "USER")
     public void enableUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {

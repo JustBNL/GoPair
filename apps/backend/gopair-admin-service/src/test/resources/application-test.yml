@@ -1,0 +1,51 @@
+server:
+  port: 0
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  application:
+    name: gopair-admin-service-test
+  config:
+    import: "optional:nacos:"
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;NON_KEYWORDS=USER,VALUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: embedded
+      schema-locations: classpath:schema.sql
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        auto-startup: false
+    virtual-host: /
+  autoconfigure:
+    exclude:
+      - com.gopair.common.config.RabbitMQAutoConfiguration
+
+gopair:
+  admin:
+    jwt:
+      secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
+      expiration: 28800000
+
+mybatis-plus:
+  type-aliases-package: com.gopair.adminservice.domain.po
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+
+logging:
+  level:
+    com.gopair.adminservice: DEBUG
+    org.springframework.test: INFO
+    org.h2: INFO

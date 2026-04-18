@@ -8,6 +8,7 @@ import com.gopair.adminservice.domain.po.User;
 import com.gopair.adminservice.mapper.RoomMapper;
 import com.gopair.adminservice.mapper.RoomMemberMapper;
 import com.gopair.adminservice.mapper.UserMapper;
+import com.gopair.adminservice.annotation.AdminAudit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -71,6 +72,7 @@ public class RoomManageService {
         return detail;
     }
 
+    @AdminAudit(operation = "ROOM_CLOSE", targetType = "ROOM")
     public void closeRoom(Long roomId) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {

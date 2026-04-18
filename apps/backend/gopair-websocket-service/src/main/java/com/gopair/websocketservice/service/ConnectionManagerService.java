@@ -182,7 +182,12 @@ public class ConnectionManagerService {
             return LocalDateTime.ofEpochSecond(epochSecond, 0, ZoneOffset.UTC);
         } catch (NumberFormatException _) {
             // ISO 格式（假设为 UTC，如 2026-04-11T10:30:00Z）
-            return LocalDateTime.parse(str);
+            try {
+                return LocalDateTime.parse(str);
+            } catch (Exception __) {
+                // 无法解析为任何格式，返回 null
+                return null;
+            }
         }
     }
 

@@ -43,4 +43,15 @@ build/
 /logs/
 **/logs/
 *.log
+/perf/jmeter/
+/fix_encoding.py
+/.editorconfig
+/perf/k6/join_async_test.js
+/perf/scripts/bootstrap_users_and_tokens.js
+/perf/scripts/prepare_message_tokens.js
+/perf/README.md
+/perf/tokens.txt
+**/logs/
+*.log
 apps/frontend/nul
+/sql/

@@ -5,7 +5,7 @@ spring:
     name: file-relay-service
   profiles:
     # 当前环境配置
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: dev
   config:
     import:
       # 共享基础设施配置（Redis、MySQL、RabbitMQ、MyBatis-Plus、Knife4j）
@@ -31,22 +31,22 @@ gopair:
 
   # MinIO 对象存储配置
   minio:
-    endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
-    access-key: ${MINIO_ACCESS_KEY:admin}
-    secret-key: ${MINIO_SECRET_KEY:12345678}
-    bucket-name: ${MINIO_BUCKET:gopair-files}
+    endpoint: http://127.0.0.1:9000
+    access-key: admin
+    secret-key: 12345678
+    bucket-name: gopair-files
     # Presigned URL 有效期（秒），默认 24 小时，与房间生命周期一致
-    presigned-url-expire-seconds: ${MINIO_PRESIGNED_EXPIRE:86400}
+    presigned-url-expire-seconds: 86400
 
   # 文件上传限制
   file:
     # 单文件最大限制（字节），默认 100MB
-    max-file-size: ${FILE_MAX_SIZE:104857600}
+    max-file-size: 104857600
     # 房间文件总容量限制（字节），默认 1GB
-    max-room-size: ${FILE_MAX_ROOM_SIZE:1073741824}
+    max-room-size: 1073741824
     # 缩略图尺寸（像素）
-    thumbnail-size: ${FILE_THUMBNAIL_SIZE:200}
+    thumbnail-size: 200
     # 允许的文件类型（逗号分隔）
     allowed-types: pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,json,xml,csv,jpg,jpeg,png,gif,bmp,webp,svg,mp4,avi,mov,mp3,wav,flac,aac,zip,rar,7z,tar,gz
     # 头像文件最大限制（字节），默认 5MB
-    avatar-max-size: ${FILE_AVATAR_MAX_SIZE:5242880}
+    avatar-max-size: 5242880

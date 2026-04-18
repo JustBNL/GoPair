@@ -17,6 +17,7 @@
   --color-warning:        oklch(68% 0.17 70);
   --color-danger:         oklch(58% 0.22 25);
   --color-info:           oklch(55% 0.12 240);
+  --color-voice:         oklch(52% 0.18 280);
 
   /* 背景层次 */
   --color-bg:             oklch(98% 0.005 260);
@@ -35,11 +36,20 @@
   --color-text-disabled:  oklch(70% 0.005 265);
 
   /* 侧边栏（固定深色） */
-  --color-sidebar-bg:     oklch(22% 0.02 265);
-  --color-sidebar-text:    oklch(88% 0.005 265);
-  --color-sidebar-active:  oklch(30% 0.02 265);
-  --color-sidebar-hover:   oklch(26% 0.02 265);
-  --color-sidebar-width:   240px;
+  --color-sidebar-bg:           oklch(22% 0.02 265);
+  --color-sidebar-text:          oklch(88% 0.005 265);
+  --color-sidebar-text-secondary: oklch(65% 0.008 265);
+  --color-sidebar-active:        oklch(30% 0.02 265);
+  --color-sidebar-hover:        oklch(26% 0.02 265);
+  --color-sidebar-divider:      oklch(40% 0.015 265 / 0.5);
+  --color-sidebar-width:         240px;
+
+  /* 滚动条 */
+  --color-scroll-thumb:        oklch(50% 0.01 265 / 0.25);
+  --color-scroll-thumb-hover:  oklch(50% 0.01 265 / 0.4);
+
+  /* 选中色 */
+  --color-selection-bg:        oklch(52% 0.15 195 / 0.2);
 
   /* 顶栏 */
   --color-header-bg:      oklch(100% 0 0);
@@ -91,11 +101,21 @@
   --color-header-bg:      oklch(18% 0.02 265);
 
   /* 侧边栏不变（固定深色） */
-  --color-sidebar-bg:     oklch(12% 0.02 265);
-  --color-sidebar-text:   oklch(80% 0.005 265);
-  --color-sidebar-active: oklch(26% 0.02 265);
-  --color-sidebar-hover:  oklch(18% 0.02 265);
+  --color-sidebar-bg:           oklch(12% 0.02 265);
+  --color-sidebar-text:          oklch(80% 0.005 265);
+  --color-sidebar-text-secondary: oklch(55% 0.008 265);
+  --color-sidebar-active:        oklch(26% 0.02 265);
+  --color-sidebar-hover:        oklch(18% 0.02 265);
+  --color-sidebar-divider:      oklch(40% 0.015 265 / 0.3);
+
+  /* 滚动条 */
+  --color-scroll-thumb:        oklch(50% 0.01 265 / 0.35);
+  --color-scroll-thumb-hover:  oklch(50% 0.01 265 / 0.55);
+
+  /* 选中色 */
+  --color-selection-bg:        oklch(68% 0.14 195 / 0.25);
 
   --color-primary:        oklch(68% 0.14 195);
   --color-primary-hover:  oklch(72% 0.13 195);
+  --color-voice:         oklch(68% 0.18 280);
 }

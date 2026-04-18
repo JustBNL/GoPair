@@ -4,11 +4,16 @@ import com.gopair.common.logback.OtelSdkHolder;
 import com.gopair.framework.config.properties.OtelLoggingProperties;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.exporter.otlp.logs.OtlpGrpcLogRecordExporter;
+import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
+import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.logs.SdkLoggerProvider;
 import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor;
 import io.opentelemetry.sdk.resources.Resource;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.opentelemetry.semconv.ResourceAttributes;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +26,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * OpenTelemetry 日志导出自动配置（供所有 MVC 服务使用）
+ * OpenTelemetry 可观测性自动配置（供所有 MVC 服务使用）
  *
  * * [核心策略]
  * - 默认启用（gopair.otel.enabled=true），可按服务禁用
@@ -31,10 +36,11 @@ import org.springframework.context.annotation.Configuration;
  * - 不使用 GlobalOpenTelemetry，通过 OtelSdkHolder 静态持有者在 SDK Bean 和 Appender 之间传递实例
  *
  * * [执行链路]
- * 1. 读取 gopair.otel.* 配置（credentials / organization / stream-name）
- * 2. 构建 SdkLoggerProvider，绑定 OTLP gRPC LogExporter（携带 OpenObserve 认证头）
- * 3. 构建 OpenTelemetrySdk，注册到 OtelSdkHolder（供 MdcAwareOtelAppender 使用）
- * 4. MdcAwareOtelAppender（通过 logback-spring.xml 实例化）在 append() 时从 OtelSdkHolder 获取 SDK
+ * 1. 读取 gopair.otel.* 配置（credentials / organization / stream-name）和 OTLP 端点
+ * 2. 构建 SdkTracerProvider，绑定 OTLP gRPC SpanExporter（追踪数据 → OpenObserve:5081）
+ * 3. 构建 SdkLoggerProvider，绑定 OTLP gRPC LogExporter（携带 OpenObserve 认证头）
+ * 4. 构建 OpenTelemetrySdk，合并 TracerProvider + LoggerProvider + W3C 上下文传播器，注册到 OtelSdkHolder
+ * 5. MdcAwareOtelAppender 从 OtelSdkHolder 获取 SDK 发送日志
  *
  * 注意：不再使用 BeanPostProcessor 安装 OpenTelemetryAppender。
  *
@@ -56,6 +62,36 @@ public class OtelLoggingAutoConfiguration {
 
     @Value("${server.port:8080}")
     private int serverPort;
+
+    /**
+     * OTLP Trace Exporter + TracerProvider
+     */
+    @Bean
+    @ConditionalOnMissingBean(SdkTracerProvider.class)
+    public SdkTracerProvider sdkTracerProvider(
+            @Value("${management.otlp.tracing.endpoint:http://localhost:5081}") String tracingEndpoint) {
+        String instanceId = System.getProperty("hostname", "unknown") + "_" + ProcessHandle.current().pid() + "_" + serverPort;
+
+        Resource resource = Resource.getDefault()
+                .merge(Resource.create(Attributes.of(
+                        ResourceAttributes.SERVICE_NAME, serviceName,
+                        ResourceAttributes.SERVICE_VERSION, serviceVersion,
+                        ResourceAttributes.SERVICE_INSTANCE_ID, instanceId
+                )));
+
+        OtlpGrpcSpanExporter spanExporter = OtlpGrpcSpanExporter.builder()
+                .setEndpoint(tracingEndpoint)
+                .build();
+
+        SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
+                .setResource(resource)
+                .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
+                .build();
+
+        log.info("[OTel追踪] SdkTracerProvider 初始化完成 - service={}, endpoint={}", serviceName, tracingEndpoint);
+
+        return tracerProvider;
+    }
 
     /**
      * OTLP Log Exporter + LoggerProvider
@@ -99,14 +135,17 @@ public class OtelLoggingAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean(OpenTelemetry.class)
-    public OpenTelemetry openTelemetrySdk(SdkLoggerProvider sdkLoggerProvider) {
+    public OpenTelemetry openTelemetrySdk(SdkLoggerProvider sdkLoggerProvider,
+                                          SdkTracerProvider sdkTracerProvider) {
         OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder()
                 .setLoggerProvider(sdkLoggerProvider)
+                .setTracerProvider(sdkTracerProvider)
+                .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
                 .build();
 
         OtelSdkHolder.set(openTelemetrySdk);
 
-        log.info("[OTel日志] OpenTelemetry SDK 初始化完成 - service={}", serviceName);
+        log.info("[OTel可观测性] OpenTelemetry SDK 初始化完成 - service={}", serviceName);
 
         return openTelemetrySdk;
     }

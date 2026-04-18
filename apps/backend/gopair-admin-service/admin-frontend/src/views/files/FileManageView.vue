@@ -112,6 +112,7 @@ loadFiles()
     <div class="file-manage-view__toolbar">
       <a-input-search
         v-model:value="searchKw"
+        aria-label="搜索文件名"
         placeholder="搜索文件名"
         @search="onSearch"
         @change="() => { pagination.current = 1; loadFiles() }"

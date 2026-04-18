@@ -5,7 +5,7 @@ spring:
     name: room-service
   profiles:
     # 当前环境配置
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: dev
   config:
     import:
       # 共享基础设施配置（Redis、MySQL、RabbitMQ、MyBatis-Plus、Knife4j）
@@ -38,7 +38,7 @@ gopair:
       rate-limit-per-ms: 100
     # 密码加密主密钥
     password:
-      master-key: ${ROOM_PASSWORD_MASTER_KEY:gopair-local-dev-secret}
+      master-key: gopair-local-dev-secret
 
   # 定时任务配置
   schedule:

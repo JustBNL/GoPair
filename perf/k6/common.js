@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 
 // ====================================================================
@@ -45,7 +45,9 @@ export function pollJoinResult(joinToken, httpParams) {
   let roomId = null;
   const startMs = Date.now();
 
-  while (status === 'PENDING') {
+  // 持续轮询直到获得确定结果：JOINED / FAILED / ERROR / TIMEOUT
+  // PENDING 和 PROCESSING 都是中间状态，需要继续轮询
+  while (status === 'PENDING' || status === 'PROCESSING') {
     if (pollCount >= 20) {
       status = 'TIMEOUT';
       break;
@@ -68,12 +70,12 @@ export function pollJoinResult(joinToken, httpParams) {
     status = data?.status || 'PENDING';
     if (status === 'JOINED' || status === 'FAILED') {
       roomId = data?.roomId || null;
+      break;
     }
 
-    if (status === 'PENDING') {
-      sleep(delay);
-      delay = Math.min(delay * 1.5, 1.0);
-    }
+    // 中间状态：sleep 后继续轮询
+    sleep(delay);
+    delay = Math.min(delay * 1.5, 1.0);
   }
 
   return { status, roomId, pollCount, totalMs: Date.now() - startMs };
@@ -106,9 +108,13 @@ export function makeHttpParams(userIndex) {
 /**
  * 发起 join/async 请求，返回 { joinToken, accepted }。
  * accepted=false 表示请求被快速拒绝（ALREADY_JOINED / FULL 等），无需轮询。
+ *
+ * @param {object} httpParams - HTTP 请求参数（包含 headers）
+ * @param {string} [roomCode] - 可选，优先使用此 roomCode；否则从 ROOM_CODE_OVERRIDE 或 ROOM_CODE 常量读取。
  */
-export function requestJoinAsync(httpParams) {
-  const body = JSON.stringify({ roomCode: ROOM_CODE });
+export function requestJoinAsync(httpParams, roomCode) {
+  const code = roomCode || __ENV.ROOM_CODE_OVERRIDE || ROOM_CODE;
+  const body = JSON.stringify({ roomCode: code });
   const res = http.post(`${BASE_URL}/room/join/async`, body, {
     ...httpParams,
     tags: { name: 'join_async' },
@@ -121,17 +127,187 @@ export function requestJoinAsync(httpParams) {
   const json = JSON.parse(res.body);
   const data = json?.data;
   const message = data?.message || json?.msg || '';
-  const code = json?.code || 0;
+  const respCode = json?.code || 0;
 
   if (message === '已在房间' || message === '已有加入请求正在处理中，请稍候') {
     // 快速拒绝，无需轮询
     return { accepted: false, joinToken: null, fastReject: true, statusCode: 200, message };
   }
 
-  if (code === 20202 || message === '房间已满') {
+  if (respCode === 20202 || message === '房间已满') {
     return { accepted: false, joinToken: null, fastReject: true, statusCode: 200, message };
   }
 
   const joinToken = data?.joinToken;
   return { accepted: true, joinToken, fastReject: false, statusCode: 200 };
+}
+
+// ====================================================================
+// 消息发送封装
+// ====================================================================
+
+const MESSAGE_SERVICE_URL = __ENV.MESSAGE_SERVICE_URL || 'http://localhost:8082';
+
+/**
+ * 向消息服务发送消息，返回发送结果与耗时。
+ *
+ * @param {number} userIndex - 用户在 userData 数组中的索引
+ * @param {number} roomId - 目标房间 ID
+ * @param {number} messageType - 消息类型（1=文本, 2=图片, 3=文件, 4=语音）
+ * @param {string} content - 消息内容
+ * @returns {{ success: boolean, statusCode: number, messageId: string|null, durationMs: number }}
+ */
+export function sendMessage(userIndex, roomId, messageType, content) {
+  const user = userData[userIndex % userData.length];
+  const params = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`,
+      'X-User-Id': user.userId,
+      'X-Nickname': user.nickname,
+    },
+    tags: { name: 'message_send' },
+  };
+
+  const body = JSON.stringify({
+    roomId: roomId,
+    messageType: messageType,
+    content: content,
+  });
+
+  const startMs = Date.now();
+  const res = http.post(`${MESSAGE_SERVICE_URL}/message/send`, body, params);
+  const durationMs = Date.now() - startMs;
+
+  if (res.status !== 200) {
+    return { success: false, statusCode: res.status, messageId: null, durationMs };
+  }
+
+  try {
+    const json = JSON.parse(res.body);
+    const messageId = json?.data?.messageId || null;
+    return { success: true, statusCode: res.status, messageId, durationMs };
+  } catch {
+    return { success: false, statusCode: res.status, messageId: null, durationMs };
+  }
+}
+
+// ====================================================================
+// 消息计数封装
+// ====================================================================
+
+/**
+ * 查询指定房间的消息总数（用于 teardown 阶段可靠性验证）。
+ *
+ * @param {number} userIndex - 用户在 userData 数组中的索引
+ * @param {number} roomId - 目标房间 ID
+ * @returns {{ count: number|null, statusCode: number }}
+ */
+export function countRoomMessages(userIndex, roomId) {
+  const user = userData[userIndex % userData.length];
+  const params = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`,
+      'X-User-Id': user.userId,
+      'X-Nickname': user.nickname,
+    },
+    tags: { name: 'count_messages' },
+  };
+
+  const res = http.get(`${MESSAGE_SERVICE_URL}/message/room/${roomId}/messages?pageNum=1&pageSize=1`, params);
+
+  if (res.status !== 200) {
+    return { count: null, statusCode: res.status };
+  }
+
+  try {
+    const json = JSON.parse(res.body);
+    const count = json?.data?.total ?? null;
+    return { count, statusCode: res.status };
+  } catch {
+    return { count: null, statusCode: res.status };
+  }
+}
+
+// ====================================================================
+// 房间创建封装（幂等：先查后建）
+// ====================================================================
+
+/**
+ * 创建或复用测试房间。
+ * 幂等策略：先通过 roomCode 查询房间是否存在，若已存在直接返回；
+ * 若不存在则创建新房间。同一 roomCode 重复调用结果一致。
+ *
+ * @param {string} baseUrl - Room Service 地址
+ * @param {string} roomCode - 房间码
+ * @param {number} maxMembers - 房间最大成员数（仅创建时使用）
+ * @returns {{ roomId: number|null, roomCode: string }}
+ */
+export function createTestRoom(baseUrl, roomCode, maxMembers) {
+  // 阶段1：尝试通过 roomCode 查询房间是否已存在
+  const user = userData[0];
+  const queryParams = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`,
+      'X-User-Id': user.userId,
+      'X-Nickname': user.nickname,
+    },
+    tags: { name: 'query_room' },
+  };
+
+  const queryRes = http.get(`${baseUrl}/room/code/${roomCode}`, queryParams);
+
+  if (queryRes.status === 200) {
+    try {
+      const json = JSON.parse(queryRes.body);
+      const existingRoomId = json?.data?.roomId;
+      if (existingRoomId) {
+        console.log(`[createTestRoom] 复用已有房间 roomCode=${roomCode} roomId=${existingRoomId}`);
+        return { roomId: existingRoomId, roomCode };
+      }
+    } catch {
+      // 解析失败，继续尝试创建
+    }
+  }
+
+  // 阶段2：房间不存在，创建新房间
+  const createParams = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`,
+      'X-User-Id': user.userId,
+      'X-Nickname': user.nickname,
+    },
+    tags: { name: 'create_room' },
+  };
+
+  const body = JSON.stringify({
+    roomCode: roomCode,
+    roomName: `perf-room-${roomCode}-${Date.now()}`,
+    maxMembers: maxMembers,
+  });
+
+  const createRes = http.post(`${baseUrl}/room`, body, createParams);
+
+  if (createRes.status !== 200) {
+    console.error(`[createTestRoom] 创建房间失败: ${createRes.status} ${createRes.body}`);
+    return { roomId: null, roomCode };
+  }
+
+  try {
+    const json = JSON.parse(createRes.body);
+    const roomId = json?.data?.roomId;
+    const actualRoomCode = json?.data?.roomCode || roomCode;
+    if (!roomId) {
+      console.error(`[createTestRoom] 创建房间返回数据异常: ${createRes.body}`);
+      return { roomId: null, roomCode };
+    }
+    console.log(`[createTestRoom] 创建房间成功 roomCode=${actualRoomCode}(${roomCode}) roomId=${roomId}`);
+    return { roomId, roomCode: actualRoomCode };
+  } catch {
+    console.error(`[createTestRoom] 解析创建响应失败: ${createRes.body}`);
+    return { roomId: null, roomCode };
+  }
 }

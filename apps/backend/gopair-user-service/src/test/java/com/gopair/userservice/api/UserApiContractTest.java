@@ -32,11 +32,15 @@ import static org.assertj.core.api.Assertions.*;
 import static com.gopair.common.constants.SystemConstants.*;
 import com.gopair.userservice.enums.UserErrorCode;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * 用户API契约测试
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class UserApiContractTest extends BaseIntegrationTest {
+
+    private static final AtomicLong counter = new AtomicLong(System.currentTimeMillis() % 1000000);
 
     @Nested
     class RegistrationApiTests {
@@ -61,13 +65,14 @@ class UserApiContractTest extends BaseIntegrationTest {
             callUserRegistration(firstUser);
 
             RegisterRequest duplicateUser = createValidRegisterRequest();
+            // 确保昵称与第一个用户完全相同
             duplicateUser.setNickname(firstUser.getNickname());
-            duplicateUser.setEmail("different@test.com");
+            duplicateUser.setEmail("different_" + nextUnique() + "@example.com");
             ResponseEntity<R<RegisterResponse>> response = callUserRegistration(duplicateUser);
 
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getCode()).isEqualTo(NICKNAME_ALREADY_EXISTS.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS);
+            assertThat(response.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS.getMessage());
         }
 
         @Test
@@ -78,14 +83,12 @@ class UserApiContractTest extends BaseIntegrationTest {
 
             RegisterRequest duplicate = createValidRegisterRequest();
             duplicate.setEmail(firstUser.getEmail());
-            // 使用更短的时间戳确保昵称不超过20个字符
-            long timestamp = System.currentTimeMillis() % 1000000;
-            duplicate.setNickname("another_" + timestamp);
+            duplicate.setNickname("another_" + nextUnique());
             ResponseEntity<R<RegisterResponse>> response = callUserRegistration(duplicate);
 
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getCode()).isEqualTo(EMAIL_ALREADY_EXISTS.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS);
+            assertThat(response.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS.getMessage());
         }
 
         @ParameterizedTest
@@ -126,7 +129,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<LoginResponse>> response = callUserLogin(nonExistentEmail, "password");
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND.getMessage());
         }
 
         @Test
@@ -137,7 +140,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<LoginResponse>> response = callUserLogin(registerRequest.getEmail(), "wrongpassword");
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getCode()).isEqualTo(UserErrorCode.PASSWORD_ERROR.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(PASSWORD_ERROR);
+            assertThat(response.getBody().getMsg()).isEqualTo(PASSWORD_ERROR.getMessage());
         }
 
         @ParameterizedTest
@@ -171,7 +174,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<UserVO>> response = callGetUser(nonExistentId);
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND.getMessage());
         }
 
         @ParameterizedTest
@@ -197,9 +200,9 @@ class UserApiContractTest extends BaseIntegrationTest {
             assertThat(loginResult.getUserId()).isNotNull();
             UserDto updateDto = new UserDto();
             updateDto.setUserId(loginResult.getUserId());
-            updateDto.setNickname("updated_" + System.currentTimeMillis());
-            updateDto.setEmail("updated_" + System.currentTimeMillis() + "@example.com");
-            ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
+            updateDto.setNickname("updated_" + nextUnique());
+            updateDto.setEmail("updated_" + nextUnique() + "@example.com");
+            ResponseEntity<R<?>> response = callUserUpdateRaw(updateDto);
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody().isSuccess()).isTrue();
             ResponseEntity<R<UserVO>> getResponse = callGetUser(loginResult.getUserId());
@@ -217,7 +220,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<Boolean>> response = callUserUpdate(updateDto);
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND.getMessage());
         }
 
         @Test
@@ -250,7 +253,7 @@ class UserApiContractTest extends BaseIntegrationTest {
                 assertThat(nicknameResponse.getBody().getCode()).isIn(
                     NICKNAME_ALREADY_EXISTS.getCode()
                 );
-                assertThat(nicknameResponse.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS);
+                assertThat(nicknameResponse.getBody().getMsg()).isEqualTo(NICKNAME_ALREADY_EXISTS.getMessage());
             }
 
             // 测试邮箱冲突
@@ -264,7 +267,7 @@ class UserApiContractTest extends BaseIntegrationTest {
                 assertThat(emailResponse.getBody().getCode()).isIn(
                     EMAIL_ALREADY_EXISTS.getCode()
                 );
-                assertThat(emailResponse.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS);
+                assertThat(emailResponse.getBody().getMsg()).isEqualTo(EMAIL_ALREADY_EXISTS.getMessage());
             }
         }
     }
@@ -286,7 +289,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<UserVO>> getResponse = callGetUser(loginResult.getUserId());
             assertThat(getResponse.getBody().isSuccess()).isFalse();
             assertThat(getResponse.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
-            assertThat(getResponse.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+            assertThat(getResponse.getBody().getMsg()).isEqualTo(USER_NOT_FOUND.getMessage());
         }
 
         @Test
@@ -296,7 +299,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             ResponseEntity<R<Boolean>> response = callUserDelete(nonExistentId);
             assertThat(response.getBody().isSuccess()).isFalse();
             assertThat(response.getBody().getCode()).isEqualTo(USER_NOT_FOUND.getCode());
-            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND);
+            assertThat(response.getBody().getMsg()).isEqualTo(USER_NOT_FOUND.getMessage());
         }
     }
 
@@ -362,23 +365,25 @@ class UserApiContractTest extends BaseIntegrationTest {
 
     private UserDto createValidUser() {
         UserDto userDto = new UserDto();
-        // 使用更短的时间戳（只取后6位数字）确保昵称不超过20个字符
-        long timestamp = System.currentTimeMillis() % 1000000;
-        userDto.setNickname("user_" + timestamp);
+        long unique = nextUnique();
+        userDto.setNickname("user_" + unique);
         userDto.setPassword("123456");
-        userDto.setEmail("test" + timestamp + "@example.com");
+        userDto.setEmail("test" + unique + "@example.com");
         userDto.setStatus('0');
         return userDto;
     }
 
     private RegisterRequest createValidRegisterRequest() {
         RegisterRequest registerRequest = new RegisterRequest();
-        // 使用更短的时间戳（只取后6位数字）确保昵称不超过20个字符
-        long timestamp = System.currentTimeMillis() % 1000000;
-        registerRequest.setNickname("user_" + timestamp);
+        long unique = nextUnique();
+        registerRequest.setNickname("user_" + unique);
         registerRequest.setPassword("123456");
-        registerRequest.setEmail("test" + timestamp + "@example.com");
+        registerRequest.setEmail("test" + unique + "@example.com");
         return registerRequest;
+    }
+
+    private static long nextUnique() {
+        return counter.incrementAndGet();
     }
 
     private LoginRequest createValidLoginRequest(String email, String password) {
@@ -454,6 +459,15 @@ class UserApiContractTest extends BaseIntegrationTest {
             HttpMethod.PUT,
             new HttpEntity<>(userDto),
             new ParameterizedTypeReference<R<Boolean>>() {}
+        );
+    }
+
+    private ResponseEntity<R<?>> callUserUpdateRaw(UserDto userDto) {
+        return restTemplate.exchange(
+            getUrl("/user"),
+            HttpMethod.PUT,
+            new HttpEntity<>(userDto),
+            new ParameterizedTypeReference<R<?>>() {}
         );
     }
 

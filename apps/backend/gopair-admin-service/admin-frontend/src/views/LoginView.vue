@@ -119,7 +119,7 @@ async function handleLogin() {
 
 .login-page__tagline {
   font-size: 15px;
-  color: oklch(65% 0.01 265);
+  color: var(--color-sidebar-text-secondary);
   letter-spacing: 0.05em;
 }
 

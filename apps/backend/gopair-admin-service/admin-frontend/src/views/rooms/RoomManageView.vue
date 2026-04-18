@@ -110,6 +110,7 @@ loadRooms()
     <div class="room-manage-view__toolbar">
       <a-input-search
         v-model:value="searchKw"
+        aria-label="搜索房间名或房间码"
         placeholder="搜索房间名或房间码"
         class="room-manage-view__search"
         @search="onSearch"

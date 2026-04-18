@@ -13,7 +13,7 @@
  *
  * 环境变量：
  *   BASE_URL    - 服务地址，默认 http://localhost:8081
- *   ROOM_CODE   - 房间码，默认 54273898
+ *   ROOM_CODE   - 房间码，默认 54273898（setup 自动创建）
  *   VUS         - 虚拟用户数，默认 50
  *   DURATION    - 压测持续时间，默认 60s
  *   MIN_STAY_MS - 最小停留时间(ms)，默认 2000
@@ -24,7 +24,6 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { randomIntBetween } from 'k6/math';
 import {
   BASE_URL,
   ROOM_CODE,
@@ -32,7 +31,12 @@ import {
   pollJoinResult,
   makeHttpParams,
   requestJoinAsync,
+  createTestRoom,
 } from '../common.js';
+
+function randomIntBetween(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 const VUS = parseInt(__ENV.VUS || '50', 10);
 const DURATION = __ENV.DURATION || '60s';
@@ -40,6 +44,23 @@ const MIN_STAY_MS = parseInt(__ENV.MIN_STAY_MS || '2000', 10);
 const MAX_STAY_MS = parseInt(__ENV.MAX_STAY_MS || '5000', 10);
 const MIN_WAIT_MS = parseInt(__ENV.MIN_WAIT_MS || '1000', 10);
 const MAX_WAIT_MS = parseInt(__ENV.MAX_WAIT_MS || '2000', 10);
+
+// ====================================================================
+// setup：自动创建测试房间（幂等：已存在则复用）
+// ====================================================================
+
+export function setup() {
+  const roomCode = ROOM_CODE;
+  const { roomId, roomCode: actualRoomCode } = createTestRoom(BASE_URL, roomCode, userData.length);
+
+  if (!roomId) {
+    throw new Error(`[setup] 无法获取有效 roomId，throughput 测试无法进行`);
+  }
+
+  console.log(`[setup] throughput 场景就绪 roomCode=${actualRoomCode}(${roomCode}) roomId=${roomId}`);
+
+  return { roomId, roomCode: actualRoomCode };
+}
 
 // ====================================================================
 // 持续吞吐测试：ramp-up 后保持目标 VUS
@@ -72,13 +93,15 @@ export const options = {
 // 每个 VU 的主逻辑：持续循环 join → stay → leave
 // ====================================================================
 
-export default function () {
+export default function (data) {
+  const roomCode = data.roomCode;
+
   const vuId = (__VU - 1) % userData.length;
   const params = makeHttpParams(vuId);
   const user = userData[vuId];
 
-  // 阶段1：异步加入
-  const joinRes = requestJoinAsync(params);
+  // 阶段1：异步加入（直接传入 roomCode）
+  const joinRes = requestJoinAsync(params, roomCode);
   if (joinRes.fastReject) {
     // 已在房间，等待后重试
     sleep(randomIntBetween(MIN_WAIT_MS / 1000, MAX_WAIT_MS / 1000));

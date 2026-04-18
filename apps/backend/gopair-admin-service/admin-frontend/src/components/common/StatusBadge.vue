@@ -37,14 +37,19 @@ const badge = computed<BadgeConfig>(() => {
     if (s === '1') return { label: '文本', color: 'default' }
     if (s === '2') return { label: '图片', color: 'processing' }
     if (s === '3') return { label: '文件', color: 'warning' }
-    if (s === '4') return { label: '语音', color: '#722ed1' }
+    if (s === '4') return { label: '语音', color: 'voice' }
   }
   return { label: s, color: 'default' }
 })
+
+const isVoice = computed(() => badge.value.color === 'voice')
+const tagStyle = computed(() =>
+  isVoice.value ? { backgroundColor: 'var(--color-voice)', borderColor: 'var(--color-voice)' } : {}
+)
 </script>
 
 <template>
-  <a-tag :color="badge.color" class="status-badge">{{ badge.label }}</a-tag>
+  <a-tag :color="isVoice ? undefined : badge.color" :style="tagStyle" class="status-badge">{{ badge.label }}</a-tag>
 </template>
 
 <style scoped>

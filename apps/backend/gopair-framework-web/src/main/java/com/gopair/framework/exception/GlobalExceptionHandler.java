@@ -67,6 +67,28 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 处理非法参数异常
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public R<Void> handleIllegalArgumentException(IllegalArgumentException e) {
+        String traceId = MDC.get(SystemConstants.MDC_TRACE_ID);
+        log.warn("[异常处理] [traceId={}] 非法参数: {}", traceId, e.getMessage());
+        return R.fail(CommonErrorCode.PARAM_ERROR, e.getMessage());
+    }
+
+    /**
+     * 处理非法状态异常
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public R<Void> handleIllegalStateException(IllegalStateException e) {
+        String traceId = MDC.get(SystemConstants.MDC_TRACE_ID);
+        log.warn("[异常处理] [traceId={}] 非法状态: {}", traceId, e.getMessage());
+        return R.fail(CommonErrorCode.PARAM_ERROR, e.getMessage());
+    }
+
+    /**
      * 处理其他未知异常
      */
     @ExceptionHandler(Exception.class)

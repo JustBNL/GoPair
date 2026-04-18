@@ -1,11 +1,9 @@
 package com.gopair.fileservice;
 
-import com.gopair.common.config.RabbitMQAutoConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 /**
@@ -16,10 +14,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  * @author gopair
  */
 @Slf4j
-@SpringBootApplication(exclude = {
-        RabbitAutoConfiguration.class,
-        RabbitMQAutoConfiguration.class
-})
+@SpringBootApplication
 @MapperScan("com.gopair.fileservice.mapper")
 @EnableDiscoveryClient
 public class FileServiceApplication {

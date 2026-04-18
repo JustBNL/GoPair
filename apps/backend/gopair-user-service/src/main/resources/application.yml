@@ -5,7 +5,7 @@ spring:
     name: user-service
   profiles:
     # 当前环境配置
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: dev
   config:
     import:
       # 共享基础设施配置（Redis、MySQL、MyBatis-Plus、Knife4j）
@@ -15,10 +15,10 @@ spring:
 
   # 邮件配置（user-service 专属，含敏感凭证，不上 Nacos）
   mail:
-    host: ${MAIL_HOST:smtp.qq.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:811790017@qq.com}
-    password: ${MAIL_PASSWORD:wetybfencrwnbccf}
+    host: smtp.qq.com
+    port: 587
+    username: 811790017@qq.com
+    password: wetybfencrwnbccf
     default-encoding: UTF-8
     properties:
       mail:
@@ -36,16 +36,16 @@ mybatis-plus:
 gopair:
   # 邮件发件人
   email:
-    from: ${MAIL_USERNAME:811790017@qq.com}
+    from: 811790017@qq.com
 
   # 验证码配置
   verification-code:
-    expire-seconds: ${VERIFY_CODE_EXPIRE:300}
-    resend-interval-seconds: ${VERIFY_CODE_RESEND_INTERVAL:60}
+    expire-seconds: 300
+    resend-interval-seconds: 60
 
   # JWT 配置（user-service 负责生成令牌）
   jwt:
     # JWT 密钥，用于签名令牌（与 gateway 保持一致，通过环境变量注入）
-    secret: ${JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}
+    secret: hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==
     # JWT 过期时间，单位：毫秒（默认 24 小时）
-    expiration: ${JWT_EXPIRATION:86400000}
+    expiration: 86400000

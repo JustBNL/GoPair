@@ -168,7 +168,10 @@ public class RoomController {
 
     /**
      * 检查指定用户是否为房间成员（内部服务调用，无需鉴权拦截）
-     * 用于 message-service 等内部服务校验成员身份
+     * 用于 message-service 等内部服务校验成员身份。
+     *
+     * userId 从路径变量读取，不依赖请求头，
+     * 避免 RestTemplate 转发链路中 header 丢失导致下游 Context 为空。
      */
     @Operation(summary = "检查成员身份", description = "内部接口，校验用户是否为指定房间成员")
     @GetMapping("/{roomId}/members/{userId}/check")
