@@ -52,6 +52,7 @@ declare module 'vue' {
     ATextarea: typeof import('ant-design-vue/es')['Textarea']
     ATooltip: typeof import('ant-design-vue/es')['Tooltip']
     AUpload: typeof import('ant-design-vue/es')['Upload']
+    BrandLogo: typeof import('./components/BrandLogo.vue')['default']
     CallDetailsModal: typeof import('./components/voice/CallDetailsModal.vue')['default']
     CreateRoomModal: typeof import('./components/CreateRoomModal.vue')['default']
     EmojiBar: typeof import('./components/chat/EmojiBar.vue')['default']

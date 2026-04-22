@@ -1259,9 +1259,27 @@ onUnmounted(() => {
 .room-detail-view {
   position: relative;
   min-height: 100vh;
-  background: var(--surface-bg);
+  background-image: url('/bg-main.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* 暗色遮罩叠加层，确保内容可读 */
+.room-detail-view::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(25, 35, 55, 0.92);
+  z-index: 0;
+}
 
   .loading-container {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1270,11 +1288,13 @@ onUnmounted(() => {
 
     p {
       margin-top: 16px;
-      color: var(--text-muted);
+      color: rgba(255, 255, 255, 0.7);
     }
   }
 
   .room-detail-content {
+    position: relative;
+    z-index: 1;
     max-width: 1400px;
     margin: 0 auto;
     padding: 24px;
@@ -1735,7 +1755,7 @@ onUnmounted(() => {
         }
       }
     }
-  }
+  
 
   .room-not-found {
     display: flex;

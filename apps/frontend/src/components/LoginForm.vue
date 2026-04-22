@@ -1,7 +1,7 @@
 <template>
   <div class="login-form-container">
     <div class="form-header">
-      <h2 class="form-title">欢迎来到 GoPair</h2>
+      <h2 class="form-title">欢迎</h2>
     </div>
 
     <a-tabs

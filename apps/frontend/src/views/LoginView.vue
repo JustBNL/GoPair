@@ -3,13 +3,6 @@
     <!-- 无障碍跳转链接：绝对定位跳到根元素顶部，视觉上不受影响 -->
     <a href="#main-content" class="skip-link">跳转到登录</a>
 
-    <!-- 背景装饰 -->
-    <div class="background-decoration">
-      <div class="decoration-circle circle-1"></div>
-      <div class="decoration-circle circle-2"></div>
-      <div class="decoration-circle circle-3"></div>
-    </div>
-
     <!-- 主要内容区域 -->
     <div class="login-content" id="main-content" role="main">
       <!-- 移动端居中容器 -->
@@ -17,7 +10,7 @@
         <!-- 品牌区域 -->
         <div class="brand-section">
           <div class="brand-logo">
-            <div class="logo-icon" aria-hidden="true">🎮</div>
+            <BrandLogo class="logo-icon" :size="48" aria-hidden="true" />
             <h1 class="brand-name">GoPair</h1>
           </div>
         </div>
@@ -35,18 +28,8 @@
         <!-- 品牌区域 -->
         <div class="brand-section">
           <div class="brand-logo">
-            <div class="logo-icon" aria-hidden="true">🎮</div>
-            <!-- 移除了重复 h1，内容由移动端版本提供 -->
-          </div>
-          <div class="brand-features">
-            <div class="feature-item">
-              <span class="feature-icon" aria-hidden="true">💬</span>
-              <span class="feature-text">实时聊天交流</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon" aria-hidden="true">🕹️</span>
-              <span class="feature-text">多种游戏体验</span>
-            </div>
+            <BrandLogo class="logo-icon" :size="48" aria-hidden="true" />
+            <span class="brand-subtitle">基于微服务架构的在线聊天室系统</span>
           </div>
         </div>
 
@@ -61,13 +44,14 @@
 
     <!-- 页脚信息 -->
     <div class="page-footer">
-      <p>&copy; 2024 GoPair. 只因从未离去</p>
+      <p>&copy; 2026 基于微服务架构的在线聊天室系统的设计与实现.陈义鑫</p>
     </div>
   </div>
 </template>
   
   <script setup lang="ts">
 import LoginForm from '@/components/LoginForm.vue'
+import BrandLogo from '@/components/BrandLogo.vue'
 </script>
   
   <style scoped>
@@ -93,21 +77,32 @@ import LoginForm from '@/components/LoginForm.vue'
 
 /* ==================== 基础布局样式 ==================== */
   
-/* 登录页面主容器：全屏布局，渐变背景，flex布局，position:relative 供 skip-link 定位 */
+/* 登录页面主容器：全屏布局，背景图片 + 暗色遮罩，flex布局 */
 .login-view {
   position: relative;
   min-height: 100vh;
-  position: relative;
-  background: var(--brand-primary);
+  background-image: url('/bg-main.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  
-  /* 页面进入动画 */
-  animation: fadeIn 0.8s ease-out;
 }
 
-/* 登录内容容器：flex布局，水平居中，最大宽度限制 */
+/* 暗色遮罩叠加层 */
+.login-view::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(25, 35, 55, 0.85);
+  z-index: 0;
+}
+
+/* 登录内容容器：flex布局，水平居中，最大宽度限制，置于遮罩层上方 */
 .login-content {
   flex: 1;
   display: flex;
@@ -121,72 +116,30 @@ import LoginForm from '@/components/LoginForm.vue'
   min-height: 0;
 }
   
-/* ==================== 背景装饰效果 ==================== */
-
-.background-decoration {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.decoration-circle {
-  position: absolute;
-  border-radius: 50%;
-  background: var(--overlay-white-10);
-  backdrop-filter: blur(10px);
-}
-
-.circle-1 {
-  width: 300px;
-  height: 300px;
-  top: -150px;
-  right: -150px;
-  animation: float 6s ease-in-out infinite;
-}
-
-.circle-2 {
-  width: 200px;
-  height: 200px;
-  bottom: -100px;
-  left: -100px;
-  animation: float 8s ease-in-out infinite reverse;
-}
-
-.circle-3 {
-  width: 150px;
-  height: 150px;
-  top: 50%;
-  left: 10%;
-  animation: float 10s ease-in-out infinite;
-}
-
 /* ==================== 品牌展示区域 ==================== */
-  
-  /* 品牌区域：左侧展示，flex自适应 */
+
+/* 品牌区域：左侧展示，flex自适应 */
 .brand-section {
   flex: 1;
   padding-right: 60px;
   color: var(--text-on-primary);
-  
+
   /* 品牌区域进入动画 */
   animation: slideInLeft 0.8s ease-out;
 }
 
-/* 品牌Logo容器：水平布局，Logo + 标题 */
+/* 品牌Logo容器：横向布局，Logo + 副标题 */
 .brand-logo {
   display: flex;
+  flex-direction: row;
   align-items: center;
   margin-bottom: 24px;
 }
 
-/* Logo图标：游戏手柄，大尺寸 */
+/* Logo图标：六边形品牌图形 */
 .logo-icon {
-  font-size: 48px;
-  margin-right: 16px;
+  margin-right: 12px;
+  flex-shrink: 0;
 }
 
 /* 品牌名称：大字体，渐变文字效果，突出品牌 */
@@ -197,39 +150,14 @@ import LoginForm from '@/components/LoginForm.vue'
   color: var(--text-on-primary);
 }
 
-/* 品牌标语：中等字体，半透明，说明产品定位 */
-.brand-slogan {
-  font-size: 24px;
-  margin-bottom: 48px;
-  opacity: 0.9;
-  font-weight: 300;
-}
-
-/* 特性列表容器：垂直布局，展示产品特色 */
-.brand-features {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-/* 单个特性项：水平布局，图标 + 文字 */
-.feature-item {
-  display: flex;
-  align-items: center;
-  font-size: 18px;
-  opacity: 0.8;
-}
-
-/* 特性图标：固定宽度，保持对齐 */
-.feature-icon {
-  font-size: 24px;
-  margin-right: 16px;
-  width: 40px;
-}
-
-/* 特性文字：正常字重 */
-.feature-text {
+/* 品牌副标题：描述文字 */
+.brand-subtitle {
+  font-size: 48px;
   font-weight: 400;
+  color: var(--text-on-primary);
+  letter-spacing: 1px;
+  margin-left: 12px;
+  margin-top: 0;
 }
   
   /* ==================== 登录表单区域 ==================== */
@@ -276,16 +204,6 @@ import LoginForm from '@/components/LoginForm.vue'
 }
   
 /* ==================== 动画定义 ==================== */
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50%       { transform: translateY(-20px) rotate(180deg); }
-}
 
 @keyframes slideInLeft {
   from { opacity: 0; transform: translateX(-50px); }
@@ -335,17 +253,28 @@ import LoginForm from '@/components/LoginForm.vue'
     margin-bottom: 24px;
     text-align: center;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  
+
   .brand-logo {
     justify-content: center;
     margin-bottom: 20px;
+    flex-direction: column;
+    align-items: center;
   }
-  
+
+  .brand-subtitle {
+    text-align: center;
+    font-size: 14px;
+    margin-left: 0;
+  }
+
   .logo-icon {
-    font-size: 40px;
+    margin-right: 0;
   }
-  
+
   .brand-name {
     font-size: 32px;
   }

@@ -7,7 +7,7 @@
     <div class="rooms-header">
       <div class="header-content">
         <div class="brand-section">
-          <div class="logo-icon">🎮</div>
+          <BrandLogo class="logo-icon" :size="32" aria-hidden="true" />
           <h1 class="page-title">房间管理</h1>
         </div>
         <div class="user-section">
@@ -138,6 +138,7 @@ import JoinRoomModal from '@/components/JoinRoomModal.vue'
 import RoomCard from '@/components/RoomCard.vue'
 import UserProfileModal from '@/components/UserProfileModal.vue'
 import AiChatDrawer from '@/components/ai/AiChatDrawer.vue'
+import BrandLogo from '@/components/BrandLogo.vue'
 
 // ==================== 组件状态 ====================
 
@@ -295,17 +296,33 @@ onMounted(async () => {
 .rooms-view {
   position: relative;
   min-height: 100vh;
-  background: var(--brand-primary);
-  position: relative;
+  background-image: url('/bg-main.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* 暗色遮罩叠加层 */
+.rooms-view::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(25, 35, 55, 0.88);
+  z-index: 0;
 }
 
 /* ==================== 页面头部 ==================== */
 
 .rooms-header {
-  background: var(--overlay-white-10);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--overlay-white-20);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 20px 0;
+  position: relative;
+  z-index: 1;
 }
 
 .header-content {
@@ -324,8 +341,8 @@ onMounted(async () => {
 }
 
 .logo-icon {
-  font-size: 32px;
   margin-right: 12px;
+  flex-shrink: 0;
 }
 
 .page-title {
@@ -363,6 +380,8 @@ onMounted(async () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 20px;
+  position: relative;
+  z-index: 1;
 }
 
 /* ==================== 操作区域 ==================== */
