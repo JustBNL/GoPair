@@ -37,6 +37,11 @@
 
       <!-- 表单区域 -->
       <a-form :model="form" layout="vertical" class="profile-form">
+        <!-- 邮箱（只读展示） -->
+        <a-form-item label="邮箱" class="email-field">
+          <div class="email-readonly">{{ form.email || '-' }}</div>
+        </a-form-item>
+
         <!-- 昵称 -->
         <a-form-item label="昵称" v-bind="validateInfos.nickname">
           <a-input
@@ -45,11 +50,6 @@
             :maxlength="20"
             show-count
           />
-        </a-form-item>
-
-        <!-- 邮箱（只读展示） -->
-        <a-form-item label="邮箱">
-          <div class="email-readonly">{{ form.email || '-' }}</div>
         </a-form-item>
 
         <!-- 修改密码（折叠） -->
@@ -494,7 +494,12 @@ function handleClose() {
 .email-readonly {
   color: var(--text-secondary);
   font-size: 14px;
-  padding: 0 4px;
+  padding: 4px 4px;
+}
+
+/* 邮箱与昵称之间的间距 */
+.email-field {
+  margin-bottom: 8px;
 }
 
 /* 注销确认弹窗内容 */
