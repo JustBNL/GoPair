@@ -222,14 +222,18 @@ function beforeAvatarUpload(file: File): boolean {
   return true
 }
 
-// 自定义上传头像
+// 自定义上传头像（上传成功后自动写入用户表，无需点保存）
 async function handleAvatarUpload({ file }: { file: File }) {
   avatarUploading.value = true
   try {
     const res = await FileAPI.uploadAvatar(file)
-    form.value.avatar = res.data.avatarUrl
-    form.value.avatarOriginalUrl = res.data.avatarOriginalUrl
-    avatarPreview.value = res.data.avatarUrl
+    const avatarUrl = res.data.avatarUrl
+    const avatarOriginalUrl = res.data.avatarOriginalUrl
+    form.value.avatar = avatarUrl
+    form.value.avatarOriginalUrl = avatarOriginalUrl
+    avatarPreview.value = avatarUrl
+    // 自动将头像 URL 写入后端用户表
+    await authStore.updateProfile({ avatar: avatarUrl, avatarOriginalUrl })
     message.success('头像上传成功')
   } catch {
     message.error('头像上传失败，请重试')

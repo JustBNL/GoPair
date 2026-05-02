@@ -35,6 +35,17 @@ public class FileController {
         return R.ok(vo);
     }
 
+    @Operation(summary = "上传私有文件", description = "上传文件到MinIO私有路径，返回永久直链URL，不记录DB元数据。适用于私聊文件/图片场景")
+    @PostMapping("/private-upload")
+    public R<FileVO> uploadPrivateFile(
+            @Parameter(description = "文件（支持图片和文档，≤100MB）", required = true)
+            @RequestPart("file") MultipartFile file) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        log.info("[文件服务] 上传私有文件 userId:{}", userId);
+        FileVO vo = fileService.uploadPrivateFile(file, userId);
+        return R.ok(vo);
+    }
+
     @Operation(summary = "下载头像原图", description = "生成头像原图的下载Presigned URL，文件名固定为avatar_original.jpg")
     @GetMapping("/avatar/download")
     public R<String> downloadAvatar() {

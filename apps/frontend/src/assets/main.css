@@ -116,13 +116,17 @@
   --radius-xl: 14px;
   --radius-pill: 9999px;
 
+  /* ========== Emoji ========== */
+  --emoji-bubble-size: 1.2em;
+  --emoji-bar-size: 24px;
+
   /* ========== 消息气泡色 ========== */
   --bubble-other-bg: #EFF2F7;
   --bubble-other-text: #1E2432;
-  --bubble-own-bg: #E07850;
+  --bubble-own-bg: #5B87BD;
   --bubble-own-text: #FFFFFF;
-  --bubble-reply-border: #E07850;
-  --bubble-reply-bg: rgba(224, 120, 80, 0.06);
+  --bubble-reply-border: #5B87BD;
+  --bubble-reply-bg: rgba(91, 135, 189, 0.06);
 
   /* ========== 背景遮罩色 ========== */
   /* 半透明遮罩：用于浅色模式下保留背景图可见 */
@@ -222,7 +226,9 @@
   /* 消息气泡色 */
   --bubble-other-bg: #21262D;
   --bubble-other-text: #E6EDF3;
-  --bubble-reply-bg: rgba(224, 120, 80, 0.10);
+  --bubble-own-bg: #4A75AA;
+  --bubble-reply-border: #4A75AA;
+  --bubble-reply-bg: rgba(91, 135, 189, 0.10);
 
   /* 危险色 */
   --danger-hover-bg: rgba(207, 96, 96, 0.12);

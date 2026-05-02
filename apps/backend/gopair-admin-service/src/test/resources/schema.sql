@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS room (
     password_hash VARCHAR(256),
     password_visible INT DEFAULT 1,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status_createtime (status, create_time)
 );
 
 -- 房间成员表（继承 BaseEntity，含 create_time/update_time）

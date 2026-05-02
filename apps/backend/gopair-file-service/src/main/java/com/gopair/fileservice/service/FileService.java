@@ -102,6 +102,17 @@ public interface FileService {
     int cleanupRoomFiles(Long roomId);
 
     /**
+     * 上传私有文件到MinIO，直接返回永久直链URL。
+     * 不涉及房间上下文，不记录DB元数据，不触发房间事件。
+     * 适用于私聊场景的文件/图片上传。
+     *
+     * @param file   上传的文件
+     * @param userId 上传者用户ID
+     * @return 私有文件VO（含永久URL）
+     */
+    FileVO uploadPrivateFile(MultipartFile file, Long userId);
+
+    /**
      * 根据 MinIO objectKey 删除对象（不操作 DB）。
      * 供其他服务（如 message-service）在消息撤回场景下删除 OSS 文件。
      *

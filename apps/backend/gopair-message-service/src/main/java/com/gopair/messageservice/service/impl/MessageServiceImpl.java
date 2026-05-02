@@ -43,7 +43,7 @@ import java.util.Map;
 @Service
 public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> implements MessageService {
 
-    private static final String ROOM_SERVICE_URL = "http://localhost:8081/room/";
+    private static final String ROOM_SERVICE_URL = "http://room-service/room/";
 
     private final MessageMapper messageMapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -106,6 +106,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             payload.put("messageId", result.getMessageId());
             payload.put("senderId", result.getSenderId());
             payload.put("senderNickname", result.getSenderNickname());
+            payload.put("senderAvatar", result.getSenderAvatar());
             payload.put("messageType", result.getMessageType());
             payload.put("createTime", result.getCreateTime());
             

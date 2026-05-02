@@ -65,11 +65,11 @@ export class FileAPI {
     const formData = new FormData()
     formData.append('file', dto.file)
     formData.append('roomId', dto.roomId.toString())
-    
+
     if (dto.description) {
       formData.append('description', dto.description)
     }
-    
+
     if (dto.overwrite !== undefined) {
       formData.append('overwrite', dto.overwrite.toString())
     }
@@ -79,6 +79,17 @@ export class FileAPI {
         'Content-Type': 'multipart/form-data'
       },
       onUploadProgress: onProgress
+    } as any)
+  }
+
+  /**
+   * 上传私有文件（用于私聊场景，不关联房间）
+   */
+  static async upload(file: File): Promise<ApiResponse<FileVO>> {
+    const formData = new FormData()
+    formData.append('file', file)
+    return http.post<FileVO>('/file/private-upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     } as any)
   }
 

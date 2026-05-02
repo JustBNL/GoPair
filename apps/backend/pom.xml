@@ -27,6 +27,7 @@
 		<module>gopair-websocket-service</module>
 		<module>gopair-voice-service</module>
 		<module>gopair-file-service</module>
+		<module>gopair-chat-service</module>
 	</modules>
 
 	<properties>

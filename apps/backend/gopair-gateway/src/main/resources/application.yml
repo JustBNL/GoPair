@@ -63,6 +63,12 @@ spring:
             - Path=/admin/**
           filters:
             - StripPrefix=0
+        - id: chat-service
+          uri: lb://chat-service
+          predicates:
+            - Path=/chat/**
+          filters:
+            - StripPrefix=0
       # 全局跨域配置
       # 注意：allowCredentials=true 时 origin 不可为 "*"
       # 本地开发使用 Pattern 方式；生产环境建议在 Nacos 配置中覆盖为具体域名

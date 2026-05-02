@@ -274,6 +274,8 @@ public class FileServiceImpl implements FileService {
         return totalCleaned;
     }
 
+    private static final String PRIVATE_PATH_PREFIX = "private/";
+
     @Override
     public void deleteByObjectKey(String objectKey) {
         if (objectKey == null || objectKey.trim().isEmpty()) {
@@ -283,6 +285,40 @@ public class FileServiceImpl implements FileService {
         log.info("[file-service] start op:deleteByObjectKey key:{}", objectKey);
         silentDeleteFromMinio(objectKey);
         log.info("[file-service] success op:deleteByObjectKey key:{}", objectKey);
+    }
+
+    /** @FileServiceImpl.java (287) uploadPrivateFile */
+    @Override
+    @LogRecord(operation = "上传私有文件", module = "文件管理", includeResult = true)
+    public FileVO uploadPrivateFile(MultipartFile file, Long userId) {
+        String fn = file.getOriginalFilename();
+        String ft = extractExtension(fn);
+        long fs = file.getSize();
+        log.info("[file-service] start op:uploadPrivateFile userId:{} file:{} size:{}B", userId, fn, fs);
+        checkFileTypeAndSize(ft, fs);
+        String uuid = UUID.randomUUID().toString().replace("-", "");
+        String key = PRIVATE_PATH_PREFIX + userId + "/" + uuid + "." + ft;
+        try {
+            byte[] rawBytes = file.getBytes();
+            uploadToMinio(new ByteArrayInputStream(rawBytes), key, file.getContentType(), fs);
+            String url = minioProperties.getEndpoint() + "/" + minioProperties.getBucketName() + "/" + key;
+            log.info("[file-service] success op:uploadPrivateFile userId:{} url:{}", userId, url);
+            FileVO vo = new FileVO();
+            vo.setFileName(fn);
+            vo.setFileSize(fs);
+            vo.setFileSizeFormatted(FileVO.formatFileSize(fs));
+            vo.setFileType(ft);
+            vo.setContentType(file.getContentType());
+            vo.setDownloadUrl(url);
+            vo.setPreviewUrl(url);
+            vo.setPreviewable(IMAGE_TYPES.contains(ft));
+            vo.setIconType(FileVO.resolveIconType(ft));
+            return vo;
+        } catch (Exception e) {
+            log.error("[file-service] failed op:uploadPrivateFile err:{}", e.getMessage(), e);
+            silentDeleteFromMinio(key);
+            throw new FileException(FileErrorCode.FILE_UPLOAD_FAILED, e.getMessage());
+        }
     }
 
     // ==================== private helpers ====================

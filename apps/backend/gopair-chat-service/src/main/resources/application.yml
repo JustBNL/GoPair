@@ -1,0 +1,24 @@
+# 应用基本配置
+spring:
+  application:
+    name: chat-service
+  profiles:
+    active: dev
+  config:
+    import:
+      # 共享基础设施配置（Redis、MySQL、RabbitMQ、MyBatis-Plus、Knife4j）
+      - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
+      # 统一日志与可观测性配置
+      - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
+
+mybatis-plus:
+  type-aliases-package: com.gopair.chatservice.domain.po
+
+gopair:
+  chat:
+    max-content-length: 2000
+    recall-time-limit-seconds: 120
+    max-message-page-size: 50
+  rest-template:
+    enabled: true
+    user-service-url: http://user-service/user/

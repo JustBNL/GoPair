@@ -1,31 +1,44 @@
 <template>
-  <div
-    class="emoji-bar"
-    :class="{ throttled }"
-  >
-    <button
-      v-for="emoji in EMOJI_LIST"
-      :key="emoji"
-      class="emoji-btn"
-      :title="emoji"
-      @click="handleEmojiClick(emoji)"
-    >{{ emoji }}</button>
+  <div class="emoji-bar">
+    <a-tabs
+      v-model:activeKey="activeTab"
+      size="small"
+      class="emoji-picker-tabs"
+      :tab-bar-style="{ marginBottom: 0 }"
+    >
+      <a-tab-pane
+        v-for="cat in EMOJI_CATEGORIES"
+        :key="cat.key"
+      >
+        <template #tab>
+          <span class="tab-label">{{ cat.key }}</span>
+        </template>
+        <div class="emoji-grid">
+          <button
+            v-for="emoji in cat.emojis"
+            :key="emoji"
+            class="emoji-btn"
+            :title="emoji"
+            @click="handleEmojiClick(emoji)"
+          >{{ emoji }}</button>
+        </div>
+      </a-tab-pane>
+    </a-tabs>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { EMOJI_CATEGORIES } from '@/utils/emoji'
 
 const emit = defineEmits<{
   (e: 'send-emoji', emoji: string): void
 }>()
 
-/** 预设 Emoji 列表 */
-const EMOJI_LIST = ['😄', '🎉', '👍', '❤️', '🔥', '😂', '🙏', '💡', '👏', '🚀', '✨', '😎']
+const activeTab = ref(EMOJI_CATEGORIES[0].key)
 
 const lastSendTime = ref(0)
-const throttled = ref(false)
 
 /**
  * 处理 Emoji 点击，含 2 秒节流
@@ -37,37 +50,55 @@ function handleEmojiClick(emoji: string) {
     return
   }
   lastSendTime.value = now
-  throttled.value = true
   emit('send-emoji', emoji)
-  setTimeout(() => {
-    throttled.value = false
-  }, 2000)
 }
 </script>
 
 <style scoped lang="scss">
 .emoji-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 0;
-  transition: opacity 0.2s;
+  width: 100%;
+}
 
-  &.throttled {
-    opacity: 0.5;
-    pointer-events: none;
+.emoji-picker-tabs {
+  :deep(.ant-tabs-nav) {
+    margin-bottom: 0;
+  }
+
+  :deep(.ant-tabs-tab) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  :deep(.ant-tabs-tabpane) {
+    padding: 4px 0;
+  }
+
+  :deep(.ant-tabs-content) {
+    height: 52px;
+    overflow: hidden;
   }
 }
 
+.tab-label {
+  font-size: 13px;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
+  padding: 4px 0;
+}
+
 .emoji-btn {
-  width: 44px;
-  height: 44px;
-  font-size: 22px;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
   border: none;
   background: transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -75,11 +106,11 @@ function handleEmojiClick(emoji: string) {
 
   &:hover {
     background: var(--border-light);
-    transform: scale(1.2);
+    transform: scale(1.15);
   }
 
   &:active {
-    transform: scale(1.05);
+    transform: scale(1.0);
   }
 }
 </style>

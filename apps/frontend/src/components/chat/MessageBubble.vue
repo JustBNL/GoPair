@@ -5,8 +5,19 @@
       { 'own-message': message.isOwn }
     ]"
   >
-    <!-- 用户头像占位（暂不显示头像，仅保留容器一致性） -->
-    <div class="message-avatar"></div>
+    <!-- 用户头像 -->
+    <div class="message-avatar">
+      <a-avatar
+        v-if="message.senderAvatar"
+        :src="message.senderAvatar"
+        :alt="message.senderNickname"
+        :size="32"
+        class="avatar-img"
+      />
+      <a-avatar v-else :size="32" class="avatar-fallback">
+        {{ getNicknameInitial(message.senderNickname) }}
+      </a-avatar>
+    </div>
 
     <!-- 消息内容区域 -->
     <div class="message-content">
@@ -38,8 +49,7 @@
         </div>
 
         <!-- 文本消息 -->
-        <div v-else-if="message.messageType === MessageType.TEXT" class="text-message">
-          {{ message.content }}
+        <div v-else-if="message.messageType === MessageType.TEXT" class="text-message" v-html="renderEmojiContent(message.content || '')">
         </div>
 
         <!-- 图片消息 -->
@@ -163,6 +173,19 @@ import {
 } from '@ant-design/icons-vue'
 import { MessageType, type MessageVO } from '@/types/api'
 import { formatTime } from '@/utils/format'
+import { renderEmojiContent } from '@/utils/emoji'
+
+/**
+ * 根据昵称生成首字母/简写用于头像占位
+ */
+function getNicknameInitial(nickname: string): string {
+  if (!nickname) return '?'
+  const parts = nickname.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return nickname.slice(0, 2).toUpperCase()
+}
 
 interface Props {
   message: MessageVO
@@ -321,6 +344,22 @@ const onDelete = () => {
   flex-shrink: 0;
   width: 32px;
   height: 32px;
+
+  :deep(.ant-avatar) {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1.5px solid var(--border-light);
+    background: var(--brand-primary-light);
+    color: var(--brand-primary);
+  }
+
+  .avatar-fallback {
+    background: var(--brand-primary-light);
+    color: var(--brand-primary);
+  }
 }
 
 .message-content {
@@ -401,6 +440,14 @@ const onDelete = () => {
     // 文本消息
     .text-message {
       line-height: 1.4;
+
+      :deep(img) {
+        width: 1.2em;
+        height: 1.2em;
+        vertical-align: text-bottom;
+        object-fit: contain;
+        display: inline-block;
+      }
     }
   }
 

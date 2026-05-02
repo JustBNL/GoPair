@@ -11,6 +11,7 @@
           <h1 class="page-title">房间管理</h1>
         </div>
         <div class="user-section">
+          <FriendsDropdown @open-chat="handleOpenPrivateChat" />
           <div class="user-avatar-btn" @click="profileVisible = true" title="编辑个人资料">
             <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" class="user-avatar user-avatar-img" alt="avatar" />
             <div v-else class="user-avatar">{{ nicknameInitial }}</div>
@@ -129,6 +130,16 @@
 
     <!-- AI 聊天助手 -->
     <AiChatDrawer />
+
+    <!-- 好友列表下拉 -->
+    <FriendsDropdown @open-chat="handleOpenPrivateChat" />
+
+    <!-- 私聊模态框 -->
+    <PrivateChatModal
+      v-model:visible="privateChatVisible"
+      :friend-id="privateChatFriendId"
+      @refresh-friends="handleRefreshFriends"
+    />
   </div>
 </template>
 
@@ -136,19 +147,23 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import { 
-  PlusOutlined, 
-  TeamOutlined, 
+import {
+  PlusOutlined,
+  TeamOutlined,
   LogoutOutlined,
   ReloadOutlined
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
+import { useChatStore } from '@/stores/chat'
+import { usePrivateChatWebSocket } from '@/composables/usePrivateChatWebSocket'
 import type { RoomInfo } from '@/types/room'
 import CreateRoomModal from '@/components/CreateRoomModal.vue'
 import JoinRoomModal from '@/components/JoinRoomModal.vue'
 import RoomCard from '@/components/RoomCard.vue'
 import UserProfileModal from '@/components/UserProfileModal.vue'
+import FriendsDropdown from '@/components/privatechat/FriendsDropdown.vue'
+import PrivateChatModal from '@/components/privatechat/PrivateChatModal.vue'
 import AiChatDrawer from '@/components/ai/AiChatDrawer.vue'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -158,11 +173,15 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
+const chatStore = useChatStore()
+const { connect: connectPrivateChat } = usePrivateChatWebSocket()
 
 // 模态框状态
 const createModalVisible = ref(false)
 const joinModalVisible = ref(false)
 const profileVisible = ref(false)
+const privateChatVisible = ref(false)
+const privateChatFriendId = ref<number | null>(null)
 
 const nicknameInitial = computed(() => {
   const name = authStore.currentNickname
@@ -248,6 +267,17 @@ async function handleCloseRoom(room: RoomInfo) {
   })
 }
 
+function handleOpenPrivateChat(friendId: number) {
+  privateChatFriendId.value = friendId
+  privateChatVisible.value = true
+}
+
+function handleRefreshFriends() {
+  chatStore.fetchFriends()
+  chatStore.fetchIncomingRequests()
+  chatStore.fetchConversations()
+}
+
 /**
  * 刷新房间列表（保留当前页）
  */
@@ -291,6 +321,10 @@ function handleLogout() {
 
 onMounted(async () => {
   await roomStore.fetchUserRooms()
+  if (authStore.user) {
+    chatStore.initChat()
+    connectPrivateChat()
+  }
 })
 </script>
 

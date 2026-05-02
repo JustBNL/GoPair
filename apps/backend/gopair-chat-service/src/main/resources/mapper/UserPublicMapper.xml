@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gopair.chatservice.mapper.UserPublicMapper">
+
+    <select id="selectByUserIds" resultType="com.gopair.chatservice.domain.dto.UserPublicProfileDto">
+        SELECT user_id AS userId, nickname, avatar
+        FROM app_user
+        WHERE user_id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+</mapper>

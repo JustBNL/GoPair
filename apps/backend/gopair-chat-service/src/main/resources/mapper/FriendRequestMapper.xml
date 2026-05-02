@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gopair.chatservice.mapper.FriendRequestMapper">
+
+    <select id="existsPending" resultType="boolean">
+        SELECT COUNT(1) > 0
+        FROM friend_request
+        WHERE (
+            (from_user_id = #{userIdA} AND to_user_id = #{userIdB})
+         OR (from_user_id = #{userIdB} AND to_user_id = #{userIdA})
+        )
+          AND status = '0'
+    </select>
+
+</mapper>

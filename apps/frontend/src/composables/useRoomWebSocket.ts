@@ -165,10 +165,9 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         if (typeof enriched.isOwn === 'undefined') {
           enriched.isOwn = (uid != null) && (enriched.senderId === uid)
         }
-        // EMOJI 消息：触发动画回调，不加入聊天消息列表
+        // EMOJI 消息：触发动画回调，同时加入聊天消息列表
         if (enriched.messageType === 5) {
           handlers.onEmojiReceived?.(enriched.content, enriched.senderNickname)
-          return
         }
         roomState.value.messages = [...roomState.value.messages, enriched]
         handlers.onMessage?.(enriched)
