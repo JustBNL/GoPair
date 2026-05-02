@@ -192,6 +192,7 @@
               html-type="submit"
               size="large"
               block
+              style="margin-top: 16px"
             >
               重置密码
             </a-button>
