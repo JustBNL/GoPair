@@ -4,6 +4,7 @@ import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
 import com.gopair.userservice.base.BaseIntegrationTest;
 import com.gopair.userservice.base.TestMailConfig;
+import com.gopair.userservice.config.MockRestTemplateConfig;
 import com.gopair.userservice.domain.dto.UserDto;
 import com.gopair.userservice.domain.dto.auth.ForgotPasswordRequest;
 import com.gopair.userservice.domain.dto.auth.LoginRequest;
@@ -52,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * - MySQL：@Transactional 回滚
  * - Redis：BaseIntegrationTest @AfterEach flushDb()
  */
-@Import({TestMailConfig.class, StubEmailServiceImpl.class})
+@Import({TestMailConfig.class, StubEmailServiceImpl.class, MockRestTemplateConfig.class})
 class UserApiContractTest extends BaseIntegrationTest {
 
     @Autowired
@@ -393,6 +394,24 @@ class UserApiContractTest extends BaseIntegrationTest {
             assertThat(resp.getBody().isSuccess()).isFalse();
             assertThat(resp.getBody().getCode()).isEqualTo(USER_ALREADY_CANCELLED.getCode());
             assertThat(resp.getBody().getMsg()).isEqualTo(USER_ALREADY_CANCELLED.getMessage());
+        }
+
+        @Test
+        @DisplayName("注销时通知 file-service 删除头像")
+        void cancel_notifiesFileServiceToDeleteAvatar() {
+            String u = uid();
+            String email = "avatar_" + u + "@example.com";
+            Long userId = callRegister(buildRegister("avataruser_" + u, email, "P@ss1234")).getBody().getData().getUserId();
+            // 注册 file-service 删除头像的 stub
+            MockRestTemplateConfig.putFileServiceDeleteAvatarStub(userId);
+            ResponseEntity<R<Void>> resp = callCancel(userId);
+            assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(resp.getBody().isSuccess()).isTrue();
+        }
+
+        @org.junit.jupiter.api.AfterEach
+        void tearDown() {
+            MockRestTemplateConfig.clear();
         }
     }
 

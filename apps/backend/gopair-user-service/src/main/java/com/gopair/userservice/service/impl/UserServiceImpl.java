@@ -25,10 +25,13 @@ import com.gopair.userservice.domain.vo.auth.RegisterResponse;
 import com.gopair.userservice.mapper.UserMapper;
 import com.gopair.userservice.service.UserService;
 import com.gopair.userservice.service.VerificationCodeService;
+import com.gopair.userservice.config.FileServiceProperties;
 import com.gopair.framework.logging.annotation.LogRecord;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -39,23 +42,32 @@ import com.github.pagehelper.PageInfo;
 
 /**
  * 用户服务实现类
- * 
+ *
  * @author gopair
  */
+@Slf4j
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements UserService {
+
+    private static final String AVATAR_PATH_PREFIX = "avatar/";
+    private static final String AVATAR_FILE_NAME = "profile.jpg";
 
     private final UserMapper userMapper;
     private final PasswordUtils passwordUtils;
     private final JwtProperties jwtProperties;
     private final VerificationCodeService verificationCodeService;
+    private final RestTemplate restTemplate;
+    private final FileServiceProperties fileServiceProperties;
 
     public UserServiceImpl(UserMapper userMapper, PasswordUtils passwordUtils, JwtProperties jwtProperties,
-                           VerificationCodeService verificationCodeService) {
+                           VerificationCodeService verificationCodeService, RestTemplate restTemplate,
+                           FileServiceProperties fileServiceProperties) {
         this.userMapper = userMapper;
         this.passwordUtils = passwordUtils;
         this.jwtProperties = jwtProperties;
         this.verificationCodeService = verificationCodeService;
+        this.restTemplate = restTemplate;
+        this.fileServiceProperties = fileServiceProperties;
     }
     
     /**
@@ -283,6 +295,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         user.setEmail(user.getEmail() + UserStatus.DELETED_EMAIL_SUFFIX + System.currentTimeMillis());
         if (userMapper.updateById(user) <= 0) {
             throw new UserException(UserErrorCode.USER_CANCEL_FAILED);
+        }
+        // 通知 file-service 删除头像（失败不影响注销结果，头像删除是幂等操作）
+        deleteAvatarFromFileService(userId);
+    }
+
+    /**
+     * 通知 file-service 删除用户在 MinIO 中的头像文件。
+     * 失败时仅记录 warn 日志，不阻断注销流程。
+     */
+    private void deleteAvatarFromFileService(Long userId) {
+        String objectKey = AVATAR_PATH_PREFIX + userId + "/" + AVATAR_FILE_NAME;
+        try {
+            String url = fileServiceProperties.getUrl().replaceAll("/+$", "") + "/file/by-key?objectKey=" + objectKey;
+            restTemplate.delete(url);
+            log.info("[用户服务] 头像删除成功 userId:{} objectKey:{}", userId, objectKey);
+        } catch (Exception e) {
+            log.warn("[用户服务] 通知 file-service 删除头像失败（不影响注销结果） userId:{} objectKey:{} err:{}",
+                    userId, objectKey, e.getMessage());
         }
     }
 
