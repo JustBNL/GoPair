@@ -45,6 +45,6 @@ public class PageResult<T> {
         this.total = total;
         this.current = current;
         this.size = size;
-        this.pages = (total + size - 1) / size;
+        this.pages = size > 0 ? (total + size - 1) / size : 0;
     }
 } 

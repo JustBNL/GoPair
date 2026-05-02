@@ -58,7 +58,8 @@ export const useAuthStore = defineStore('auth', () => {
         nickname: response.data.nickname,
         token: response.data.token,
         email: response.data.email || '',
-        avatar: response.data.avatar || ''
+        avatar: response.data.avatar || '',
+        avatarOriginalUrl: response.data.avatarOriginalUrl || ''
       }
 
       // 先持久化存储，再更新内存状态
@@ -216,15 +217,15 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 更新用户资料（昵称、邮箱、密码、头像）
    */
-  async function updateProfile(data: { nickname?: string; email?: string; password?: string; avatar?: string }): Promise<void> {
+  async function updateProfile(data: { nickname?: string; email?: string; password?: string; avatar?: string; avatarOriginalUrl?: string }): Promise<void> {
     if (!user.value?.userId) throw new Error('未登录')
     await AuthAPI.updateUser({ userId: user.value.userId, ...data })
-    // 同步更新本地用户信息（nickname、email、avatar）
     if (user.value) {
       const updatedUser = { ...user.value }
       if (data.nickname) updatedUser.nickname = data.nickname
       if (data.email) updatedUser.email = data.email
       if (data.avatar !== undefined) updatedUser.avatar = data.avatar
+      if (data.avatarOriginalUrl !== undefined) updatedUser.avatarOriginalUrl = data.avatarOriginalUrl
       user.value = updatedUser
       Storage.setUser(updatedUser)
     }
@@ -244,7 +245,8 @@ export const useAuthStore = defineStore('auth', () => {
           nickname: response.data.nickname,
           token: user.value.token,
           email: response.data.email,
-          avatar: response.data.avatar
+          avatar: response.data.avatar,
+          avatarOriginalUrl: response.data.avatarOriginalUrl
         }
         user.value = updatedUser
         Storage.setUser(updatedUser)

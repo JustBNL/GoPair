@@ -402,8 +402,8 @@ class UserApiContractTest extends BaseIntegrationTest {
             String u = uid();
             String email = "avatar_" + u + "@example.com";
             Long userId = callRegister(buildRegister("avataruser_" + u, email, "P@ss1234")).getBody().getData().getUserId();
-            // 注册 file-service 删除头像的 stub
-            MockRestTemplateConfig.putFileServiceDeleteAvatarStub(userId);
+            // 注册 file-service 删除头像的 stub（压缩图 + 原图）
+            MockRestTemplateConfig.putFileServiceDeleteAvatarStubs(userId);
             ResponseEntity<R<Void>> resp = callCancel(userId);
             assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(resp.getBody().isSuccess()).isTrue();

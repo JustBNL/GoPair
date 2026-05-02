@@ -34,4 +34,9 @@ public class LoginResponse {
      * 头像地址
      */
     private String avatar;
+
+    /**
+     * 头像原图直链URL（用于下载原图）
+     */
+    private String avatarOriginalUrl;
 } 

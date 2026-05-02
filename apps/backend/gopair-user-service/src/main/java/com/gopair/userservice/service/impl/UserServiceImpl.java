@@ -50,7 +50,6 @@ import com.github.pagehelper.PageInfo;
 public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements UserService {
 
     private static final String AVATAR_PATH_PREFIX = "avatar/";
-    private static final String AVATAR_FILE_NAME = "profile.jpg";
 
     private final UserMapper userMapper;
     private final PasswordUtils passwordUtils;
@@ -301,18 +300,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
     }
 
     /**
-     * 通知 file-service 删除用户在 MinIO 中的头像文件。
+     * 通知 file-service 删除用户在 MinIO 中的头像文件（压缩图 + 原图）。
      * 失败时仅记录 warn 日志，不阻断注销流程。
      */
     private void deleteAvatarFromFileService(Long userId) {
-        String objectKey = AVATAR_PATH_PREFIX + userId + "/" + AVATAR_FILE_NAME;
-        try {
-            String url = fileServiceProperties.getUrl().replaceAll("/+$", "") + "/file/by-key?objectKey=" + objectKey;
-            restTemplate.delete(url);
-            log.info("[用户服务] 头像删除成功 userId:{} objectKey:{}", userId, objectKey);
-        } catch (Exception e) {
-            log.warn("[用户服务] 通知 file-service 删除头像失败（不影响注销结果） userId:{} objectKey:{} err:{}",
-                    userId, objectKey, e.getMessage());
+        String[] objectKeys = {
+            AVATAR_PATH_PREFIX + userId + "/profile.jpg",
+            AVATAR_PATH_PREFIX + userId + "/original.jpg"
+        };
+        for (String objectKey : objectKeys) {
+            try {
+                String url = fileServiceProperties.getUrl().replaceAll("/+$", "") + "/file/by-key?objectKey=" + objectKey;
+                restTemplate.delete(url);
+                log.info("[用户服务] 头像删除成功 userId:{} objectKey:{}", userId, objectKey);
+            } catch (Exception e) {
+                log.warn("[用户服务] 通知 file-service 删除头像失败（不影响注销结果） userId:{} objectKey:{} err:{}",
+                        userId, objectKey, e.getMessage());
+            }
         }
     }
 
@@ -341,6 +345,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         loginResponse.setToken(token);
         loginResponse.setEmail(user.getEmail());
         loginResponse.setAvatar(user.getAvatar());
+        loginResponse.setAvatarOriginalUrl(user.getAvatarOriginalUrl());
         return loginResponse;
     }
 } 

@@ -59,14 +59,14 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
     void setUpUserProfiles() {
         // 预置用户公开资料（昵称/头像），使用 MySQL INSERT ... ON DUPLICATE KEY UPDATE
         jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
-                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
-                USER_A_ID, "Alice", "http://avatar/alice.png", "alice");
+                "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+            USER_A_ID, "Alice", "http://avatar/alice.png", "alice");
         jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
-                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
-                USER_B_ID, "Bob", "http://avatar/bob.png", "bob");
+                "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+            USER_B_ID, "Bob", "http://avatar/bob.png", "bob");
         jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
-                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
-                USER_C_ID, "Charlie", "http://avatar/charlie.png", "charlie");
+                "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+            USER_C_ID, "Charlie", "http://avatar/charlie.png", "charlie");
     }
 
     @AfterEach
@@ -96,7 +96,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         assertThat(sent.getSenderId()).isEqualTo(USER_A_ID);
         assertThat(sent.getRoomId()).isEqualTo(ROOM_ID);
         log.info("消息发送成功，存入 DB: messageId={}, roomId={}, senderId={}",
-                sent.getMessageId(), sent.getRoomId(), sent.getSenderId());
+            sent.getMessageId(), sent.getRoomId(), sent.getSenderId());
 
         // 验证 WebSocket 推送被调用（Mock 拦截，不建立真实连接）
         verify(webSocketMessageProducer, times(1)).sendChatMessageToRoom(eq(ROOM_ID), any());
@@ -112,7 +112,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         var pageResult = messageService.getRoomMessages(queryDto);
         assertThat(pageResult.getRecords()).hasSizeGreaterThanOrEqualTo(1);
         log.info("分页查询结果: total={}, records={}",
-                pageResult.getTotal(), pageResult.getRecords().size());
+            pageResult.getTotal(), pageResult.getRecords().size());
         log.info("DB 分页记录: {}", pageResult.getRecords());
 
         // ---- Step 4: 获取最新消息 ----
@@ -163,12 +163,12 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         assertThat(imageMsg.getFileName()).isEqualTo("photo.jpg");
         assertThat(imageMsg.getFileSize()).isEqualTo(102400L);
         log.info("图片消息存入 DB: messageId={}, fileUrl={}, fileSize={}",
-                imageMsg.getMessageId(), imageMsg.getFileUrl(), imageMsg.getFileSize());
+            imageMsg.getMessageId(), imageMsg.getFileUrl(), imageMsg.getFileSize());
 
         // ---- Step 3: 验证 WebSocket 推送内容 ----
         log.info("==== [Step 3: WebSocket MQ 推送拦截验证] ====");
         org.mockito.ArgumentCaptor<java.util.Map<String, Object>> wsCaptor =
-                org.mockito.ArgumentCaptor.forClass(java.util.Map.class);
+            org.mockito.ArgumentCaptor.forClass(java.util.Map.class);
         verify(webSocketMessageProducer, times(1)).sendChatMessageToRoom(eq(ROOM_ID), wsCaptor.capture());
         java.util.Map<String, Object> payload = wsCaptor.getValue();
         assertThat(payload).containsEntry("messageId", imageMsg.getMessageId());
@@ -187,7 +187,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         // ---- Step 5: 非发送者无权删除 ----
         log.info("==== [Step 5: 权限校验-非发送者删除] ====");
         assertThatThrownBy(() -> messageService.deleteMessage(imageMsg.getMessageId(), USER_A_ID))
-                .isInstanceOf(Exception.class);
+            .isInstanceOf(Exception.class);
 
         // ---- Step 6: 发送者删除消息 ----
         log.info("==== [Step 6: 发送者删除消息] ====");
@@ -237,7 +237,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         MessageVO replyDetail = messageService.getMessageById(replyMsg.getMessageId());
         assertThat(replyDetail.getReplyToId()).isEqualTo(emojiMsg.getMessageId());
         log.info("回复详情 DB 结果: messageId={}, replyToId={}, replyToSenderId={}",
-                replyDetail.getMessageId(), replyDetail.getReplyToId(), replyDetail.getReplyToSenderId());
+            replyDetail.getMessageId(), replyDetail.getReplyToId(), replyDetail.getReplyToSenderId());
 
         // ---- Step 6: 验证用户资料降级链路 ----
         log.info("==== [Step 6: 用户资料降级链路验证] ====");
@@ -245,7 +245,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         assertThat(replyDetail.getSenderId()).isEqualTo(USER_B_ID);
         // 降级服务会查询 user_public 表补全昵称（Mapper JOIN 已有 nickname 字段）
         log.info("用户资料（昵称）来自 user_public 表，userId={}, nickname={}",
-                USER_B_ID, replyDetail.getSenderNickname());
+            USER_B_ID, replyDetail.getSenderNickname());
 
         // ---- Step 7: 统计 Emoji 类型消息数量 ----
         log.info("==== [Step 7: 按类型统计消息] ====");
@@ -259,7 +259,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         log.info("==== [Step 8: 删除 Emoji 消息] ====");
         messageService.deleteMessage(emojiMsg.getMessageId(), USER_A_ID);
         assertThatThrownBy(() -> messageService.getMessageById(emojiMsg.getMessageId()))
-                .isInstanceOf(Exception.class);
+            .isInstanceOf(Exception.class);
         log.info("Emoji 消息已删除: messageId={}", emojiMsg.getMessageId());
     }
 
@@ -277,7 +277,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         dto.setContent("Should fail");
 
         assertThatThrownBy(() -> messageService.sendMessage(dto, USER_C_ID))
-                .isInstanceOf(Exception.class);
+            .isInstanceOf(Exception.class);
 
         // 验证数据库中无新增记录
         Long count = messageMapper.countRoomMessages(ROOM_ID, null);
@@ -291,7 +291,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         log.info("==== [边界测试: 查询不存在的消息] ====");
 
         assertThatThrownBy(() -> messageService.getMessageById(99999L))
-                .isInstanceOf(Exception.class);
+            .isInstanceOf(Exception.class);
 
         log.info("异常路径验证通过: 不存在消息ID=99999 抛出 MESSAGE_NOT_FOUND");
     }
@@ -325,7 +325,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         dto.setContent("A".repeat(3000)); // 超过 maxContentLength=2000
 
         assertThatThrownBy(() -> messageService.sendMessage(dto, USER_A_ID))
-                .isInstanceOf(Exception.class);
+            .isInstanceOf(Exception.class);
 
         Long count = messageMapper.countRoomMessages(ROOM_ID, null);
         assertThat(count).isEqualTo(0L);
@@ -366,7 +366,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         // Step 4: WebSocket 撤回通知已发送
         log.info("==== [Step 4: WebSocket 撤回通知] ====");
         verify(webSocketMessageProducer, atLeastOnce()).sendEventToRoom(
-                eq(ROOM_ID), eq("message_recall"), any());
+            eq(ROOM_ID), eq("message_recall"), any());
 
         // Step 5: 常规查询接口查不到该消息（is_recalled=0 过滤）
         log.info("==== [Step 5: 查询过滤验证] ====");
@@ -390,7 +390,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         MessageVO sent = messageService.sendMessage(dto, USER_A_ID);
 
         assertThatThrownBy(() -> messageService.recallMessage(sent.getMessageId(), USER_B_ID))
-                .isInstanceOf(Exception.class);
+            .isInstanceOf(Exception.class);
         log.info("权限校验通过: Bob 无法撤回 Alice 的消息");
     }
 
@@ -408,6 +408,7 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
 
         messageService.recallMessage(sent.getMessageId(), USER_A_ID);
         assertThatThrownBy(() -> messageService.recallMessage(sent.getMessageId(), USER_A_ID))
-                .isInstanceOf(Exception.class);
+            .isInstanceOf(Exception.class);
         log.info("幂等校验通过: 重复撤回抛出 MESSAGE_ALREADY_RECALLED");
     }
+}

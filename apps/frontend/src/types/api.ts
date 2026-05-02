@@ -15,6 +15,7 @@ export interface UserInfo {
   nickname: string
   email: string
   avatar?: string
+  avatarOriginalUrl?: string
   status: string
   remark?: string
   createTime: string
@@ -66,6 +67,7 @@ export interface LoginResponse {
   token: string
   email?: string
   avatar?: string
+  avatarOriginalUrl?: string
 }
 
 /**
@@ -88,6 +90,7 @@ export interface CurrentUser {
   token: string
   email?: string
   avatar?: string
+  avatarOriginalUrl?: string
 }
 
 /**

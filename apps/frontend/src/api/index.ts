@@ -45,6 +45,7 @@ export const API_ENDPOINTS = {
   // 文件管理
   FILE_UPLOAD: '/file/upload',
   FILE_AVATAR: '/file/avatar',
+  FILE_AVATAR_DOWNLOAD: '/file/avatar/download',
   FILE_ROOM_LIST: (roomId: number) => `/file/room/${roomId}`,
   FILE_INFO: (fileId: number) => `/file/${fileId}`,
   FILE_DOWNLOAD: (fileId: number) => `/file/${fileId}/download`,
@@ -76,7 +77,7 @@ export const API_ENDPOINTS = {
  * 请求配置常量
  */
 export const REQUEST_CONFIG = {
-  TIMEOUT: 10000,
+  TIMEOUT: 0,
   RETRY_TIMES: 3,
   RETRY_DELAY: 1000
 } as const

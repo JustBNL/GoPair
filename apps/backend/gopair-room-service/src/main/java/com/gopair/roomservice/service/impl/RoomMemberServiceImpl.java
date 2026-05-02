@@ -446,17 +446,16 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
      * 查询指定用户参与的房间列表（分页），支持按状态过滤。
      *
      * * [核心策略]
-     * - 两段式分页：过滤条件（status）在 room 表而非 room_member 表，必须先过滤再分页；仅查询当页数据，避免一次查出大量房间后丢弃。
+     * - 两段式分页：过滤条件（status）在 room 表而非 room_member 表，必须先过滤再分页。
+     * - 轻量投影：第2步仅查 roomId + createTime 两个字段，由数据库完成排序，避免全量 Room 实体拉入 JVM。
      *
      * * [执行链路]
      * 1. 查成员表：以 userId 查 room_member，提取所有关联 roomId（去重）；无记录则直接返回空结果。
-     * 2. 过滤房间状态：IN 查询 room 表，按 status 过滤。
-     *    - status != null → 精确匹配。
-     *    - status == null 且 includeHistory != true → 默认仅返回 status=0 活跃房间。
-     *    - includeHistory == true → 返回所有状态。
-     * 3. 内存排序：按房间创建时间倒序。
-     * 4. Java 侧分页：根据 pageNum/pageSize 截取当页 roomId 列表。
-     * 5. 查房间详情：IN 查询当页 roomId，按截取顺序转换为 RoomVO 并返回。
+     * 2. 计数 + 轻量投影：
+     *    - 2a. COUNT 查询获取过滤后房间总数。
+     *    - 2b. 仅查 roomId + createTime，按 create_time DESC 由数据库排序（createTime 为 null 的房间追加到末尾）。
+     * 3. Java 侧分页：根据 pageNum/pageSize 截取当页 roomId 列表。
+     * 4. 查房间详情：IN 查询当页 roomId，按截取顺序转换为 RoomVO 并返回。
      *
      * @param userId 用户 ID
      * @param query  查询条件（含分页参数 pageNum/pageSize、status、includeHistory）
@@ -477,46 +476,46 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             return new PageResult<>(List.of(), 0L, (long) query.getPageNum(), (long) query.getPageSize());
         }
 
-        // 2. 按房间状态过滤（基于 Room 表）
-        LambdaQueryWrapper<Room> statusQuery = new LambdaQueryWrapper<>();
-        statusQuery.in(Room::getRoomId, allRoomIds);
-        applyRoomStatusFilter(statusQuery, query);
-        List<Room> filteredRooms = roomMapper.selectList(statusQuery);
-        long realTotal = filteredRooms.size();
+        // 2a. 计数：仅查符合过滤条件的房间总数，不拉实体
+        LambdaQueryWrapper<Room> countQuery = new LambdaQueryWrapper<>();
+        countQuery.in(Room::getRoomId, allRoomIds);
+        applyRoomStatusFilter(countQuery, query);
+        long realTotal = roomMapper.selectCount(countQuery);
 
         if (realTotal == 0) {
             return new PageResult<>(List.of(), 0L, (long) query.getPageNum(), (long) query.getPageSize());
         }
 
-        // 3. 构建过滤后的 roomId 有序列表（按创建时间倒序），用于分页
-        List<Long> filteredRoomIds = filteredRooms.stream()
-                .sorted((a, b) -> {
-                    if (a.getCreateTime() != null && b.getCreateTime() != null) {
-                        return b.getCreateTime().compareTo(a.getCreateTime());
-                    }
-                    return 0;
-                })
+        // 2b. 轻量投影：仅 roomId + createTime，数据库层 ORDER BY create_time DESC
+        LambdaQueryWrapper<Room> orderedQuery = new LambdaQueryWrapper<>();
+        orderedQuery.in(Room::getRoomId, allRoomIds)
+                .select(Room::getRoomId, Room::getCreateTime)
+                .orderByDesc(Room::getCreateTime);
+        applyRoomStatusFilter(orderedQuery, query);
+        List<Room> orderedRooms = roomMapper.selectList(orderedQuery);
+
+        // 构建有序 roomId 列表（createTime 为 null 的房间在数据库排序结果中会排在末尾，无需额外处理）
+        List<Long> filteredRoomIds = orderedRooms.stream()
                 .map(Room::getRoomId)
                 .collect(Collectors.toList());
 
-        // 4. 按房间维度分页（计算起始位置和结束位置）
-        long total = filteredRoomIds.size();
+        // 3. Java 侧分页（截取当页 roomId）
         int pageNum = query.getPageNum();
         int pageSize = query.getPageSize();
         int fromIndex = (pageNum - 1) * pageSize;
         int toIndex = Math.min(fromIndex + pageSize, filteredRoomIds.size());
 
-        if (fromIndex >= total) {
+        if (fromIndex >= realTotal) {
             return new PageResult<>(List.of(), realTotal, (long) pageNum, (long) pageSize);
         }
 
-        // 5. 获取当前页的 roomId 并查询房间详情
+        // 4. 获取当前页的 roomId 并查询房间详情
         List<Long> pageRoomIds = filteredRoomIds.subList(fromIndex, toIndex);
         LambdaQueryWrapper<Room> roomQueryWrapper = new LambdaQueryWrapper<>();
         roomQueryWrapper.in(Room::getRoomId, pageRoomIds);
         List<Room> pageRooms = roomMapper.selectList(roomQueryWrapper);
 
-        // 6. 按 pageRoomIds 顺序转换（保持分页顺序）
+        // 5. 按 pageRoomIds 顺序转换（保持分页顺序）
         Map<Long, Room> roomMap = pageRooms.stream()
                 .collect(Collectors.toMap(Room::getRoomId, room -> room));
         List<RoomVO> roomVOList = pageRoomIds.stream()

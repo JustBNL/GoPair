@@ -58,6 +58,11 @@ export const useRoomStore = defineStore('room', () => {
         pageSize: result.size,
         total: result.total
       }
+      // 刷新后若当前页为空且不是第1页，自动回退到第1页
+      if (result.records.length === 0 && result.current > 1) {
+        pagination.value.current = 1
+        await fetchUserRooms({ pageNum: 1, pageSize: result.size })
+      }
     } catch (error) {
       console.error('获取房间列表失败:', error)
       message.error('获取房间列表失败')

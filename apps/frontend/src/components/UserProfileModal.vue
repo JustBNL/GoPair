@@ -30,6 +30,16 @@
           <p class="avatar-tip-title">点击头像更换</p>
           <p class="avatar-tip-desc">支持 JPG / PNG / GIF / WebP</p>
           <p class="avatar-tip-desc">文件大小不超过 5MB</p>
+          <a-button
+            v-if="form.avatarOriginalUrl"
+            type="link"
+            size="small"
+            :loading="avatarDownloading"
+            class="download-original-btn"
+            @click.stop="handleDownloadOriginal"
+          >
+            下载原图
+          </a-button>
         </div>
       </div>
 
@@ -159,11 +169,13 @@ const showPassword = ref(false)
 const avatarUploading = ref(false)
 const cancelLoading = ref(false)
 const showCancelConfirm = ref(false)
+const avatarDownloading = ref(false)
 
 const form = ref({
   nickname: '',
   email: '',
   avatar: '',
+  avatarOriginalUrl: '',
   currentPassword: '',
   password: '',
   confirmPassword: ''
@@ -185,6 +197,7 @@ watch(
       form.value.nickname = authStore.user?.nickname || ''
       form.value.email = authStore.user?.email || ''
       form.value.avatar = authStore.user?.avatar || ''
+      form.value.avatarOriginalUrl = authStore.user?.avatarOriginalUrl || ''
       form.value.currentPassword = ''
       form.value.password = ''
       form.value.confirmPassword = ''
@@ -214,13 +227,30 @@ async function handleAvatarUpload({ file }: { file: File }) {
   avatarUploading.value = true
   try {
     const res = await FileAPI.uploadAvatar(file)
-    form.value.avatar = res.data
-    avatarPreview.value = res.data
+    form.value.avatar = res.data.avatarUrl
+    form.value.avatarOriginalUrl = res.data.avatarOriginalUrl
+    avatarPreview.value = res.data.avatarUrl
     message.success('头像上传成功')
   } catch {
     message.error('头像上传失败，请重试')
   } finally {
     avatarUploading.value = false
+  }
+}
+
+async function handleDownloadOriginal() {
+  if (!form.value.avatarOriginalUrl) {
+    message.warn('暂无原图可下载')
+    return
+  }
+  avatarDownloading.value = true
+  try {
+    const url = await FileAPI.downloadAvatar()
+    window.open(url, '_blank')
+  } catch {
+    message.error('下载失败，请重试')
+  } finally {
+    avatarDownloading.value = false
   }
 }
 
@@ -273,6 +303,7 @@ async function handleSubmit() {
   const payload: Record<string, string> = {}
   if (form.value.nickname) payload.nickname = form.value.nickname
   if (form.value.avatar !== undefined) payload.avatar = form.value.avatar
+  if (form.value.avatarOriginalUrl !== undefined) payload.avatarOriginalUrl = form.value.avatarOriginalUrl
   if (form.value.password) {
     payload.password = form.value.password
     payload.currentPassword = form.value.currentPassword
@@ -401,6 +432,14 @@ function handleClose() {
   color: var(--text-muted);
   margin: 0;
   line-height: 1.6;
+}
+
+.download-original-btn {
+  padding: 0;
+  height: auto;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--brand-primary);
 }
 
 /* 密码折叠区 */

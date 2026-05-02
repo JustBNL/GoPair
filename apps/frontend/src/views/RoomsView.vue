@@ -70,9 +70,9 @@
 
         <!-- 房间列表 -->
         <div class="rooms-list" v-if="roomStore.hasRooms">
-          <RoomCard 
-            v-for="room in roomStore.roomList" 
-            :key="room.roomId" 
+          <RoomCard
+            v-for="room in roomStore.roomList"
+            :key="room.roomId"
             :room="room"
             @enter="handleEnterRoom"
             @leave="handleLeaveRoom"
@@ -80,8 +80,19 @@
           />
         </div>
 
-        <!-- 空状态 -->
-        <div class="empty-state" v-else-if="!roomStore.loading">
+        <!-- 分页组件：总数超过单页数量才显示 -->
+        <div class="rooms-pagination-wrapper" v-if="roomStore.pagination.total > roomStore.pagination.pageSize">
+          <a-pagination
+            :current="roomStore.pagination.current"
+            :page-size="roomStore.pagination.pageSize"
+            :total="roomStore.pagination.total"
+            :show-quick-jumper="Math.ceil(roomStore.pagination.total / roomStore.pagination.pageSize) > 7"
+            @change="handlePageChange"
+          />
+        </div>
+
+        <!-- 空状态：v-show 避免渲染时序导致房间卡片和空状态短暂同时显示 -->
+        <div class="empty-state" v-show="!roomStore.hasRooms && !roomStore.loading">
           <div class="empty-icon">🏠</div>
           <h3>暂无房间</h3>
           <p>创建一个新房间或加入已有房间开始协作吧！</p>
@@ -93,8 +104,8 @@
           </div>
         </div>
 
-        <!-- 加载状态 -->
-        <div class="loading-state" v-else-if="roomStore.loading">
+        <!-- 加载状态：v-show 避免与空状态短暂重叠 -->
+        <div class="loading-state" v-show="roomStore.loading">
           <a-spin size="large" />
           <p>加载中...</p>
         </div>
@@ -238,14 +249,24 @@ async function handleCloseRoom(room: RoomInfo) {
 }
 
 /**
- * 刷新房间列表
+ * 刷新房间列表（保留当前页）
  */
 async function refreshRooms() {
   try {
-    await roomStore.fetchUserRooms()
+    await roomStore.fetchUserRooms({
+      pageNum: roomStore.pagination.current,
+      pageSize: roomStore.pagination.pageSize
+    })
   } catch (error) {
     message.error('刷新失败，请重试')
   }
+}
+
+/**
+ * 翻页
+ */
+function handlePageChange(page: number) {
+  roomStore.fetchUserRooms({ pageNum: page, pageSize: roomStore.pagination.pageSize })
 }
 
 /**
@@ -475,6 +496,16 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
+}
+
+/* ==================== 分页组件 ==================== */
+
+.rooms-pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
 }
 
 /* ==================== 空状态 ==================== */

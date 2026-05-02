@@ -33,6 +33,11 @@ public class UserVO {
     private String avatar;
 
     /**
+     * 头像原图直链URL（用于下载原图）
+     */
+    private String avatarOriginalUrl;
+
+    /**
      * 帐号状态（0正常 1停用）
      */
     private Character status;

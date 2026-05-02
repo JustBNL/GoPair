@@ -2,6 +2,7 @@ package com.gopair.fileservice.controller;
 
 import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
+import com.gopair.fileservice.domain.vo.AvatarVO;
 import com.gopair.fileservice.domain.vo.FileVO;
 import com.gopair.fileservice.service.FileService;
 import com.gopair.framework.context.UserContextHolder;
@@ -23,14 +24,23 @@ public class FileController {
 
     private final FileService fileService;
 
-    @Operation(summary = "上传用户头像", description = "上传头像图片到MinIO，返回永久直链URL，图片自动压缩为200x200")
+    @Operation(summary = "上传用户头像", description = "上传头像图片到MinIO，返回压缩图和原图的永久直链URL，压缩图自动缩略为200x200")
     @PostMapping("/avatar")
-    public R<String> uploadAvatar(
+    public R<AvatarVO> uploadAvatar(
             @Parameter(description = "头像图片文件（jpg/jpeg/png/gif/webp，≤5MB）", required = true)
             @RequestPart("file") MultipartFile file) {
         Long userId = UserContextHolder.getCurrentUserId();
         log.info("[文件服务] 上传头像 userId:{}", userId);
-        String url = fileService.uploadAvatar(file, userId);
+        AvatarVO vo = fileService.uploadAvatar(file, userId);
+        return R.ok(vo);
+    }
+
+    @Operation(summary = "下载头像原图", description = "生成头像原图的下载Presigned URL，文件名固定为avatar_original.jpg")
+    @GetMapping("/avatar/download")
+    public R<String> downloadAvatar() {
+        Long userId = UserContextHolder.getCurrentUserId();
+        log.info("[文件服务] 下载头像原图 userId:{}", userId);
+        String url = fileService.generateAvatarDownloadUrl(userId);
         return R.ok(url);
     }
 

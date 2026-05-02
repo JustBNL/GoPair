@@ -1,6 +1,7 @@
 package com.gopair.fileservice.service;
 
 import com.gopair.common.core.PageResult;
+import com.gopair.fileservice.domain.vo.AvatarVO;
 import com.gopair.fileservice.domain.vo.FileVO;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,14 +13,14 @@ import org.springframework.web.multipart.MultipartFile;
 public interface FileService {
 
     /**
-     * 上传用户头像到MinIO avatar路径，返回永久直链URL
-     * 图片会被压缩为 200x200 jpg 格式
+     * 上传用户头像到MinIO avatar路径，返回压缩图和原图的永久直链URL
+     * 压缩图会被缩略为 200x200 jpg 格式
      *
      * @param file   头像图片文件（仅限 jpg/jpeg/png/gif/webp，≤5MB）
      * @param userId 当前用户ID
-     * @return 永久可访问的头像直链 URL
+     * @return 头像VO，含压缩图URL和原图URL
      */
-    String uploadAvatar(MultipartFile file, Long userId);
+    AvatarVO uploadAvatar(MultipartFile file, Long userId);
 
     /**
      * 上传文件到MinIO，保存元数据到DB，并推送WebSocket事件
@@ -66,6 +67,14 @@ public interface FileService {
      * @return 预览URL
      */
     String generatePreviewUrl(Long fileId);
+
+    /**
+     * 生成头像原图的下载Presigned URL（带content-disposition）
+     *
+     * @param userId 用户ID
+     * @return 下载URL
+     */
+    String generateAvatarDownloadUrl(Long userId);
 
     /**
      * 删除文件（MinIO + DB），并推送WebSocket事件

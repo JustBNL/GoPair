@@ -15,6 +15,14 @@ export interface UploadProgressCallback {
 }
 
 /**
+ * 头像上传结果
+ */
+export interface AvatarUploadResponse {
+  avatarUrl: string
+  avatarOriginalUrl: string
+}
+
+/**
  * 房间文件统计信息
  */
 export interface RoomFileStats {
@@ -31,12 +39,20 @@ export class FileAPI {
   /**
    * 上传用户头像
    */
-  static async uploadAvatar(file: File): Promise<ApiResponse<string>> {
+  static async uploadAvatar(file: File): Promise<ApiResponse<AvatarUploadResponse>> {
     const formData = new FormData()
     formData.append('file', file)
-    return http.post<string>(API_ENDPOINTS.FILE_AVATAR, formData, {
+    return http.post<AvatarUploadResponse>(API_ENDPOINTS.FILE_AVATAR, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     } as any)
+  }
+
+  /**
+   * 下载当前用户头像原图
+   */
+  static async downloadAvatar(): Promise<string> {
+    const res = await http.get<string>(API_ENDPOINTS.FILE_AVATAR_DOWNLOAD)
+    return res.data
   }
 
   /**

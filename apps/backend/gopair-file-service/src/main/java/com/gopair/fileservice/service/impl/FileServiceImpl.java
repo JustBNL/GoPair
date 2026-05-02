@@ -6,6 +6,7 @@ import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.framework.logging.annotation.LogRecord;
 import com.gopair.fileservice.config.MinioProperties;
 import com.gopair.fileservice.domain.po.RoomFile;
+import com.gopair.fileservice.domain.vo.AvatarVO;
 import com.gopair.fileservice.domain.vo.FileVO;
 import com.gopair.fileservice.enums.FileErrorCode;
 import com.gopair.fileservice.exception.FileException;
@@ -66,11 +67,7 @@ public class FileServiceImpl implements FileService {
     /** @FileServiceImpl.java (66-67) avatar */
     @Override
     @LogRecord(operation = "上传头像", module = "文件管理")
-    public String uploadAvatar(MultipartFile file, Long userId) {
-        // FUTURE: 接近 5MB 的大图通过 Thumbnails.of(file.getInputStream()) 全量读入内存，
-        //         当前压缩输出仅为 200x200，整体内存压力可控（峰值约数十 MB）。
-        //         若未来需要支持更高分辨率头像或更大文件，可改为 Thumbnails.Builder 流式 API，
-        //         或引入 disk-based tmp 文件，避免大图撑爆堆内存。
+    public AvatarVO uploadAvatar(MultipartFile file, Long userId) {
         String fn = file.getOriginalFilename();
         String ft = extractExtension(fn);
         long fs = file.getSize();
@@ -81,13 +78,22 @@ public class FileServiceImpl implements FileService {
         if (fs > avatarMaxSize) {
             throw new FileException(FileErrorCode.FILE_TOO_LARGE, "头像文件不能超过 " + FileVO.formatFileSize(avatarMaxSize));
         }
-        String objectKey = AVATAR_PATH_PREFIX + userId + "/profile.jpg";
+        String compressedKey = AVATAR_PATH_PREFIX + userId + "/profile.jpg";
+        String originalKey = AVATAR_PATH_PREFIX + userId + "/original.jpg";
         try {
-            byte[] compressed = generateThumbnail(file.getInputStream(), ft);
-            uploadToMinio(new ByteArrayInputStream(compressed), objectKey, "image/jpeg", compressed.length);
-            String url = minioProperties.getEndpoint() + "/" + minioProperties.getBucketName() + "/" + objectKey;
-            log.info("[file-service] success op:uploadAvatar userId:{} url:{}", userId, url);
-            return url;
+            byte[] rawBytes = file.getBytes();
+            // 原图：按原始格式上传
+            String ct = "image/jpeg".equals(file.getContentType()) ? "image/jpeg"
+                    : ("image/png".equals(file.getContentType()) ? "image/png"
+                    : ("image/gif".equals(file.getContentType()) ? "image/gif" : "image/webp"));
+            uploadToMinio(new ByteArrayInputStream(rawBytes), originalKey, ct, fs);
+            String originalUrl = minioProperties.getEndpoint() + "/" + minioProperties.getBucketName() + "/" + originalKey;
+            // 压缩图：覆盖式上传
+            byte[] compressed = generateThumbnail(new ByteArrayInputStream(rawBytes), ft);
+            uploadToMinio(new ByteArrayInputStream(compressed), compressedKey, "image/jpeg", compressed.length);
+            String compressedUrl = minioProperties.getEndpoint() + "/" + minioProperties.getBucketName() + "/" + compressedKey;
+            log.info("[file-service] success op:uploadAvatar userId:{} compressed:{} original:{}", userId, compressedUrl, originalUrl);
+            return new AvatarVO(compressedUrl, originalUrl);
         } catch (FileException e) {
             throw e;
         } catch (Exception e) {
@@ -178,6 +184,16 @@ public class FileServiceImpl implements FileService {
         String key = rf.getThumbnailPath() != null ? rf.getThumbnailPath() : rf.getFilePath();
         String url = buildPresignedUrl(key);
         log.info("[file-service] success op:generatePreviewUrl fileId:{}", fileId);
+        return url;
+    }
+
+    @Override
+    @LogRecord(operation = "生成头像下载链接", module = "文件管理", includeResult = true)
+    public String generateAvatarDownloadUrl(Long userId) {
+        log.info("[file-service] start op:generateAvatarDownloadUrl userId:{}", userId);
+        String originalKey = AVATAR_PATH_PREFIX + userId + "/original.jpg";
+        String url = buildPresignedDownloadUrl(originalKey, "avatar_original.jpg");
+        log.info("[file-service] success op:generateAvatarDownloadUrl userId:{}", userId);
         return url;
     }
 
