@@ -15,10 +15,6 @@ export interface AuthState {
   
   // 界面状态
   currentMode: 'login' | 'register'
-  
-  // 用户偏好
-  rememberEmail: boolean
-  savedEmail: string
 }
 
 /**
@@ -27,7 +23,6 @@ export interface AuthState {
 export interface LoginFormData {
   email: string
   password: string
-  remember?: boolean
 }
 
 /**
@@ -76,10 +71,6 @@ export interface AuthActions {
   // 状态管理
   switchMode: (mode: 'login' | 'register') => void
   initAuth: () => void
-  
-  // 用户偏好
-  setRememberEmail: (remember: boolean, email?: string) => void
-  getSavedEmail: () => string
 }
 
 /**
@@ -87,8 +78,6 @@ export interface AuthActions {
  */
 export const TOKEN_KEY = 'gopair_token'
 export const USER_KEY = 'gopair_user'
-export const EMAIL_KEY = 'gopair_saved_email'
-export const REMEMBER_KEY = 'gopair_remember_email'
 
 /**
  * 表单模式

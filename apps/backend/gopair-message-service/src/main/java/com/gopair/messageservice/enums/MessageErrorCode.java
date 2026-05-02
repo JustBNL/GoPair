@@ -61,7 +61,17 @@ public enum MessageErrorCode implements ErrorCode {
     /**
      * 消息内容超过最大长度限制
      */
-    MESSAGE_CONTENT_TOO_LONG(20408, "消息内容超过最大长度限制");
+    MESSAGE_CONTENT_TOO_LONG(20408, "消息内容超过最大长度限制"),
+
+    /**
+     * 消息撤回时间已超限（超过2分钟）
+     */
+    MESSAGE_RECALL_TIME_EXPIRED(20409, "撤回时间已超过2分钟"),
+
+    /**
+     * 消息已被撤回
+     */
+    MESSAGE_ALREADY_RECALLED(20410, "消息已被撤回");
 
     /**
      * 错误码

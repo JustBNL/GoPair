@@ -108,4 +108,14 @@ public class FileController {
         log.info("[文件服务] 清理完成 roomId:{} count:{}", roomId, count);
         return R.ok(count);
     }
+
+    @Operation(summary = "根据ObjectKey删除MinIO对象", description = "供其他服务（如消息服务）撤回文件类消息时调用，不操作数据库")
+    @DeleteMapping("/by-key")
+    public R<Boolean> deleteByObjectKey(
+            @Parameter(description = "MinIO对象Key", required = true)
+            @RequestParam("objectKey") String objectKey) {
+        log.info("[文件服务] 按ObjectKey删除 objectKey:{}", objectKey);
+        fileService.deleteByObjectKey(objectKey);
+        return R.ok(true);
+    }
 }

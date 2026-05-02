@@ -12,10 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * * [核心策略]
  * - @Transactional：所有测试方法均在事务中执行，测试结束后自动回滚，不污染数据库。
- * - @ActiveProfiles("test")：加载 application-test.yml，连接真实 MySQL。
+ * - @ActiveProfiles("test")：加载 application-test.yml，连接真实 MySQL（gopair_test）。
  * - AdminContextHolder.clear()：每个测试方法后主动清理 ThreadLocal，防止测试间状态泄漏。
- * - AdminServiceTestConfig：提供 Mock PasswordEncoder（真实 BCrypt 实例）、
- *   Mock AdminAuditLogMapper、同步 TaskExecutor。
+ * - AdminServiceTestConfig：提供真实 BCryptPasswordEncoder、
+ *   同步 TaskExecutor（审计日志同步写入），以及真实 Mapper。
+ * - 本服务不使用 Redis，无需 Redis 清理。
  *
  * @author gopair
  */

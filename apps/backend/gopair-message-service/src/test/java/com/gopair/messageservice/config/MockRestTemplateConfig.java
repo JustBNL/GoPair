@@ -50,7 +50,6 @@ public class MockRestTemplateConfig {
      * 拦截外部请求并返回预设 stub，不走真实网络。
      */
     @Bean
-    @Primary
     public RestTemplate mockRestTemplate() {
         RestTemplate restTemplate = new RestTemplate(new SimpleClientHttpRequestFactory());
         restTemplate.getInterceptors().add(new ConfigurableMockInterceptor());

@@ -47,15 +47,14 @@ import static org.mockito.Mockito.*;
  *
  * * [核心策略]
  * - 智能合并：将创建→加入→离开→关房等多个动作合并为 2 条完整测试流，避免逐动作独立测试。
- * - 真实 DB + Mock Redis：H2 内存数据库验证 MySQL 状态，Mock Redis 验证操作调用。
- * - 脏数据清理：@Transactional 保证每个测试方法结束后自动回滚。
+ * - 真实 DB + 真实 Redis：使用 gopair_test 数据库和 Redis DB 14，@Transactional 保证 DB 回滚。
+ * - Redis 手动清理：@AfterEach flushDb() 清理 Redis（Redis 不支持事务回滚）。
  *
  * * [测试流编排]
  * - 测试流 A：创建房间 → 查询房间码 → 验证房主入房 → 查询成员列表 → 查询用户房间列表 → 主动离开 → 自动关房
  * - 测试流 B：创建固定密码房间 → 错误密码入房被拒 → 正确密码入房 → 房主踢人 → 权限校验
  *
  * * [Mock 范围]
- * - Redis（stringRedisTemplate）：Mock 所有 Redis Hash/Set 操作，确保不依赖真实 Redis。
  * - MQ Consumer：Mock 防止异步消费污染测试环境。
  * - WebSocket：Mock 防止建立真实连接。
  */

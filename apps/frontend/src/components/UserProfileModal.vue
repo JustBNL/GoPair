@@ -47,13 +47,9 @@
           />
         </a-form-item>
 
-        <!-- 邮箱 -->
-        <a-form-item label="邮箱" v-bind="validateInfos.email">
-          <a-input
-            v-model:value="form.email"
-            placeholder="请输入邮箱地址"
-            type="email"
-          />
+        <!-- 邮箱（只读展示） -->
+        <a-form-item label="邮箱">
+          <div class="email-readonly">{{ form.email || '-' }}</div>
         </a-form-item>
 
         <!-- 修改密码（折叠） -->
@@ -234,9 +230,6 @@ const { validate, validateInfos } = Form.useForm(form, {
     { required: true, message: '昵称不能为空', trigger: 'blur' },
     { min: 1, max: 20, message: '昵称长度为 1-20 个字符', trigger: 'blur' }
   ],
-  email: [
-    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
-  ],
   currentPassword: [
     {
       validator: (_: any, value: string) => {
@@ -279,7 +272,6 @@ async function handleSubmit() {
 
   const payload: Record<string, string> = {}
   if (form.value.nickname) payload.nickname = form.value.nickname
-  if (form.value.email) payload.email = form.value.email
   if (form.value.avatar !== undefined) payload.avatar = form.value.avatar
   if (form.value.password) {
     payload.password = form.value.password
@@ -496,6 +488,13 @@ function handleClose() {
 
 .cancel-account-btn {
   flex-shrink: 0;
+}
+
+/* 邮箱只读文本 */
+.email-readonly {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 0 4px;
 }
 
 /* 注销确认弹窗内容 */

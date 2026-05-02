@@ -354,7 +354,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
             call.setEndTime(LocalDateTime.now());
             if (call.getStartTime() != null) {
                 long seconds = java.time.Duration.between(call.getStartTime(), call.getEndTime()).getSeconds();
-                call.setDuration((int) seconds);
+                call.setDuration((int) Math.max(0, seconds));
             }
             voiceCallMapper.updateById(call);
         }

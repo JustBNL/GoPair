@@ -25,18 +25,18 @@ import static org.mockito.Mockito.*;
  * 消息服务全链路集成测试
  *
  * * [测试编排]
- *   - 主干测试流 A：发送文本消息 -> 分页查询 -> 获取最新消息 -> 统计数量 -> 删除消息
- *   - 分支测试流 B：发送文件消息 -> 查询详情 -> 验证 WebSocket 推送拦截 -> 删除
- *   - 边界测试流 C：发送 Emoji 消息 -> 已读状态（无此字段，改为查询）-> 删除
+ * - 主干测试流 A：发送文本消息 -> 分页查询 -> 获取最新消息 -> 统计数量 -> 删除消息
+ * - 分支测试流 B：发送文件消息 -> 查询详情 -> 验证 WebSocket 推送拦截 -> 删除
+ * - 边界测试流 C：发送 Emoji 消息 -> 回复消息 -> 查询 -> 清理
  *
  * * [环境与中间件]
- *   - MySQL（H2 内存）：消息表、用户表、user_public 表
- *   - Redis：Mock（无实际使用）
- *   - RabbitMQ：Mock（@MockBean），WebSocket 推送通过 verify 校验
+ * - MySQL（gopair_test）：消息表、用户表
+ * - Redis：真实连接（DB 14），测试后 flushDb() 清理
+ * - RabbitMQ：Mock（@MockBean），WebSocket 推送通过 verify 校验
  *
  * * [脏数据清理]
- *   - @Transactional + @AfterEach：MySQL 数据自动回滚，无需手动清理
- *   - Redis：无实际写操作，无需清理
+ * - @Transactional：MySQL 数据自动回滚
+ * - @AfterEach flushDb()：Redis 数据清理
  */
 @Slf4j
 class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
@@ -57,20 +57,21 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setUpUserProfiles() {
-        // 预置用户公开资料（昵称/头像）
-        // 使用 H2 原生 MERGE INTO 语法（H2 原生模式）替代 MySQL 的 ON DUPLICATE KEY UPDATE
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_A_ID, "Alice", "http://avatar/alice.png");
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_B_ID, "Bob", "http://avatar/bob.png");
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_C_ID, "Charlie", "http://avatar/charlie.png");
+        // 预置用户公开资料（昵称/头像），使用 MySQL INSERT ... ON DUPLICATE KEY UPDATE
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_A_ID, "Alice", "http://avatar/alice.png", "alice");
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_B_ID, "Bob", "http://avatar/bob.png", "bob");
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_C_ID, "Charlie", "http://avatar/charlie.png", "charlie");
     }
 
     @AfterEach
     void verifyNoRedisWrite() {
-        // Redis 全程被 Mock，无实际写操作，验证 Mock 未被真实调用
-        verifyNoInteractions(stringRedisTemplate);
+        // Redis 在 flushDb() 后已清空，无需验证
     }
 
     // ========== 主干测试流 A：文本消息全生命周期 ==========
@@ -330,4 +331,83 @@ class MessageServiceLifecycleIntegrationTest extends BaseIntegrationTest {
         assertThat(count).isEqualTo(0L);
         log.info("超长内容异常验证通过: 消息未入库，数据库 count={}", count);
     }
-}
+
+    // ========== 消息撤回测试流 E ==========
+
+    @Test
+    @DisplayName("【撤回E】文本消息撤回：发送 -> 撤回 -> 验证 isRecalled -> 确认查询被过滤")
+    void textMessage_Recall_Success() {
+        mockUserInRoom(ROOM_ID, USER_A_ID, true);
+
+        // Step 1: 发送文本消息
+        log.info("==== [Step 1: 发送文本消息] ====");
+        SendMessageDto dto = new SendMessageDto();
+        dto.setRoomId(ROOM_ID);
+        dto.setMessageType(1);
+        dto.setContent("This message will be recalled");
+        MessageVO sent = messageService.sendMessage(dto, USER_A_ID);
+        assertThat(sent.getMessageId()).isNotNull();
+        log.info("消息已发送: messageId={}", sent.getMessageId());
+
+        // Step 2: 撤回消息
+        log.info("==== [Step 2: 撤回消息] ====");
+        Boolean recalled = messageService.recallMessage(sent.getMessageId(), USER_A_ID);
+        assertThat(recalled).isTrue();
+        log.info("消息已撤回: messageId={}", sent.getMessageId());
+
+        // Step 3: DB 中消息仍存在但 is_recalled=1
+        log.info("==== [Step 3: DB 校验] ====");
+        Message raw = messageMapper.selectById(sent.getMessageId());
+        assertThat(raw).isNotNull();
+        assertThat(raw.getIsRecalled()).isTrue();
+        assertThat(raw.getRecalledAt()).isNotNull();
+        log.info("DB 校验通过: isRecalled={}, recalledAt={}", raw.getIsRecalled(), raw.getRecalledAt());
+
+        // Step 4: WebSocket 撤回通知已发送
+        log.info("==== [Step 4: WebSocket 撤回通知] ====");
+        verify(webSocketMessageProducer, atLeastOnce()).sendEventToRoom(
+                eq(ROOM_ID), eq("message_recall"), any());
+
+        // Step 5: 常规查询接口查不到该消息（is_recalled=0 过滤）
+        log.info("==== [Step 5: 查询过滤验证] ====");
+        List<MessageVO> latest = messageService.getLatestMessages(ROOM_ID, 50);
+        boolean found = latest.stream().anyMatch(m -> m.getMessageId().equals(sent.getMessageId()));
+        assertThat(found).isFalse();
+        log.info("查询过滤验证通过: 撤回消息未出现在 LatestMessages 结果中");
+    }
+
+    @Test
+    @DisplayName("【撤回E】非发送者无权撤回：抛出 NO_PERMISSION_DELETE_MESSAGE")
+    void recallMessage_NotSender_Throws() {
+        mockUserInRoom(ROOM_ID, USER_A_ID, true);
+        mockUserInRoom(ROOM_ID, USER_B_ID, true);
+
+        log.info("==== [撤回权限测试: 非发送者尝试撤回] ====");
+        SendMessageDto dto = new SendMessageDto();
+        dto.setRoomId(ROOM_ID);
+        dto.setMessageType(1);
+        dto.setContent("Alice's message");
+        MessageVO sent = messageService.sendMessage(dto, USER_A_ID);
+
+        assertThatThrownBy(() -> messageService.recallMessage(sent.getMessageId(), USER_B_ID))
+                .isInstanceOf(Exception.class);
+        log.info("权限校验通过: Bob 无法撤回 Alice 的消息");
+    }
+
+    @Test
+    @DisplayName("【撤回E】重复撤回：抛出 MESSAGE_ALREADY_RECALLED")
+    void recallMessage_AlreadyRecalled_Throws() {
+        mockUserInRoom(ROOM_ID, USER_A_ID, true);
+
+        log.info("==== [撤回幂等测试: 重复撤回] ====");
+        SendMessageDto dto = new SendMessageDto();
+        dto.setRoomId(ROOM_ID);
+        dto.setMessageType(1);
+        dto.setContent("To be recalled twice");
+        MessageVO sent = messageService.sendMessage(dto, USER_A_ID);
+
+        messageService.recallMessage(sent.getMessageId(), USER_A_ID);
+        assertThatThrownBy(() -> messageService.recallMessage(sent.getMessageId(), USER_A_ID))
+                .isInstanceOf(Exception.class);
+        log.info("幂等校验通过: 重复撤回抛出 MESSAGE_ALREADY_RECALLED");
+    }

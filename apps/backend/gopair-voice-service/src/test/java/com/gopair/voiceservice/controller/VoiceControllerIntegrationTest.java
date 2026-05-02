@@ -4,7 +4,7 @@ import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.core.R;
 import com.gopair.framework.config.FrameworkAutoConfiguration;
 import com.gopair.voiceservice.base.BaseIntegrationTest;
-import com.gopair.voiceservice.base.VoiceServiceTestConfig;
+import com.gopair.voiceservice.base.TestDataCleaner;
 import com.gopair.voiceservice.domain.dto.SignalingDto;
 import com.gopair.voiceservice.domain.vo.CallVO;
 import com.gopair.voiceservice.enums.CallStatus;
@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -28,8 +29,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * * [核心策略]
  * - 真实 HTTP 请求 + X-User-Id / X-Nickname 请求头模拟用户上下文。
- * - @MockBean WebSocketMessageProducer：验证推送调用次数但不建立真实连接。
- * - @Transactional：每个测试方法结束后自动回滚，MySQL 脏数据清理。
+ * - @MockBean WebSocketMessageProducer / RabbitMQ：验证推送调用次数但不建立真实连接。
+ * - TestDataCleaner：每个测试方法结束后手动清理测试数据（不使用 @Transactional）。
+ * - 跨线程事务可见性：TestRestTemplate 发起 HTTP 请求，线程与测试线程不同，
+ *   必须确保测试数据已提交，Controller 才能读到。
  *
  * * [测试编排]
  * - 主干流 A：joinOrCreateCall -> notifyReady -> leaveCall -> endCall（完整通话链路）
@@ -40,7 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Slf4j
 @DisplayName("语音通话 Controller 层集成测试")
-@Import({VoiceServiceTestConfig.class, FrameworkAutoConfiguration.class})
+@Import({FrameworkAutoConfiguration.class})
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class VoiceControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
@@ -55,7 +59,28 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private VoiceCallParticipantMapper participantMapper;
 
+    @Autowired
+    private TestDataCleaner testDataCleaner;
+
     private static final Long ROOM_ID_BASE = 50000L;
+    private static long roomIdCounter = 0;
+
+    private static synchronized Long nextRoomId() {
+        return ROOM_ID_BASE + (++roomIdCounter);
+    }
+
+    private Long freshRoomId() {
+        return ROOM_ID_BASE + 20000L + (System.nanoTime() % 50000L);
+    }
+
+    @BeforeEach
+    void baseSetup() {
+        testDataCleaner.cleanupAll();
+        var factory = stringRedisTemplate.getConnectionFactory();
+        if (factory != null && factory.getConnection() != null) {
+            factory.getConnection().serverCommands().flushDb();
+        }
+    }
 
     // ==================== 主干流 A：完整通话生命周期 HTTP 链路 ====================
 
@@ -64,14 +89,15 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
     class FullCallLifecycleFlow {
 
         @Test
+        @Order(1)
         @DisplayName("Step 1: POST /voice/room/{roomId}/join -> 创建或加入通话")
         void joinOrCreateCall_ShouldReturnCallVO() {
-            Long roomId = ROOM_ID_BASE + 1;
+            Long roomId = nextRoomId();
             Long userId = 60001L;
 
             log.info("==== [Step 1: POST /voice/room/{}/join] ====", roomId);
 
-            ResponseEntity<R> response = realRestTemplate.postForEntity(
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
                     getUrl("/voice/room/" + roomId + "/join"),
                     new HttpEntity<>(userHeaders(userId, "UserA")),
                     R.class);
@@ -92,16 +118,17 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
+        @Order(2)
         @DisplayName("Step 2: POST /voice/{callId}/ready -> WebRTC 就绪通知")
         void notifyReady_ShouldReturn200() {
-            Long roomId = ROOM_ID_BASE + 2;
+            Long roomId = nextRoomId();
             Long userId = 60010L;
 
             CallVO call = voiceCallService.joinOrCreateCall(roomId, userId);
 
             log.info("==== [Step 2: POST /voice/{}/ready] ====", call.getCallId());
 
-            ResponseEntity<R> response = realRestTemplate.postForEntity(
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
                     getUrl("/voice/" + call.getCallId() + "/ready"),
                     new HttpEntity<>(userHeaders(userId, "UserB")),
                     R.class);
@@ -114,9 +141,10 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
+        @Order(3)
         @DisplayName("Step 3: POST /voice/{callId}/leave -> 离开通话")
         void leaveCall_ShouldReturn200() {
-            Long roomId = ROOM_ID_BASE + 3;
+            Long roomId = nextRoomId();
             Long ownerId = 60020L;
             Long userId = 60021L;
 
@@ -125,7 +153,7 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
 
             log.info("==== [Step 3: POST /voice/{}/leave] ====", call.getCallId());
 
-            ResponseEntity<R> response = realRestTemplate.postForEntity(
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
                     getUrl("/voice/" + call.getCallId() + "/leave"),
                     new HttpEntity<>(userHeaders(userId, "UserC")),
                     R.class);
@@ -138,16 +166,17 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
+        @Order(4)
         @DisplayName("Step 4: POST /voice/{callId}/end -> 结束通话")
         void endCall_ShouldReturn200() {
-            Long roomId = ROOM_ID_BASE + 4;
+            Long roomId = nextRoomId();
             Long ownerId = 60030L;
 
             CallVO call = voiceCallService.joinOrCreateCall(roomId, ownerId);
 
             log.info("==== [Step 4: POST /voice/{}/end] ====", call.getCallId());
 
-            ResponseEntity<R> response = realRestTemplate.postForEntity(
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
                     getUrl("/voice/" + call.getCallId() + "/end"),
                     new HttpEntity<>(userHeaders(ownerId, "OwnerD")),
                     R.class);
@@ -167,16 +196,17 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
     class QueryAndEndFlow {
 
         @Test
+        @Order(1)
         @DisplayName("Step 1: GET /voice/{callId} -> 查询通话信息")
         void getCall_ShouldReturnCallVO() {
-            Long roomId = ROOM_ID_BASE + 10;
+            Long roomId = nextRoomId();
             Long userId = 60040L;
 
             CallVO call = voiceCallService.joinOrCreateCall(roomId, userId);
 
             log.info("==== [Step 1: GET /voice/{}] ====", call.getCallId());
 
-            ResponseEntity<R> response = realRestTemplate.getForEntity(
+            ResponseEntity<R> response = testRestTemplate.getForEntity(
                     getUrl("/voice/" + call.getCallId()),
                     R.class);
 
@@ -194,16 +224,17 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
+        @Order(2)
         @DisplayName("Step 2: GET /voice/room/{roomId}/active -> 获取房间活跃通话")
         void getActiveCall_ShouldReturnCallOrNull() {
-            Long roomId = ROOM_ID_BASE + 11;
+            Long roomId = nextRoomId();
             Long userId = 60050L;
 
             CallVO call = voiceCallService.joinOrCreateCall(roomId, userId);
 
             log.info("==== [Step 2: GET /voice/room/{}/active] ====", roomId);
 
-            ResponseEntity<R> response = realRestTemplate.getForEntity(
+            ResponseEntity<R> response = testRestTemplate.getForEntity(
                     getUrl("/voice/room/" + roomId + "/active"),
                     R.class);
 
@@ -219,9 +250,10 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
+        @Order(3)
         @DisplayName("Step 3: POST /voice/{callId}/owner-leave -> 房主退出（通话继续）")
         void ownerLeave_ShouldReturn200() {
-            Long roomId = ROOM_ID_BASE + 12;
+            Long roomId = nextRoomId();
             Long ownerId = 60060L;
             Long userId = 60061L;
 
@@ -230,7 +262,7 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
 
             log.info("==== [Step 3: POST /voice/{}/owner-leave] ====", call.getCallId());
 
-            ResponseEntity<R> response = realRestTemplate.postForEntity(
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
                     getUrl("/voice/" + call.getCallId() + "/owner-leave"),
                     new HttpEntity<>(userHeaders(ownerId, "OwnerE")),
                     R.class);
@@ -243,9 +275,10 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
+        @Order(4)
         @DisplayName("Step 4: POST /voice/{callId}/join -> 通过 callId 加入通话")
         void joinCallById_ShouldReturnCallVO() {
-            Long roomId = ROOM_ID_BASE + 13;
+            Long roomId = nextRoomId();
             Long ownerId = 60070L;
             Long userId = 60071L;
 
@@ -253,7 +286,7 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
 
             log.info("==== [Step 4: POST /voice/{}/join] ====", call.getCallId());
 
-            ResponseEntity<R> response = realRestTemplate.postForEntity(
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
                     getUrl("/voice/" + call.getCallId() + "/join"),
                     new HttpEntity<>(userHeaders(userId, "JoinerF")),
                     R.class);
@@ -277,35 +310,47 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
     @DisplayName("边界流 C：异常路径")
     class EdgeCaseFlow {
 
-        @Test
-        @DisplayName("Step 1: GET /voice/{不存在callId} -> 返回错误")
-        void getCall_NotFound_ShouldReturnError() {
-            Long nonExistCallId = 999998L;
-
-            log.info("==== [Step 1: GET /voice/{} 不存在] ====", nonExistCallId);
-
-            // RestTemplate 对 HTTP 4xx 会抛 HttpClientErrorException，需捕获
-            R<?> body = null;
-            try {
-                realRestTemplate.getForEntity(getUrl("/voice/" + nonExistCallId), R.class);
-            } catch (org.springframework.web.client.HttpClientErrorException e) {
-                body = e.getResponseBodyAs(R.class);
+        private void flushRedis() {
+            var factory = stringRedisTemplate.getConnectionFactory();
+            if (factory != null && factory.getConnection() != null) {
+                factory.getConnection().serverCommands().flushDb();
             }
+        }
 
-            assertThat(body).isNotNull();
-            assertThat(body.getCode()).isNotEqualTo(200);
-
-            log.info("查询不存在通话: code={}", body.getCode());
+        @BeforeEach
+        void cleanup() {
+            testDataCleaner.cleanupAll();
+            flushRedis();
         }
 
         @Test
+        @Order(1)
+        @DisplayName("Step 1: GET /voice/{不存在callId} -> 返回错误")
+        void getCall_NotFound_ShouldReturnError() {
+            Long nonExistCallId = 900000L + (System.nanoTime() % 99999L);
+
+            log.info("==== [Step 1: GET /voice/{} 不存在] ====", nonExistCallId);
+
+            ResponseEntity<R> response = testRestTemplate.getForEntity(
+                    getUrl("/voice/" + nonExistCallId), R.class);
+
+            assertThat(response.getStatusCode().value()).isNotEqualTo(200);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("查询不存在通话: status={}, code={}",
+                    response.getStatusCode().value(), response.getBody().getCode());
+        }
+
+        @Test
+        @Order(2)
         @DisplayName("Step 2: GET /voice/room/{roomId}/active -> 无活跃通话时返回 null")
         void getActiveCall_NoActiveCall_ShouldReturnNull() {
-            Long emptyRoomId = ROOM_ID_BASE + 90;
+            Long emptyRoomId = freshRoomId();
 
             log.info("==== [Step 2: GET /voice/room/{}/active 无活跃通话] ====", emptyRoomId);
 
-            ResponseEntity<R> response = realRestTemplate.getForEntity(
+            ResponseEntity<R> response = testRestTemplate.getForEntity(
                     getUrl("/voice/room/" + emptyRoomId + "/active"),
                     R.class);
 
@@ -320,9 +365,10 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
 
         @Test
+        @Order(3)
         @DisplayName("Step 3: POST /voice/{callId}/join -> 通话已结束时抛异常")
         void joinCall_EndedCall_ShouldReturnError() {
-            Long roomId = ROOM_ID_BASE + 20;
+            Long roomId = nextRoomId();
             Long ownerId = 60080L;
             Long userId = 60081L;
 
@@ -331,27 +377,24 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
 
             log.info("==== [Step 3: POST /voice/{}/join 通话已结束] ====", call.getCallId());
 
-            // RestTemplate 对 HTTP 4xx 会抛 HttpClientErrorException，需捕获
-            R<?> body = null;
-            try {
-                realRestTemplate.postForEntity(
-                        getUrl("/voice/" + call.getCallId() + "/join"),
-                        new HttpEntity<>(userHeaders(userId, "LateJoiner")),
-                        R.class);
-            } catch (org.springframework.web.client.HttpClientErrorException e) {
-                body = e.getResponseBodyAs(R.class);
-            }
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/" + call.getCallId() + "/join"),
+                    new HttpEntity<>(userHeaders(userId, "LateJoiner")),
+                    R.class);
 
-            assertThat(body).isNotNull();
-            assertThat(body.getCode()).isNotEqualTo(200);
+            assertThat(response.getStatusCode().value()).isNotEqualTo(200);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
 
-            log.info("加入已结束通话被拒绝: code={}", body.getCode());
+            log.info("加入已结束通话被拒绝: status={}, code={}",
+                    response.getStatusCode().value(), response.getBody().getCode());
         }
 
         @Test
+        @Order(4)
         @DisplayName("Step 4: POST /voice/signaling -> 非参与者信令转发被静默丢弃")
         void forwardSignaling_NonParticipant_ShouldReturn200() {
-            Long roomId = ROOM_ID_BASE + 21;
+            Long roomId = nextRoomId();
             Long ownerId = 60090L;
             Long strangerId = 60091L;
 
@@ -364,7 +407,7 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
 
             log.info("==== [Step 4: POST /voice/signaling 非参与者转发] ====");
 
-            ResponseEntity<R> response = realRestTemplate.postForEntity(
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
                     getUrl("/voice/signaling"),
                     new HttpEntity<>(dto, userHeaders(strangerId, "Stranger")),
                     R.class);

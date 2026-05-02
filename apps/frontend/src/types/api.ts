@@ -223,6 +223,8 @@ export interface MessageVO {
   replyToSender?: string
   createTime: string
   isOwn: boolean
+  isRecalled?: boolean
+  recalledAt?: string
 }
 
 /**

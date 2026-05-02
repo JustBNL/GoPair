@@ -186,7 +186,7 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
     gap: 4px;
     margin: 8px 0;
 
-    .participant-avatar { border: 2px solid white; }
+    .participant-avatar { border: 2px solid var(--surface-card); }
     .more-count { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
   }
 
@@ -230,7 +230,7 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
       .ctrl-btn--off {
         background: var(--color-error);
         border-color: var(--color-error);
-        color: white;
+        color: var(--text-on-primary);
 
         &:hover {
           background: var(--color-error);

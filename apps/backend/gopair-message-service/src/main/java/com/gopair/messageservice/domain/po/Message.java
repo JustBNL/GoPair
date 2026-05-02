@@ -64,4 +64,14 @@ public class Message extends BaseEntity {
      * 回复的消息ID
      */
     private Long replyToId;
+
+    /**
+     * 是否已撤回
+     */
+    private Boolean isRecalled = false;
+
+    /**
+     * 撤回时间
+     */
+    private LocalDateTime recalledAt;
 } 

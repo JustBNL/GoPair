@@ -19,6 +19,8 @@
         <result column="reply_to_content" property="replyToContent"/>
         <result column="reply_to_sender_nickname" property="replyToSenderNickname"/>
         <result column="reply_to_sender_id" property="replyToSenderId"/>
+        <result column="is_recalled" property="isRecalled"/>
+        <result column="recalled_at" property="recalledAt"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
@@ -47,6 +49,8 @@
         rm.content as reply_to_content,
         ru.nickname as reply_to_sender_nickname,
         rm.sender_id as reply_to_sender_id,
+        m.is_recalled,
+        m.recalled_at,
         m.create_time,
         m.update_time
     </sql>
@@ -66,6 +70,7 @@
         <include refid="MessageTableJoins"/>
         <where>
             m.room_id = #{roomId}
+            AND m.is_recalled = 0
             <if test="messageType != null">
                 AND m.message_type = #{messageType}
             </if>
@@ -86,6 +91,7 @@
         <include refid="MessageVOColumns"/>
         <include refid="MessageTableJoins"/>
         WHERE m.message_id = #{messageId}
+        AND m.is_recalled = 0
     </select>
 
     <!-- 查询房间最新的N条消息 -->
@@ -95,6 +101,7 @@
             <include refid="MessageVOColumns"/>
             <include refid="MessageTableJoins"/>
             WHERE m.room_id = #{roomId}
+            AND m.is_recalled = 0
             ORDER BY m.create_time DESC
             LIMIT #{limit}
         ) t
@@ -106,6 +113,7 @@
         SELECT COUNT(1)
         FROM message m
         WHERE m.room_id = #{roomId}
+        AND m.is_recalled = 0
         <if test="messageType != null">
             AND m.message_type = #{messageType}
         </if>

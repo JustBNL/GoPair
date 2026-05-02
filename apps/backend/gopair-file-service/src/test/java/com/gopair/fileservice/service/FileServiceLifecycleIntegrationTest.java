@@ -57,13 +57,17 @@ import static org.mockito.Mockito.*;
 @DisplayName("文件服务全生命周期集成测试")
 class FileServiceLifecycleIntegrationTest extends FileServiceIntegrationTestSupport {
 
-    // 从父类继承 @MockBean 注入的 Mock 对象，直接引用
-    // protected MinioClient minioClient              ← 继承
-    // protected StringRedisTemplate stringRedisTemplate ← 继承
-    // protected WebSocketMessageProducer webSocketMessageProducer ← 继承
-    // protected ConnectionFactory connectionFactory   ← 继承
-    // protected RabbitTemplate rabbitTemplate        ← 继承
-    // protected ValueOperations<String,String> valueOperations ← 继承（子类在 setUp 中初始化）
+    // Inherited from BaseIntegrationTest:
+    //   protected MinioClient minioClient              (@MockBean)
+    //   protected StringRedisTemplate stringRedisTemplate (@MockBean)
+    //   protected WebSocketMessageProducer webSocketMessageProducer (@MockBean)
+    //   protected ConnectionFactory connectionFactory    (@MockBean)
+    //   protected RabbitTemplate rabbitTemplate          (@MockBean)
+    //   protected ValueOperations<String,String> valueOperations (set per test)
+
+    // Inherited from FileServiceIntegrationTestSupport:
+    //   protected RoomFileMapper roomFileMapper
+    //   protected FileServiceImpl fileService
 
     @Captor
     private ArgumentCaptor<Map<String, Object>> wsEventCaptor;
@@ -221,10 +225,9 @@ class FileServiceLifecycleIntegrationTest extends FileServiceIntegrationTestSupp
         private Long fileId2;
 
         @BeforeEach
-        void setUp() throws Exception {
+        void setUp() {
             reset(minioClient, webSocketMessageProducer);
-            valueOperations = Mockito.mock(ValueOperations.class);
-            lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+            injectMockValueOperations();
             lenient().when(valueOperations.setIfAbsent(anyString(), anyString())).thenReturn(true);
             mockMinioAndWs();
         }
@@ -521,7 +524,7 @@ class FileServiceLifecycleIntegrationTest extends FileServiceIntegrationTestSupp
             assertTrue(remaining.isEmpty());
 
             verify(minioClient, times(3)).removeObject(any(RemoveObjectArgs.class));
-            verify(stringRedisTemplate, times(1)).delete("file:quota:" + cleanRoomId);
+            verify(redisTemplateSpy, times(1)).delete("file:quota:" + cleanRoomId);
 
             log.info("房间清理成功: roomId={}, cleaned={}", cleanRoomId, cleaned);
         }
@@ -535,10 +538,9 @@ class FileServiceLifecycleIntegrationTest extends FileServiceIntegrationTestSupp
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UploadFailureFlow.class);
 
         @BeforeEach
-        void setUp() throws Exception {
+        void setUp() {
             reset(minioClient, webSocketMessageProducer);
-            valueOperations = Mockito.mock(ValueOperations.class);
-            lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+            injectMockValueOperations();
             lenient().when(valueOperations.setIfAbsent(anyString(), anyString())).thenReturn(true);
             mockMinioAndWs();
         }
@@ -663,10 +665,9 @@ class FileServiceLifecycleIntegrationTest extends FileServiceIntegrationTestSupp
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StatsAndExceptionFlow.class);
 
         @BeforeEach
-        void setUp() throws Exception {
+        void setUp() {
             reset(minioClient, webSocketMessageProducer);
-            valueOperations = Mockito.mock(ValueOperations.class);
-            lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+            injectMockValueOperations();
             lenient().when(valueOperations.setIfAbsent(anyString(), anyString())).thenReturn(true);
             mockMinioAndWs();
         }
@@ -735,7 +736,7 @@ class FileServiceLifecycleIntegrationTest extends FileServiceIntegrationTestSupp
             assertEquals(0, count);
 
             verify(minioClient, never()).removeObject(any(RemoveObjectArgs.class));
-            verify(stringRedisTemplate, times(1)).delete("file:quota:" + emptyRoomId);
+            verify(redisTemplateSpy, times(1)).delete("file:quota:" + emptyRoomId);
 
             log.info("空房间清理成功: roomId={}, cleaned={}", emptyRoomId, count);
         }

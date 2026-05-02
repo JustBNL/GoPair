@@ -77,10 +77,21 @@ public interface MessageService {
 
     /**
      * 检查用户是否在房间内
-     * 
+     *
      * @param roomId 房间ID
      * @param userId 用户ID
      * @return 是否在房间内
      */
     Boolean checkUserInRoom(Long roomId, Long userId);
-} 
+
+    /**
+     * 撤回消息
+     * 仅发送者本人可在限定时间内撤回，撤回后消息保留但标记为已撤回，
+     * 同时通过 WebSocket 广播撤回通知，文件类消息同时删除 OSS 对象。
+     *
+     * @param messageId 消息ID
+     * @param userId 操作用户ID（当前登录用户）
+     * @return 是否撤回成功
+     */
+    Boolean recallMessage(Long messageId, Long userId);
+}

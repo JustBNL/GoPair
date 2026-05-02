@@ -5,6 +5,11 @@
 
     <!-- 主要内容区域 -->
     <div class="login-content" id="main-content" role="main">
+      <!-- 主题切换按钮：固定在右上角 -->
+      <div class="theme-toggle-wrapper">
+        <ThemeToggle />
+      </div>
+
       <!-- 移动端居中容器 -->
       <div class="mobile-center-container">
         <!-- 品牌区域 -->
@@ -52,6 +57,7 @@
   <script setup lang="ts">
 import LoginForm from '@/components/LoginForm.vue'
 import BrandLogo from '@/components/BrandLogo.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 </script>
   
   <style scoped>
@@ -90,15 +96,12 @@ import BrandLogo from '@/components/BrandLogo.vue'
   flex-direction: column;
 }
 
-/* 暗色遮罩叠加层 */
+/* 背景遮罩：统一使用 --bg-overlay，浅色白色遮罩保留背景图可见，深色深色遮罩实现暗色沉浸 */
 .login-view::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(25, 35, 55, 0.85);
+  inset: 0;
+  background: var(--bg-overlay);
   z-index: 0;
 }
 
@@ -115,6 +118,14 @@ import BrandLogo from '@/components/BrandLogo.vue'
   width: 100%;
   min-height: 0;
 }
+
+/* 主题切换按钮：固定在右上角 */
+.theme-toggle-wrapper {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+}
   
 /* ==================== 品牌展示区域 ==================== */
 
@@ -122,7 +133,7 @@ import BrandLogo from '@/components/BrandLogo.vue'
 .brand-section {
   flex: 1;
   padding-right: 60px;
-  color: var(--text-on-primary);
+  color: var(--text-on-header);
 
   /* 品牌区域进入动画 */
   animation: slideInLeft 0.8s ease-out;
@@ -147,14 +158,14 @@ import BrandLogo from '@/components/BrandLogo.vue'
   font-size: 48px;
   font-weight: 700;
   margin: 0;
-  color: var(--text-on-primary);
+  color: var(--text-on-header);
 }
 
 /* 品牌副标题：描述文字 */
 .brand-subtitle {
   font-size: 48px;
   font-weight: 400;
-  color: var(--text-on-primary);
+  color: var(--text-on-header);
   letter-spacing: 1px;
   margin-left: 12px;
   margin-top: 0;
@@ -172,12 +183,12 @@ import BrandLogo from '@/components/BrandLogo.vue'
 
 /* 登录卡片：半透明背景，毛玻璃效果，圆角阴影 */
 .form-card {
-  background: var(--overlay-white-95);
+  background: var(--surface-card);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   padding: 48px;
   box-shadow: var(--shadow-lg);
-  border: 1px solid var(--overlay-white-20);
+  border: 1px solid var(--border-default);
   width: 480px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 
@@ -197,7 +208,7 @@ import BrandLogo from '@/components/BrandLogo.vue'
 .page-footer {
   text-align: center;
   padding: 20px;
-  color: var(--text-on-primary-muted);
+  color: var(--text-on-header-muted);
   font-size: 14px;
   position: relative;
   z-index: 1;

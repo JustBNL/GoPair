@@ -66,6 +66,51 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         this.objectMapper = objectMapper;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "批量添加房间成员", module = "成员管理")
+    public int addMembers(Long roomId, List<Long> userIds) {
+        if (roomId == null || userIds == null || userIds.isEmpty()) {
+            return 0;
+        }
+        // 去重
+        List<Long> distinctIds = userIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 过滤掉已在房间的用户
+        LambdaQueryWrapper<RoomMember> existWrapper = new LambdaQueryWrapper<>();
+        existWrapper.eq(RoomMember::getRoomId, roomId)
+                   .in(RoomMember::getUserId, distinctIds);
+        List<Long> existingIds = roomMemberMapper.selectList(existWrapper).stream()
+                .map(RoomMember::getUserId)
+                .collect(Collectors.toList());
+
+        List<Long> toAdd = distinctIds.stream()
+                .filter(id -> !existingIds.contains(id))
+                .collect(Collectors.toList());
+
+        if (toAdd.isEmpty()) {
+            return 0;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<RoomMember> records = toAdd.stream().map(userId -> {
+            RoomMember rm = new RoomMember();
+            rm.setRoomId(roomId);
+            rm.setUserId(userId);
+            rm.setRole(0);
+            rm.setStatus(0);
+            rm.setJoinTime(now);
+            rm.setLastActiveTime(now);
+            return rm;
+        }).collect(Collectors.toList());
+
+        boolean ok = saveBatch(records);
+        return ok ? records.size() : 0;
+    }
+
     /**
      * 将用户加入指定房间。
      *

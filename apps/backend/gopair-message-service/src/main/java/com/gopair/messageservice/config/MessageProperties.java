@@ -60,4 +60,12 @@ public class MessageProperties {
     @Min(1)
     @Max(50)
     private int emojiMaxLength = 8;
+
+    /**
+     * 消息撤回时限（秒）。
+     * 发送者可在消息发送后此时间范围内撤回，默认 120 秒（2分钟）。
+     * 对应配置项：gopair.message.recall-time-limit-seconds
+     */
+    @Positive
+    private int recallTimeLimitSeconds = 120;
 }

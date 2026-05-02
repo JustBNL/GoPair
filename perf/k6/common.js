@@ -21,8 +21,15 @@ export const userData = new SharedArray('user_info', () => {
   const raw = open('../user_info.txt');
   const lines = raw.split('\n').filter(l => l.trim());
   return lines.map(line => {
-    const [token, userId, nickname] = line.split(',');
-    return { token: token.trim(), userId: userId.trim(), nickname: nickname.trim() };
+    const parts = line.split(',');
+    // 格式：token,userId,nickname,email,password（5字段）
+    return {
+      token: parts[0]?.trim() || '',
+      userId: parts[1]?.trim() || '',
+      nickname: parts[2]?.trim() || '',
+      email: parts[3]?.trim() || '',
+      password: parts[4]?.trim() || '',
+    };
   });
 });
 
@@ -139,14 +146,18 @@ export function requestJoinAsync(httpParams, roomCode) {
   }
 
   const joinToken = data?.joinToken;
+
+  // data 为 null 或 joinToken 缺失时，视为快速拒绝（已在房间或其他异常状态）
+  if (!joinToken) {
+    return { accepted: false, joinToken: null, fastReject: true, statusCode: 200, message: message || 'no_join_token' };
+  }
+
   return { accepted: true, joinToken, fastReject: false, statusCode: 200 };
 }
 
 // ====================================================================
 // 消息发送封装
 // ====================================================================
-
-const MESSAGE_SERVICE_URL = __ENV.MESSAGE_SERVICE_URL || 'http://localhost:8082';
 
 /**
  * 向消息服务发送消息，返回发送结果与耗时。
@@ -159,6 +170,7 @@ const MESSAGE_SERVICE_URL = __ENV.MESSAGE_SERVICE_URL || 'http://localhost:8082'
  */
 export function sendMessage(userIndex, roomId, messageType, content) {
   const user = userData[userIndex % userData.length];
+  const msgSvcUrl = __ENV.MESSAGE_SERVICE_URL || 'http://localhost:8081';
   const params = {
     headers: {
       'Content-Type': 'application/json',
@@ -176,7 +188,7 @@ export function sendMessage(userIndex, roomId, messageType, content) {
   });
 
   const startMs = Date.now();
-  const res = http.post(`${MESSAGE_SERVICE_URL}/message/send`, body, params);
+  const res = http.post(`${msgSvcUrl}/message/send`, body, params);
   const durationMs = Date.now() - startMs;
 
   if (res.status !== 200) {
@@ -185,8 +197,10 @@ export function sendMessage(userIndex, roomId, messageType, content) {
 
   try {
     const json = JSON.parse(res.body);
-    const messageId = json?.data?.messageId || null;
-    return { success: true, statusCode: res.status, messageId, durationMs };
+    // HTTP 200 不代表业务成功，需检查 success 字段
+    const ok = json?.success === true;
+    const messageId = ok ? (json?.data?.messageId || null) : null;
+    return { success: ok, statusCode: res.status, messageId, durationMs, code: json?.code, msg: json?.msg };
   } catch {
     return { success: false, statusCode: res.status, messageId: null, durationMs };
   }
@@ -205,6 +219,7 @@ export function sendMessage(userIndex, roomId, messageType, content) {
  */
 export function countRoomMessages(userIndex, roomId) {
   const user = userData[userIndex % userData.length];
+  const msgSvcUrl = __ENV.MESSAGE_SERVICE_URL || 'http://localhost:8081';
   const params = {
     headers: {
       'Content-Type': 'application/json',
@@ -215,7 +230,7 @@ export function countRoomMessages(userIndex, roomId) {
     tags: { name: 'count_messages' },
   };
 
-  const res = http.get(`${MESSAGE_SERVICE_URL}/message/room/${roomId}/messages?pageNum=1&pageSize=1`, params);
+  const res = http.get(`${msgSvcUrl}/message/room/${roomId}/messages?pageNum=1&pageSize=1`, params);
 
   if (res.status !== 200) {
     return { count: null, statusCode: res.status };
@@ -235,44 +250,17 @@ export function countRoomMessages(userIndex, roomId) {
 // ====================================================================
 
 /**
- * 创建或复用测试房间。
- * 幂等策略：先通过 roomCode 查询房间是否存在，若已存在直接返回；
- * 若不存在则创建新房间。同一 roomCode 重复调用结果一致。
+ * 创建测试房间。
+ * 注意：后端自动生成 roomCode，客户端无需也不应传递 roomCode。
+ * 每次调用都会创建新房间（带时间戳确保唯一性）。
  *
  * @param {string} baseUrl - Room Service 地址
- * @param {string} roomCode - 房间码
- * @param {number} maxMembers - 房间最大成员数（仅创建时使用）
+ * @param {string} roomCode - 房间码（仅用于日志标识，不传递给后端）
+ * @param {number} maxMembers - 房间最大成员数
  * @returns {{ roomId: number|null, roomCode: string }}
  */
 export function createTestRoom(baseUrl, roomCode, maxMembers) {
-  // 阶段1：尝试通过 roomCode 查询房间是否已存在
   const user = userData[0];
-  const queryParams = {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${user.token}`,
-      'X-User-Id': user.userId,
-      'X-Nickname': user.nickname,
-    },
-    tags: { name: 'query_room' },
-  };
-
-  const queryRes = http.get(`${baseUrl}/room/code/${roomCode}`, queryParams);
-
-  if (queryRes.status === 200) {
-    try {
-      const json = JSON.parse(queryRes.body);
-      const existingRoomId = json?.data?.roomId;
-      if (existingRoomId) {
-        console.log(`[createTestRoom] 复用已有房间 roomCode=${roomCode} roomId=${existingRoomId}`);
-        return { roomId: existingRoomId, roomCode };
-      }
-    } catch {
-      // 解析失败，继续尝试创建
-    }
-  }
-
-  // 阶段2：房间不存在，创建新房间
   const createParams = {
     headers: {
       'Content-Type': 'application/json',
@@ -284,7 +272,6 @@ export function createTestRoom(baseUrl, roomCode, maxMembers) {
   };
 
   const body = JSON.stringify({
-    roomCode: roomCode,
     roomName: `perf-room-${roomCode}-${Date.now()}`,
     maxMembers: maxMembers,
   });
@@ -299,12 +286,12 @@ export function createTestRoom(baseUrl, roomCode, maxMembers) {
   try {
     const json = JSON.parse(createRes.body);
     const roomId = json?.data?.roomId;
-    const actualRoomCode = json?.data?.roomCode || roomCode;
+    const actualRoomCode = json?.data?.roomCode;
     if (!roomId) {
       console.error(`[createTestRoom] 创建房间返回数据异常: ${createRes.body}`);
       return { roomId: null, roomCode };
     }
-    console.log(`[createTestRoom] 创建房间成功 roomCode=${actualRoomCode}(${roomCode}) roomId=${roomId}`);
+    console.log(`[createTestRoom] 创建房间成功 roomCode=${actualRoomCode} roomId=${roomId}`);
     return { roomId, roomCode: actualRoomCode };
   } catch {
     console.error(`[createTestRoom] 解析创建响应失败: ${createRes.body}`);

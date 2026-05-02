@@ -51,6 +51,12 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
+
+        <!-- Spring Cloud LoadBalancer（@LoadBalanced RestTemplate 必须） -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
         
         <!-- Nacos配置中心 -->
         <dependency>
@@ -77,13 +83,6 @@
             <artifactId>micrometer-tracing-bridge-brave</artifactId>
         </dependency>
 
-        <!-- H2 内存数据库（测试用） -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-        
         <!-- 测试依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

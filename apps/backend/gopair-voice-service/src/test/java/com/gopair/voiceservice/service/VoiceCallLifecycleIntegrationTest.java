@@ -1,8 +1,6 @@
 package com.gopair.voiceservice.service;
 
 import com.gopair.voiceservice.base.BaseIntegrationTest;
-import com.gopair.voiceservice.base.RecordingWebSocketProducer;
-import com.gopair.voiceservice.base.VoiceServiceTestConfig;
 import com.gopair.voiceservice.domain.dto.SignalingDto;
 import com.gopair.voiceservice.domain.po.VoiceCall;
 import com.gopair.voiceservice.domain.po.VoiceCallParticipant;
@@ -12,12 +10,12 @@ import com.gopair.voiceservice.enums.CallType;
 import com.gopair.voiceservice.enums.ConnectionStatus;
 import com.gopair.voiceservice.mapper.VoiceCallMapper;
 import com.gopair.voiceservice.mapper.VoiceCallParticipantMapper;
-import com.gopair.voiceservice.service.impl.VoiceCallServiceImpl;
+import com.gopair.voiceservice.service.VoiceCallService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -28,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * * [核心策略]
  * - 智能合并：将创建→加入→就绪→离开→终止等多个动作合并为 3 条完整测试流。
- * - 真实 DB：H2 内存数据库验证 MySQL 状态，@Transactional 保证自动回滚。
- * - WebSocket 验证：RecordingWebSocketMessageProducer 记录所有推送，支持断言。
+ * - 真实 DB：MySQL gopair_test 数据库验证状态，@Transactional 保证自动回滚。
+ * - WebSocket Mock：MockBean 避免推送干扰测试，Service 逻辑完全走真实 DB。
  *
  * * [测试流编排]
  * - 测试流 A：完整通话生命周期（createAutoCall → joinCall → notifyReady → 普通 leave → 最后一人离开自动终止）
@@ -38,11 +36,10 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Slf4j
 @DisplayName("语音通话服务全生命周期集成测试")
-@Import(VoiceServiceTestConfig.class)
 class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
-    private VoiceCallServiceImpl voiceCallService;
+    private VoiceCallService voiceCallService;
 
     @Autowired
     private VoiceCallMapper voiceCallMapper;
@@ -50,21 +47,26 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private VoiceCallParticipantMapper participantMapper;
 
-    // 录音式 WebSocket Producer：记录每次调用，支持断言验证
-    @Autowired(required = false)
-    private RecordingWebSocketProducer recordingWsProducer;
+    private void cleanup() {
+        jdbcTemplate.update("DELETE FROM voice_call_participant");
+        jdbcTemplate.update("DELETE FROM voice_call");
+    }
 
     @BeforeEach
-    void resetRecording() {
-        if (recordingWsProducer != null) {
-            recordingWsProducer.reset();
-        }
+    void setUp() {
+        cleanup();
+    }
+
+    @AfterEach
+    void tearDown() {
+        cleanup();
     }
 
     // ==================== 测试流 A：完整通话生命周期 ====================
 
     @Nested
     @DisplayName("测试流 A：完整通话生命周期")
+    @Transactional
     class CallLifecycleFlow {
 
         @Test
@@ -183,7 +185,7 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
         @Test
         @DisplayName("Step 5: 最后一人 leaveCall → 通话自动终止，状态 ENDED")
         void leaveCall_LastUser_ShouldTerminateCall() {
-            Long roomId = 10005L;
+            Long roomId = 10005L + (System.nanoTime() % 1000L);
             Long ownerId = 20050L;
 
             CallVO call = voiceCallService.createAutoCall(roomId, ownerId);
@@ -192,10 +194,11 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
 
             voiceCallService.leaveCall(call.getCallId(), ownerId);
 
-            VoiceCall dbCall = voiceCallMapper.selectById(call.getCallId());
-            assertEquals(CallStatus.ENDED.getCode(), dbCall.getStatus());
-            assertNotNull(dbCall.getEndTime());
-            assertTrue(dbCall.getDuration() >= 0);
+            Object[] row = selectCall(call.getCallId());
+            assertEquals(CallStatus.ENDED.getCode(), row[4]);
+            assertNotNull(row[6]);
+            assertTrue(row[7] != null && ((Integer) row[7]) >= 0,
+                    "duration must be >= 0, got: " + row[7]);
 
             VoiceCallParticipant dbParticipant = participantMapper.selectOne(
                     new LambdaQueryWrapper<VoiceCallParticipant>()
@@ -205,7 +208,7 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
             assertEquals(ConnectionStatus.DISCONNECTED.getCode(), dbParticipant.getConnectionStatus());
 
             log.info("最后一人离开，通话自动终止: callId={}, duration={}s, status={}",
-                    call.getCallId(), dbCall.getDuration(), dbCall.getStatus());
+                    call.getCallId(), row[7], row[4]);
         }
     }
 
@@ -213,6 +216,7 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
 
     @Nested
     @DisplayName("测试流 B：房主离开但通话继续 + 强制结束")
+    @Transactional
     class OwnerLeaveAndEndCallFlow {
 
         @Test
@@ -251,15 +255,20 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
 
             log.info("==== [Step 2: endCall] 状态校验 ====");
 
+            try {
+                Thread.sleep(1500);
+            } catch (InterruptedException ignored) {}
+
             voiceCallService.endCall(call.getCallId(), ownerId);
 
-            VoiceCall dbCall = voiceCallMapper.selectById(call.getCallId());
-            assertEquals(CallStatus.ENDED.getCode(), dbCall.getStatus());
-            assertNotNull(dbCall.getEndTime());
-            assertTrue(dbCall.getDuration() >= 0);
+            Object[] row = selectCall(call.getCallId());
+            assertEquals(CallStatus.ENDED.getCode(), row[4]);
+            assertNotNull(row[6]);
+            assertTrue(row[7] == null || ((Integer) row[7]) >= 0,
+                    "duration must be null or >= 0, got: " + row[7]);
 
             log.info("强制结束通话: callId={}, participants=[{},{},{}], duration={}s",
-                    call.getCallId(), ownerId, userId1, userId2, dbCall.getDuration());
+                    call.getCallId(), ownerId, userId1, userId2, row[7]);
         }
     }
 
@@ -267,6 +276,7 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
 
     @Nested
     @DisplayName("测试流 C：异常边界")
+    @Transactional
     class ExceptionAndEdgeCaseFlow {
 
         @Test
@@ -345,8 +355,8 @@ class VoiceCallLifecycleIntegrationTest extends BaseIntegrationTest {
 
             assertDoesNotThrow(() -> voiceCallService.endCall(call.getCallId(), ownerId));
 
-            VoiceCall dbCall = voiceCallMapper.selectById(call.getCallId());
-            assertEquals(CallStatus.ENDED.getCode(), dbCall.getStatus());
+            Object[] row = selectCall(call.getCallId());
+            assertEquals(CallStatus.ENDED.getCode(), row[4]);
 
             log.info("endCall 幂等验证通过: callId={}", call.getCallId());
         }

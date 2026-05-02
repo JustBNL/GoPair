@@ -137,15 +137,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
                 throw new UserException(UserErrorCode.NICKNAME_ALREADY_EXISTS);
             }
         }
-        
-        // 邮箱唯一
-        if (StringUtils.hasText(userDto.getEmail())) {
-            User existingUser = getUserByEmail(userDto.getEmail());
-            if (existingUser != null && !existingUser.getUserId().equals(userDto.getUserId())) {
-                throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
-            }
-        }
-        
+
+        // 邮箱不允许普通用户修改
+        userDto.setEmail(null);
+
         User user = BeanCopyUtils.copyBean(userDto, User.class);
 
         if (StringUtils.hasText(userDto.getPassword())) {
@@ -261,6 +256,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         User user = getUserByEmail(request.getEmail());
         if (user == null) {
             throw new UserException(UserErrorCode.EMAIL_NOT_EXISTS);
+        }
+        // 新密码不能与当前密码相同
+        if (passwordUtils.matches(request.getNewPassword(), user.getPassword())) {
+            throw new UserException(UserErrorCode.PASSWORD_SAME_AS_OLD);
         }
         // 更新密码
         user.setPassword(passwordUtils.encode(request.getNewPassword()));

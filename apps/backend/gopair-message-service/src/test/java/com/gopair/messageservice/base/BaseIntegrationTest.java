@@ -5,6 +5,8 @@ import com.gopair.framework.config.FrameworkAutoConfiguration;
 import com.gopair.messageservice.config.MockRestTemplateConfig;
 import com.gopair.messageservice.service.MessageService;
 import com.gopair.messageservice.service.UserProfileFallbackService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -22,16 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * 消息服务集成测试基础类
+ * 消息服务集成测试基础类。
  *
- * 为集成测试提供 Spring Boot 测试环境、自动回滚和外部依赖 Mock
- *
- * * [RestTemplate Mock 策略]
- *   - mockRestTemplate（@Primary）：Service 层调用外部服务（room-service/user-service）时使用，
- *     通过 ConfigurableMockInterceptor 返回预设 stub，不走真实网络。
- *   - realRestTemplate（无 @Primary）：Controller 测试向 localhost 发送 HTTP 请求时使用，
- *     走真实网络连接，由 BaseIntegrationTest.realRestTemplate 提供。
- *   - 子类通过 mockUserInRoom(roomId, userId, true) 配置 mock 行为。
+ * * [核心策略]
+ * - 真实 MySQL + 真实 Redis：使用 gopair_test 数据库和 Redis DB 14，@Transactional 保证 DB 回滚。
+ * - Redis 手动清理：@AfterEach 执行 flushDb() 清理 Redis 数据（Redis 不支持事务回滚）。
+ * - MQ/WebSocket Mock：RabbitMQ、WebSocket 推送均通过 @MockBean Mock，避免测试间相互干扰。
+ * - RestTemplate 双策略：mockRestTemplate（@Primary）拦截外部服务调用，realRestTemplate 供 Controller 测试走 localhost。
  *
  * @author gopair
  */
@@ -42,7 +41,8 @@ import org.springframework.web.client.RestTemplate;
 @MapperScan({"com.gopair.messageservice.mapper"})
 public abstract class BaseIntegrationTest {
 
-    @MockBean
+    /** 真实 Redis 连接，测试后通过 flushDb() 清理 */
+    @Autowired
     protected StringRedisTemplate stringRedisTemplate;
 
     @MockBean
@@ -80,6 +80,18 @@ public abstract class BaseIntegrationTest {
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
+
+    /**
+     * 每个测试方法结束后清理 Redis 数据。
+     * MySQL 数据由 @Transactional 自动回滚，无需手动清理。
+     */
+    @AfterEach
+    void flushTestRedis() {
+        var factory = stringRedisTemplate.getConnectionFactory();
+        if (factory != null && factory.getConnection() != null) {
+            factory.getConnection().serverCommands().flushDb();
+        }
+    }
 
     protected String getUrl(String path) {
         return "http://localhost:" + port + path;

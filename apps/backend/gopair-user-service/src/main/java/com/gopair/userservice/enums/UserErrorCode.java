@@ -29,7 +29,8 @@ public enum UserErrorCode implements ErrorCode {
     USER_DISABLED(20109, "账号已被停用，请联系管理员"),
     USER_ALREADY_CANCELLED(20110, "账号已注销"),
     USER_CANCEL_FAILED(20111, "账号注销失败"),
-    PASSWORD_SAME_AS_OLD(20112, "新密码不能与当前密码相同");
+    PASSWORD_SAME_AS_OLD(20112, "新密码不能与当前密码相同"),
+    EMAIL_CANNOT_BE_MODIFIED(20113, "邮箱不可修改");
 
     /**
      * 错误码

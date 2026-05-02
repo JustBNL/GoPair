@@ -20,13 +20,17 @@ import static org.mockito.Mockito.*;
  * MessageSentEvent 事件发布与监听集成测试
  *
  * * [核心策略]
- *   - 通过 @Import 加载 MockApplicationEventPublisherConfig，提供 mock 的 ApplicationEventPublisher。
- *   - @MockBean 注入该 mock 实例，通过 verify() 校验发布次数。
- *   - 事件发布异常已在 sendMessage 中被 try-catch 包裹，测试覆盖正常发布路径。
+ * - 通过 @Import 加载 MockApplicationEventPublisherConfig，提供 mock 的 ApplicationEventPublisher。
+ * - @MockBean 注入该 mock 实例，通过 verify() 校验发布次数。
+ * - 事件发布异常已在 sendMessage 中被 try-catch 包裹，测试覆盖正常发布路径。
  *
  * * [执行链路]
- *   1. 发送消息 → ApplicationEventPublisher.publishEvent 被调用 → verify 校验调用次数。
- *   2. 用户不在房间 → 无 publishEvent 调用。
+ * 1. 发送消息 → ApplicationEventPublisher.publishEvent 被调用 → verify 校验调用次数。
+ * 2. 用户不在房间 → 无 publishEvent 调用。
+ *
+ * * [脏数据清理]
+ * - @Transactional：MySQL 数据自动回滚。
+ * - @AfterEach flushDb()：Redis 数据清理。
  */
 @Slf4j
 @Import(MockApplicationEventPublisherConfig.class)
@@ -41,11 +45,13 @@ class MessageSentEventIntegrationTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setUpUserProfiles() {
-        // 预置用户资料
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_A_ID, "Alice", "http://avatar/alice.png");
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_B_ID, "Bob", "http://avatar/bob.png");
+        // 预置用户资料，使用 MySQL INSERT ... ON DUPLICATE KEY UPDATE
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_A_ID, "Alice", "http://avatar/alice.png", "alice");
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_B_ID, "Bob", "http://avatar/bob.png", "bob");
     }
 
     // ========== 主干：发送消息触发事件发布 ==========

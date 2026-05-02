@@ -30,7 +30,5 @@ gopair:
     redis-channel-prefix: "message"
     # Emoji 消息最大字符长度（兼容多码点 Emoji）
     emoji-max-length: 8
-
-  # RestTemplate 配置（通过 Nacos 服务名调用其他服务）
-  rest-template:
-    enabled: true
+    # 消息撤回时限（秒），默认2分钟
+    recall-time-limit-seconds: 120

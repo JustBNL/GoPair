@@ -1,12 +1,33 @@
 <script setup lang="ts">
-// App.vue 保持纯容器角色，不处理认证逻辑
-// 认证状态初始化统一由路由守卫负责
+import { ref, watch, onMounted } from 'vue'
+import { ConfigProvider, theme } from 'ant-design-vue'
+import { useThemeStore } from '@/stores/theme'
+
+const themeStore = useThemeStore()
+
+const themeConfig = ref({
+  algorithm: theme.darkAlgorithm,
+})
+
+onMounted(() => {
+  themeStore.initTheme()
+  themeConfig.value.algorithm = themeStore.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm
+  // Apply .dark class to <html> so CSS variable overrides cascade to all elements including <body>
+  document.documentElement.classList.toggle('dark', themeStore.isDark)
+})
+
+watch(() => themeStore.isDark, (isDark) => {
+  themeConfig.value.algorithm = isDark ? theme.darkAlgorithm : theme.defaultAlgorithm
+  document.documentElement.classList.toggle('dark', isDark)
+})
 </script>
 
 <template>
-  <div id="app">
-    <RouterView />
-  </div>
+  <ConfigProvider :theme="themeConfig">
+    <div id="app">
+      <RouterView />
+    </div>
+  </ConfigProvider>
 </template>
 
 <style>
@@ -29,6 +50,7 @@ html, body {
 #app {
   min-height: 100vh;
   position: relative;
+  background: var(--surface-bg);
 }
 
 /* 滚动条样式 */
@@ -37,15 +59,15 @@ html, body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--border-light);
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-default);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--scrollbar-thumb-hover);
 }
 </style>

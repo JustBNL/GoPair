@@ -18,7 +18,6 @@ if (import.meta.env.PROD) {
 }
 
 const app = createApp(App)
-
 app.use(createPinia())
 app.use(router)
 // ant-design-vue 组件通过 unplugin-vue-components 自动按需引入，无需 app.use(Antd)

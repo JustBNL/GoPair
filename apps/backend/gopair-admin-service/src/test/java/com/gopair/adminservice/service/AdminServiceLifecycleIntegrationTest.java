@@ -153,14 +153,19 @@ class AdminServiceLifecycleIntegrationTest extends BaseIntegrationTest {
     }
 
     private Long insertTestRoom(Integer status, String roomName) {
+        long id = nextId(100);
         Room room = new Room();
-        room.setRoomId(nextId(100));
-        room.setRoomCode("CODE" + room.getRoomId());
+        room.setRoomId(id);
+        room.setRoomCode("R" + String.format("%05d", id % 100000));
         room.setRoomName(roomName);
         room.setOwnerId(10000L);
         room.setMaxMembers(10);
         room.setCurrentMembers(0);
+        room.setVersion(0);
+        room.setPasswordMode(0);
+        room.setPasswordVisible(1);
         room.setStatus(status);
+        room.setExpireTime(java.time.LocalDateTime.now().plusHours(1));
         room.setCreateTime(LocalDateTime.now());
         room.setUpdateTime(LocalDateTime.now());
         roomMapper.insert(room);
@@ -417,6 +422,85 @@ class AdminServiceLifecycleIntegrationTest extends BaseIntegrationTest {
             assertEquals('0', updated.getStatus());
 
             LOG.info("启用用户成功: userId={}, newStatus={}", userId, updated.getStatus());
+        }
+    }
+
+    // ==================== 用户邮箱迁移 ====================
+
+    @Nested
+    @Transactional
+    @DisplayName("用户邮箱迁移")
+    class UserEmailMigrateTests {
+
+        @Test
+        @DisplayName("迁移成功 - 新邮箱可登录")
+        void migrateEmail_success() {
+            Long userId = insertTestUser('0', "MigrateUser", "migrate_old@test.com");
+            Long adminId = insertTestAdminUser();
+            setAdminContext(adminId, TEST_ADMIN_USERNAME);
+
+            LOG.info("==== [migrateEmail] 迁移成功 ====");
+
+            userManageService.migrateEmail(userId, "migrate_new@test.com");
+
+            User updated = userMapper.selectById(userId);
+            assertEquals("migrate_new@test.com", updated.getEmail());
+
+            LOG.info("邮箱迁移成功: userId={}, newEmail={}", userId, updated.getEmail());
+        }
+
+        @Test
+        @DisplayName("迁移失败 - 目标邮箱被正常用户占用")
+        void migrateEmail_conflict() {
+            Long userId = insertTestUser('0', "MigrateUser2", "conflict_old@test.com");
+            Long otherUserId = insertTestUser('0', "OtherUser", "conflict_target@test.com");
+            Long adminId = insertTestAdminUser();
+            setAdminContext(adminId, TEST_ADMIN_USERNAME);
+
+            LOG.info("==== [migrateEmail] 邮箱冲突 ====");
+
+            IllegalArgumentException ex = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> userManageService.migrateEmail(userId, "conflict_target@test.com")
+            );
+            assertTrue(ex.getMessage().contains("已被其他用户使用"));
+
+            LOG.info("邮箱冲突被拦截: exception={}", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("迁移失败 - 用户不存在")
+        void migrateEmail_userNotFound() {
+            Long adminId = insertTestAdminUser();
+            setAdminContext(adminId, TEST_ADMIN_USERNAME);
+
+            LOG.info("==== [migrateEmail] 用户不存在 ====");
+
+            IllegalArgumentException ex = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> userManageService.migrateEmail(999999L, "any@test.com")
+            );
+            assertTrue(ex.getMessage().contains("用户不存在"));
+
+            LOG.info("用户不存在被拦截: exception={}", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("迁移成功 - 目标邮箱被已注销用户占用（可重新分配）")
+        void migrateEmail_cancelledUserEmail() {
+            Long userId = insertTestUser('0', "MigrateUser3", "cancelled_old@test.com");
+            Long cancelledUserId = insertTestUser('1', "CancelledUser", "cancelled_target@test.com");
+            Long adminId = insertTestAdminUser();
+            setAdminContext(adminId, TEST_ADMIN_USERNAME);
+
+            LOG.info("==== [migrateEmail] 目标邮箱被注销用户占用 ====");
+
+            userManageService.migrateEmail(userId, "cancelled_target@test.com");
+
+            User updated = userMapper.selectById(userId);
+            assertEquals("cancelled_target@test.com", updated.getEmail());
+
+            LOG.info("注销用户邮箱可重新分配: userId={}, newEmail={}", userId, updated.getEmail());
         }
     }
 

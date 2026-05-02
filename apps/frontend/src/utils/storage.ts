@@ -1,5 +1,5 @@
 import type { UserInfo, CurrentUser } from '@/types/api'
-import { TOKEN_KEY, USER_KEY, EMAIL_KEY, REMEMBER_KEY } from '@/types/auth'
+import { TOKEN_KEY, USER_KEY } from '@/types/auth'
 
 /**
  * Cookie选项接口
@@ -66,41 +66,6 @@ export class Storage {
    */
   static removeUser(): void {
     localStorage.removeItem(USER_KEY)
-  }
-
-  /**
-   * 设置记住的邮箱
-   */
-  static setSavedEmail(email: string): void {
-    localStorage.setItem(EMAIL_KEY, email)
-  }
-
-  /**
-   * 获取记住的邮箱
-   */
-  static getSavedEmail(): string {
-    return localStorage.getItem(EMAIL_KEY) || ''
-  }
-
-  /**
-   * 移除记住的邮箱
-   */
-  static removeSavedEmail(): void {
-    localStorage.removeItem(EMAIL_KEY)
-  }
-
-  /**
-   * 设置是否记住邮箱
-   */
-  static setRememberEmail(remember: boolean): void {
-    localStorage.setItem(REMEMBER_KEY, remember.toString())
-  }
-
-  /**
-   * 获取是否记住邮箱
-   */
-  static getRememberEmail(): boolean {
-    return localStorage.getItem(REMEMBER_KEY) === 'true'
   }
 
   /**
@@ -200,8 +165,6 @@ export class Storage {
    */
   static clearAll(): void {
     Storage.clearAuth()
-    Storage.removeSavedEmail()
-    localStorage.removeItem(REMEMBER_KEY)
   }
 
   /**
@@ -224,11 +187,6 @@ export const {
   setUser,
   getUser,
   removeUser,
-  setSavedEmail,
-  getSavedEmail,
-  removeSavedEmail,
-  setRememberEmail,
-  getRememberEmail,
   clearAuth,
   clearAll,
   isLoggedIn,

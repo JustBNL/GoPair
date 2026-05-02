@@ -46,6 +46,7 @@ export enum WsEventType {
   MESSAGE_SEND = 'message_send',
   MESSAGE_DELETE = 'message_delete',
   MESSAGE_EDIT = 'message_edit',
+  MESSAGE_RECALL = 'message_recall',
   
   // 文件事件
   FILE_UPLOAD = 'file_upload',

@@ -15,6 +15,15 @@ import java.util.List;
 public interface RoomMemberService {
 
     /**
+     * 批量添加房间成员。
+     *
+     * @param roomId 房间ID
+     * @param userIds 要添加的用户ID列表
+     * @return 成功添加的数量
+     */
+    int addMembers(Long roomId, List<Long> userIds);
+
+    /**
      * 添加房间成员
      *
      * @param roomId 房间ID

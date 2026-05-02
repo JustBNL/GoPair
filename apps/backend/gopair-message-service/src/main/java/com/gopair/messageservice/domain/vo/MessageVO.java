@@ -115,4 +115,16 @@ public class MessageVO {
      */
     @Schema(description = "更新时间", example = "2024-12-20T15:30:00")
     private LocalDateTime updateTime;
+
+    /**
+     * 是否已撤回
+     */
+    @Schema(description = "是否已撤回", example = "false")
+    private Boolean isRecalled = false;
+
+    /**
+     * 撤回时间
+     */
+    @Schema(description = "撤回时间", example = "2024-12-20T16:00:00")
+    private LocalDateTime recalledAt;
 } 

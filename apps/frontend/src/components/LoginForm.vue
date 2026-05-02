@@ -41,15 +41,8 @@
           </a-form-item>
 
           <a-form-item>
-            <div class="form-options">
-              <a-checkbox v-model:checked="loginForm.remember">
-                记住邮箱
-              </a-checkbox>
-            </div>
-          </a-form-item>
-
-          <a-form-item>
             <a-button
+              style="margin-top: 16px"
               type="primary"
               html-type="submit"
               size="large"
@@ -128,6 +121,7 @@
 
           <a-form-item>
             <a-button
+              style="margin-top: 16px"
               type="primary"
               html-type="submit"
               size="large"
@@ -168,7 +162,6 @@
                 placeholder="请输入6位验证码"
                 :prefix="h(SafetyOutlined)"
                 maxlength="6"
-                :disabled="forgotCodeCooldown > 0 || !forgotForm.email"
                 class="code-input"
               />
               <a-button
@@ -230,6 +223,7 @@ const authStore = useAuthStore()
 
 // 表单引用
 const loginFormRef = ref<FormInstance>()
+const registerFormRef = ref<FormInstance>()
 const forgotFormRef = ref<FormInstance>()
 
 // 当前活跃标签
@@ -238,8 +232,7 @@ const activeTab = ref('login')
 // 登录表单数据
 const loginForm = reactive<LoginFormData>({
   email: '',
-  password: '',
-  remember: false
+  password: ''
 })
 
 // 注册表单数据
@@ -386,7 +379,6 @@ async function handleLogin(values: LoginFormData) {
       email: values.email,
       password: values.password
     })
-    authStore.setRememberEmail(values.remember || false, values.email)
     router.push('/rooms')
   } catch (error) {
     console.error('登录失败:', error)
@@ -451,11 +443,6 @@ function handleForgotFailed(errorInfo: unknown) {
 
 onMounted(() => {
   authStore.initAuth()
-  const savedEmail = authStore.getSavedEmail()
-  if (savedEmail) {
-    loginForm.email = savedEmail
-    loginForm.remember = authStore.rememberEmail
-  }
 })
 </script>
 
@@ -490,12 +477,6 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 500;
   padding: 12px 24px;
-}
-
-.form-options {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .code-input-row {

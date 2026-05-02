@@ -515,7 +515,7 @@ watch(() => props.open, (isOpen) => {
           align-items: center;
           justify-content: center;
           background: var(--color-info);
-          color: white;
+          color: var(--text-on-primary);
           border-radius: 8px;
           font-size: 18px;
         }

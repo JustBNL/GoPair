@@ -20,21 +20,22 @@ import static org.assertj.core.api.Assertions.assertThat;
  * UserProfileFallbackService 三层降级链路集成测试
  *
  * * [三层降级策略]
- *   - 第一层（主路径）：各查询方法通过 SQL JOIN user 表直接读出昵称/头像（已内嵌于 Mapper XML）。
- *     测试场景：Mapper JOIN 结果已有 nickname → 无需降级。
- *   - 第二层（共享库降级）：若 JOIN 结果中昵称为空，聚合缺失 userId 后从同库 app_user 表补拉（IN 查询）。
- *     测试场景：Mapper JOIN 无 nickname → UserPublicMapper IN 查询补全。
- *   - 第三层（HTTP 降级）：若共享库也无数据，调 user-service 批量 HTTP 再单个补拉。
- *     测试场景：Mapper JOIN + UserPublicMapper 均无数据 → RestTemplate HTTP 补全。
+ * - 第一层（主路径）：各查询方法通过 SQL JOIN user 表直接读出昵称/头像（已内嵌于 Mapper XML）。
+ *   测试场景：Mapper JOIN 结果已有 nickname → 无需降级。
+ * - 第二层（共享库降级）：若 JOIN 结果中昵称为空，聚合缺失 userId 后从同库 app_user 表补拉（IN 查询）。
+ *   测试场景：Mapper JOIN 无 nickname → UserPublicMapper IN 查询补全。
+ * - 第三层（HTTP 降级）：若共享库也无数据，调 user-service 批量 HTTP 再单个补拉。
+ *   测试场景：Mapper JOIN + UserPublicMapper 均无数据 → RestTemplate HTTP 补全。
  *
  * * [环境]
- *   - MySQL（H2）：app_user 表，UserPublicMapper.selectByUserIds IN 查询。
- *   - Redis：Mock（无实际写操作）。
- *   - RestTemplate：MockRestTemplateConfig（@Primary mock），测试方法内配置 stub。
+ * - MySQL（gopair_test）：app_user 表，UserPublicMapper.selectByUserIds IN 查询。
+ * - Redis：真实连接（DB 14），测试后 flushDb() 清理。
+ * - RestTemplate：MockRestTemplateConfig（@Primary mock），测试方法内配置 stub。
  *
  * * [脏数据清理]
- *   - @Transactional + @AfterEach：MySQL 数据自动回滚。
- *   - MockRestTemplateConfig.clear()：清理 HTTP stub。
+ * - @Transactional：MySQL 数据自动回滚。
+ * - @AfterEach flushDb()：Redis 数据清理。
+ * - MockRestTemplateConfig.clear()：清理 HTTP stub。
  */
 @Slf4j
 class UserProfileFallbackServiceImplIntegrationTest extends BaseIntegrationTest {
@@ -53,10 +54,12 @@ class UserProfileFallbackServiceImplIntegrationTest extends BaseIntegrationTest 
 
         // 预置部分用户资料到 app_user 表（模拟第二层降级场景）
         // USER_A 和 USER_B 预置，USER_C 不预置（触发第三层 HTTP 降级）
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_A_ID, "AliceFromDB", "http://avatar/alice.png");
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_B_ID, "BobFromDB", "http://avatar/bob.png");
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_A_ID, "AliceFromDB", "http://avatar/alice.png", "alice");
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_B_ID, "BobFromDB", "http://avatar/bob.png", "bob");
         // USER_C 不预置 → 触发第三层 HTTP 降级
 
         // 模拟用户在房间内（供事件测试使用）

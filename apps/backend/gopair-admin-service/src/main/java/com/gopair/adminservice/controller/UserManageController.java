@@ -66,4 +66,16 @@ public class UserManageController {
             return R.fail(400, e.getMessage());
         }
     }
+
+    @Operation(summary = "迁移用户邮箱")
+    @PostMapping("/{userId}/migrate-email")
+    @AdminAudit(operation = "USER_EMAIL_MIGRATE", targetType = "USER")
+    public R<Void> migrateEmail(@PathVariable Long userId, @RequestBody String newEmail) {
+        try {
+            userManageService.migrateEmail(userId, newEmail.trim());
+            return R.ok();
+        } catch (IllegalArgumentException e) {
+            return R.fail(400, e.getMessage());
+        }
+    }
 }

@@ -213,19 +213,19 @@ public class ContextInitFilter implements Filter {
      * @return 正确编码的用户昵称，若不存在或提取失败则返回 null
      */
     private String extractNickname(HttpServletRequest request) {
+        String rawNickname = request.getHeader(SystemConstants.HEADER_NICKNAME);
+        if (!StringUtils.hasText(rawNickname)) {
+            log.debug("[上下文管理] 请求头不存在: {}", SystemConstants.HEADER_NICKNAME);
+            return null;
+        }
         try {
-            String rawNickname = request.getHeader(SystemConstants.HEADER_NICKNAME);
             String corrected;
             try {
-                // 优先尝试 URL 解码：Gateway 使用 URL 编码传递 nickname（UTF-8）
                 corrected = URLDecoder.decode(rawNickname, StandardCharsets.UTF_8);
             } catch (Exception e) {
-                // URL 解码失败时（Gateway 降级未编码），用 ISO-8859-1 往返编解码兜底
                 corrected = new String(rawNickname.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
             }
-            if (corrected != null && !corrected.isEmpty()) {
-                return corrected.trim();
-            }
+            return corrected.trim();
         } catch (Exception e) {
             log.debug("[上下文管理] 提取用户昵称失败", e);
         }

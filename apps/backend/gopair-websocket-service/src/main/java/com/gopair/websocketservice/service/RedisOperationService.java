@@ -282,6 +282,9 @@ public class RedisOperationService implements SessionStore, SubscriptionStore, R
         }
     }
     
+
+    // TODO: 此方法写入的 GLOBAL_STATS_KEY 目前无消费方，属于写入无人读的不一致设计
+    //       建议：(1) 确认是否有统计查询需求；(2) 若无则删除此方法以清理死代码
     public void saveGlobalStats(Map<String, Object> stats) {
         try {
             redisTemplate.opsForHash().putAll(GLOBAL_STATS_KEY, stats);

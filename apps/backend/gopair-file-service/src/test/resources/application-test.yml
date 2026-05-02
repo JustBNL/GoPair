@@ -3,14 +3,13 @@ spring:
   application:
     name: file-service-test
 
-  # 允许测试环境下的 Bean 定义覆盖（使 TestConfiguration Mock Bean 覆盖生产 Bean）
+  # 允许测试环境下的 Bean 定义覆盖
   main:
     allow-bean-definition-overriding: true
 
   # 禁用 Nacos 配置中心
   config:
     import: "optional:nacos:"
-
   cloud:
     nacos:
       config:
@@ -18,18 +17,23 @@ spring:
       discovery:
         enabled: false
 
-  # H2 内存数据库
+  # 真实 MySQL 测试数据库
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: jdbc:mysql://localhost:3306/gopair_test?useSSL=false&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+    username: root
+    password: 610692
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
-  # H2 初始化脚本（仅 schema，无初始数据）
+  # 禁用 SQL 初始化（H2 模式废弃）
   sql:
     init:
-      mode: embedded
-      schema-locations: classpath:schema.sql
+      mode: never
 
   # RabbitMQ 测试配置（禁用避免队列不存在错误）
   rabbitmq:
@@ -47,15 +51,29 @@ spring:
       - com.gopair.common.config.RabbitMQAutoConfiguration
       - io.minio.MinioAutoConfiguration
 
-  # Redis 测试配置
+  # 真实 Redis 测试配置
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: 14
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
 
 # 服务器配置
 server:
   port: 0
+  tomcat:
+    max-swallow-size: 314572800
+  servlet:
+    multipart:
+      max-file-size: 314572800
+      max-request-size: 314572800
 
 # MyBatis-Plus 配置
 mybatis-plus:
@@ -86,8 +104,10 @@ gopair:
 # 日志配置
 logging:
   level:
-    com.gopair.fileservice: DEBUG
+    com.gopair.fileservice: INFO
     org.springframework.web: INFO
     org.springframework.test: INFO
-    org.h2: INFO
-    org.mybatis: INFO
+    org.springframework.transaction: DEBUG
+    org.springframework.jdbc: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

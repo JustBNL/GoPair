@@ -100,6 +100,20 @@ public class MessageController {
     }
 
     /**
+     * 撤回消息
+     */
+    @Operation(summary = "撤回消息", description = "撤回发送的消息（仅发送者可在2分钟内撤回）")
+    @PostMapping("/{messageId}/recall")
+    public R<Boolean> recallMessage(
+            @Parameter(description = "消息ID", required = true)
+            @PathVariable Long messageId) {
+        
+        Long userId = UserContextHolder.getCurrentUserId();
+        Boolean result = messageService.recallMessage(messageId, userId);
+        return R.ok(result);
+    }
+
+    /**
      * 统计房间消息数量
      */
     @Operation(summary = "统计消息数量", description = "统计指定房间的消息数量")

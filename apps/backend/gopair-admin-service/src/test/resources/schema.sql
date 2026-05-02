@@ -1,6 +1,6 @@
 -- ============================================================
--- GoPair Admin Service H2 测试数据库 Schema
--- 用于集成测试，H2 2.x MySQL 兼容模式
+-- GoPair Admin Service MySQL 8.0 测试数据库 Schema
+-- 用于集成测试，连接 gopair_test 数据库
 -- 注意：createTime/updateTime 由 MyBatis-Plus AutoFillMetaObjectHandler 填充，无需在 schema 中声明
 -- ============================================================
 
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS admin_user (
     nickname VARCHAR(64) NOT NULL,
     status INT NOT NULL DEFAULT 0,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 管理员操作审计日志表
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 用户表（USER 是 MySQL 保留字，H2 兼容模式下需双引号包裹）
-CREATE TABLE IF NOT EXISTS "user" (
+-- 用户表（`user` 是 MySQL 保留字，使用反引号包裹）
+CREATE TABLE IF NOT EXISTS `user` (
     user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     nickname VARCHAR(64),
     password VARCHAR(256),
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS "user" (
     status CHAR(1) DEFAULT '0',
     remark VARCHAR(512),
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 房间表
@@ -52,13 +52,13 @@ CREATE TABLE IF NOT EXISTS room (
     current_members INT DEFAULT 0,
     owner_id BIGINT,
     status INT DEFAULT 0,
-    expire_time TIMESTAMP,
+    expire_time TIMESTAMP NULL,
     version INT DEFAULT 0,
     password_mode INT DEFAULT 0,
     password_hash VARCHAR(256),
     password_visible INT DEFAULT 1,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 房间成员表（继承 BaseEntity，含 create_time/update_time）
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS room_member (
     join_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_active_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 消息表
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS message (
     file_size BIGINT,
     reply_to_id BIGINT,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 房间文件表
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS room_file (
     download_count INT DEFAULT 0,
     upload_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 语音通话表
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS voice_call (
     call_type INT DEFAULT 1,
     status INT DEFAULT 0,
     start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    end_time TIMESTAMP,
+    end_time TIMESTAMP NULL,
     duration INT DEFAULT 0,
     is_auto_created BOOLEAN DEFAULT FALSE
 );
@@ -126,6 +126,6 @@ CREATE TABLE IF NOT EXISTS voice_call_participant (
     call_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     join_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    leave_time TIMESTAMP,
+    leave_time TIMESTAMP NULL,
     connection_status INT DEFAULT 0
 );

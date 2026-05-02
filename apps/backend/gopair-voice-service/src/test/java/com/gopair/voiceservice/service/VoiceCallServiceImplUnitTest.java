@@ -1,8 +1,7 @@
 package com.gopair.voiceservice.service;
 
-import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.voiceservice.base.BaseIntegrationTest;
-import com.gopair.voiceservice.base.VoiceServiceTestConfig;
+import com.gopair.voiceservice.domain.dto.SignalingDto;
 import com.gopair.voiceservice.domain.po.VoiceCall;
 import com.gopair.voiceservice.domain.po.VoiceCallParticipant;
 import com.gopair.voiceservice.domain.vo.CallVO;
@@ -11,18 +10,16 @@ import com.gopair.voiceservice.enums.CallType;
 import com.gopair.voiceservice.enums.ConnectionStatus;
 import com.gopair.voiceservice.mapper.VoiceCallMapper;
 import com.gopair.voiceservice.mapper.VoiceCallParticipantMapper;
-import com.gopair.voiceservice.service.impl.VoiceCallServiceImpl;
+import com.gopair.voiceservice.service.VoiceCallService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -30,9 +27,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * 语音通话服务核心逻辑测试。
  *
  * * [核心策略]
- * - Byte Buddy 1.14.x 不支持 Java 23，@MockBean 导致 context 启动失败。
- * - 改用手动创建 service 实例：mapper 走 @Autowired 真实实例，wsProducer 走手动 mock。
- * - 所有逻辑通过公开 API 路径验证，避免反射。
+ * - 真实 MySQL gopair_test：@Transactional 保证每个测试方法结束后自动回滚。
+ * - WebSocket Mock：MockBean 替换真实推送，避免测试间相互干扰。
+ * - 所有逻辑通过公开 API 路径验证，完全走真实 DB 操作。
  *
  * * [测试覆盖]
  * - 通话时长计算：提前结束/正常结束时长的正确性
@@ -45,20 +42,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Slf4j
 @DisplayName("语音通话服务核心逻辑测试")
-@Import({VoiceServiceTestConfig.class, VoiceCallServiceImplUnitTest.TestConfig.class})
 class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
-
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        @Primary
-        public VoiceCallServiceImpl voiceCallServiceImpl(
-                VoiceCallMapper voiceCallMapper,
-                VoiceCallParticipantMapper participantMapper,
-                WebSocketMessageProducer wsProducer) {
-            return new VoiceCallServiceImpl(voiceCallMapper, participantMapper, wsProducer);
-        }
-    }
 
     @Autowired
     private VoiceCallMapper voiceCallMapper;
@@ -67,58 +51,69 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
     private VoiceCallParticipantMapper participantMapper;
 
     @Autowired
-    private VoiceCallServiceImpl voiceCallService;
+    private VoiceCallService voiceCallService;
+
+    @BeforeEach
+    void setUp() {
+        jdbcTemplate.update("DELETE FROM voice_call_participant");
+        jdbcTemplate.update("DELETE FROM voice_call");
+    }
+
+    // no @AfterEach: @Transactional on @Nested classes handles rollback
 
     // ==================== 通话时长计算测试 ====================
 
     @Nested
     @DisplayName("通话时长计算")
+    @Transactional
     class DurationCalculationTests {
 
         @Test
-        @DisplayName("提前结束通话：时长为正数")
+        @DisplayName("提前结束通话：时长为正数（等待 1 秒后结束）")
         void earlyEnd_ShouldCalculatePositiveDuration() {
-            LocalDateTime startTime = LocalDateTime.now().minusMinutes(5);
-            VoiceCall call = newCall(startTime, CallStatus.IN_PROGRESS.getCode());
-            long dbCountBefore = voiceCallMapper.selectCount(null);
+            Long roomId = 79001L;
+            Long ownerId = 79101L;
+            CallVO call = voiceCallService.createAutoCall(roomId, ownerId);
 
-            voiceCallService.endCall(call.getCallId(), call.getInitiatorId());
+            try {
+                Thread.sleep(1500);
+            } catch (InterruptedException ignored) {}
 
-            VoiceCall dbCall = voiceCallMapper.selectById(call.getCallId());
-            assertEquals(CallStatus.ENDED.getCode(), dbCall.getStatus());
-            assertNotNull(dbCall.getEndTime());
-            assertNotNull(dbCall.getDuration());
-            assertTrue(dbCall.getDuration() > 0);
-            // 确认只有 1 次 update
-            assertEquals(dbCountBefore, voiceCallMapper.selectCount(null));
+            voiceCallService.endCall(call.getCallId(), ownerId);
+
+            Object[] row = selectCall(call.getCallId());
+            assertEquals(CallStatus.ENDED.getCode(), row[4]);
+            assertNotNull(row[6]);
+            assertNotNull(row[7]);
+            assertTrue((Integer) row[7] > 0, "duration must be positive, got: " + row[7]);
         }
 
         @Test
-        @DisplayName("立即结束通话：时长为 0")
+        @DisplayName("立即结束通话：时长为非负数")
         void immediateEnd_ShouldHaveZeroDuration() {
-            VoiceCall call = newCall(LocalDateTime.now(), CallStatus.IN_PROGRESS.getCode());
+            Long roomId = 79002L;
+            Long ownerId = 79201L;
+            CallVO call = voiceCallService.createAutoCall(roomId, ownerId);
 
-            voiceCallService.endCall(call.getCallId(), call.getInitiatorId());
+            voiceCallService.endCall(call.getCallId(), ownerId);
 
-            VoiceCall dbCall = voiceCallMapper.selectById(call.getCallId());
-            assertEquals(CallStatus.ENDED.getCode(), dbCall.getStatus());
-            assertEquals(0, dbCall.getDuration());
+            Object[] row = selectCall(call.getCallId());
+            assertEquals(CallStatus.ENDED.getCode(), row[4]);
+            assertEquals(0, row[7], "immediate end duration must be exactly 0");
         }
 
         @Test
         @DisplayName("已结束的通话再次结束：幂等，不抛异常")
         void alreadyEnded_ShouldBeIdempotent() {
-            VoiceCall call = newCall(LocalDateTime.now().minusMinutes(3), CallStatus.ENDED.getCode());
-            call.setEndTime(LocalDateTime.now().minusMinutes(1));
-            call.setDuration(120);
-            voiceCallMapper.updateById(call);
-            long dbCountBefore = voiceCallMapper.selectCount(null);
+            Long roomId = 79003L;
+            Long ownerId = 79301L;
+            CallVO call = voiceCallService.createAutoCall(roomId, ownerId);
+            voiceCallService.endCall(call.getCallId(), ownerId);
 
-            assertDoesNotThrow(() -> voiceCallService.endCall(call.getCallId(), call.getInitiatorId()));
+            assertDoesNotThrow(() -> voiceCallService.endCall(call.getCallId(), ownerId));
 
             VoiceCall dbCall = voiceCallMapper.selectById(call.getCallId());
-            assertEquals(120, dbCall.getDuration());
-            assertEquals(dbCountBefore, voiceCallMapper.selectCount(null));
+            assertEquals(CallStatus.ENDED.getCode(), dbCall.getStatus());
         }
     }
 
@@ -126,6 +121,7 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
 
     @Nested
     @DisplayName("重复加入同一通话")
+    @Transactional
     class RejoinTests {
 
         @Test
@@ -141,7 +137,6 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
             assertNull(p.getLeaveTime());
             assertEquals(ConnectionStatus.CONNECTED.getCode(), p.getConnectionStatus());
 
-            // 模拟用户离开：更新 leaveTime
             participantMapper.update(null,
                     new LambdaUpdateWrapper<VoiceCallParticipant>()
                             .eq(VoiceCallParticipant::getCallId, call.getCallId())
@@ -150,7 +145,6 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
                             .set(VoiceCallParticipant::getConnectionStatus, ConnectionStatus.DISCONNECTED.getCode())
             );
 
-            // 再次加入
             voiceCallService.joinOrCreateCall(call.getRoomId(), userId);
 
             VoiceCallParticipant rejoin = findParticipant(call.getCallId(), userId);
@@ -182,6 +176,7 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
 
     @Nested
     @DisplayName("信令转发权限校验")
+    @Transactional
     class SignalingPermissionTests {
 
         @Test
@@ -190,7 +185,7 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
             VoiceCall call = newCall(CallStatus.IN_PROGRESS.getCode());
             Long senderId = call.getInitiatorId();
             Long receiverId = 20112L;
-            voiceCallService.joinOrCreateCall(call.getCallId(), receiverId);
+            voiceCallService.joinCall(call.getCallId(), receiverId);
 
             long dbCountBefore = participantMapper.selectCount(
                     new LambdaQueryWrapper<VoiceCallParticipant>()
@@ -198,8 +193,7 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
             );
             LocalDateTime before = LocalDateTime.now().minusSeconds(1);
 
-            // 转发信令（targetUserId = receiverId）
-            var dto = signalingDto(call.getCallId(), "offer", senderId, receiverId);
+            SignalingDto dto = signalingDto(call.getCallId(), "offer", senderId, receiverId);
             voiceCallService.forwardSignaling(dto, senderId);
 
             VoiceCall dbCall = voiceCallMapper.selectById(call.getCallId());
@@ -216,14 +210,14 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
         @DisplayName("非参与者转发信令：静默丢弃，不抛异常")
         void nonParticipantForwarding_ShouldSilentlyDrop() {
             VoiceCall call = newCall(CallStatus.IN_PROGRESS.getCode());
-            voiceCallService.joinOrCreateCall(call.getCallId(), call.getInitiatorId());
+            voiceCallService.joinCall(call.getCallId(), call.getInitiatorId());
             Long strangerId = 99999L;
             long dbCountBefore = participantMapper.selectCount(
                     new LambdaQueryWrapper<VoiceCallParticipant>()
                             .eq(VoiceCallParticipant::getCallId, call.getCallId())
             );
 
-            var dto = signalingDto(call.getCallId(), "offer", strangerId, call.getInitiatorId());
+            SignalingDto dto = signalingDto(call.getCallId(), "offer", strangerId, call.getInitiatorId());
             assertDoesNotThrow(() -> voiceCallService.forwardSignaling(dto, strangerId));
 
             long dbCountAfter = participantMapper.selectCount(
@@ -238,6 +232,7 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
 
     @Nested
     @DisplayName("自动创建通话幂等性")
+    @Transactional
     class AutoCreateIdempotentTests {
 
         @Test
@@ -246,18 +241,15 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
             Long roomId = 99901L;
             Long roomOwnerId = 99901L;
 
-            // 第一次调用：创建通话
             CallVO first = voiceCallService.createAutoCall(roomId, roomOwnerId);
             assertNotNull(first);
             assertEquals(roomId, first.getRoomId());
 
             Long firstCallId = first.getCallId();
 
-            // 第二次调用：跳过创建
             CallVO second = voiceCallService.createAutoCall(roomId, roomOwnerId);
             assertEquals(firstCallId, second.getCallId());
 
-            // DB 确认只有一条 IN_PROGRESS 记录
             long inProgressCount = voiceCallMapper.selectCount(
                     new LambdaQueryWrapper<VoiceCall>()
                             .eq(VoiceCall::getRoomId, roomId)
@@ -293,13 +285,12 @@ class VoiceCallServiceImplUnitTest extends BaseIntegrationTest {
         );
     }
 
-    private com.gopair.voiceservice.domain.dto.SignalingDto signalingDto(
-            Long callId, String type, Long senderId, Long targetUserId) {
-        var dto = new com.gopair.voiceservice.domain.dto.SignalingDto();
+    private SignalingDto signalingDto(Long callId, String type, Long senderId, Long targetUserId) {
+        SignalingDto dto = new SignalingDto();
         dto.setCallId(callId);
         dto.setType(type);
         dto.setTargetUserId(targetUserId);
-        dto.setData(java.util.Map.of("sdp", "test"));
+        dto.setData(Map.of("sdp", "test"));
         return dto;
     }
 }

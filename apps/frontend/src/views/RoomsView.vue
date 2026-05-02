@@ -20,6 +20,7 @@
             <LogoutOutlined />
             退出登录
           </a-button>
+          <ThemeToggle />
         </div>
       </div>
     </div>
@@ -139,6 +140,7 @@ import RoomCard from '@/components/RoomCard.vue'
 import UserProfileModal from '@/components/UserProfileModal.vue'
 import AiChatDrawer from '@/components/ai/AiChatDrawer.vue'
 import BrandLogo from '@/components/BrandLogo.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 // ==================== 组件状态 ====================
 
@@ -302,24 +304,21 @@ onMounted(async () => {
   background-repeat: no-repeat;
 }
 
-/* 暗色遮罩叠加层 */
+/* 背景遮罩：统一使用 --bg-overlay，浅色白色遮罩保留背景图可见，深色深色遮罩实现暗色沉浸 */
 .rooms-view::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(25, 35, 55, 0.88);
+  inset: 0;
+  background: var(--bg-overlay);
   z-index: 0;
 }
 
 /* ==================== 页面头部 ==================== */
 
 .rooms-header {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--header-bg);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
   padding: 20px 0;
   position: relative;
   z-index: 1;
@@ -337,7 +336,7 @@ onMounted(async () => {
 .brand-section {
   display: flex;
   align-items: center;
-  color: var(--text-on-primary);
+  color: var(--text-on-header);
 }
 
 .logo-icon {
@@ -349,7 +348,7 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  color: var(--text-on-primary);
+  color: var(--text-on-header);
 }
 
 .user-section {
@@ -359,19 +358,19 @@ onMounted(async () => {
 }
 
 .welcome-text {
-  color: var(--text-on-primary-muted);
+  color: var(--text-on-header-muted);
   font-size: 16px;
 }
 
 .logout-btn {
-  color: var(--text-on-primary-muted) !important;
-  border: 1px solid var(--overlay-white-30) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-default) !important;
 }
 
 .logout-btn:hover {
-  color: var(--text-on-primary) !important;
-  background: var(--overlay-white-10) !important;
-  border-color: var(--overlay-white-20) !important;
+  color: var(--text-primary) !important;
+  background: var(--brand-primary-light) !important;
+  border-color: var(--brand-primary) !important;
 }
 
 /* ==================== 主要内容区域 ==================== */
@@ -395,11 +394,11 @@ onMounted(async () => {
   display: inline-flex;
   gap: 24px;
   padding: 32px;
-  background: var(--overlay-white-95);
+  background: var(--surface-card);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   box-shadow: var(--shadow-lg);
-  border: 1px solid var(--overlay-white-20);
+  border: 1px solid var(--border-default);
 }
 
 .action-btn {
@@ -438,12 +437,12 @@ onMounted(async () => {
 /* ==================== 房间列表区域 ==================== */
 
 .rooms-list-section {
-  background: var(--overlay-white-95);
+  background: var(--surface-card);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   padding: 32px;
   box-shadow: var(--shadow-lg);
-  border: 1px solid var(--overlay-white-20);
+  border: 1px solid var(--border-default);
 }
 
 .list-header {
@@ -577,9 +576,10 @@ onMounted(async () => {
   padding: 6px 10px;
   border-radius: 30px;
   transition: background 0.2s;
+  color: var(--text-on-header);
 
   &:hover {
-    background: var(--overlay-white-10);
+    background: var(--brand-primary-light);
   }
 }
 
@@ -594,7 +594,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--overlay-white-40);
+  border: 2px solid var(--border-default);
   flex-shrink: 0;
 }
 

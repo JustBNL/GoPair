@@ -93,6 +93,14 @@ public interface FileService {
     int cleanupRoomFiles(Long roomId);
 
     /**
+     * 根据 MinIO objectKey 删除对象（不操作 DB）。
+     * 供其他服务（如 message-service）在消息撤回场景下删除 OSS 文件。
+     *
+     * @param objectKey MinIO 对象 key，如 "room/123/original/abc123.jpg"
+     */
+    void deleteByObjectKey(String objectKey);
+
+    /**
      * 房间文件统计信息内部类
      */
     record RoomFileStats(long fileCount, long totalSize, String totalSizeFormatted) {}

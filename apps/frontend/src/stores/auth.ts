@@ -13,49 +13,45 @@ import { WS_FEATURES } from '@/config/websocket'
  */
 export const useAuthStore = defineStore('auth', () => {
   // ==================== 状态定义 ====================
-  
+
   // 用户信息
   const user = ref<CurrentUser | null>(null)
   const token = ref<string | null>(null)
-  
+
   // 加载状态
   const loginLoading = ref(false)
   const registerLoading = ref(false)
-  
+
   // 界面状态
   const currentMode = ref<FormMode>('login')
-  
-  // 用户偏好
-  const rememberEmail = ref(false)
-  const savedEmail = ref('')
-  
+
   // 初始化状态锁
   const isInitialized = ref(false)
 
   // ==================== 计算属性 ====================
-  
+
   // 是否已登录
   const isLoggedIn = computed(() => !!(token.value && user.value))
-  
+
   // 当前用户昵称
   const currentNickname = computed(() => user.value?.nickname || '用户')
 
   // ==================== 操作方法 ====================
-  
+
   /**
    * 用户登录
    */
   async function login(loginData: LoginRequest): Promise<void> {
     loginLoading.value = true
-    
+
     try {
       const response = await AuthAPI.login(loginData)
-      
+
       // 确保响应数据完整
       if (!response.data || !response.data.token) {
         throw new Error('登录响应数据不完整')
       }
-      
+
       // 构建当前用户对象（登录响应已包含完整数据，无需额外请求）
       const currentUser: CurrentUser = {
         userId: response.data.userId,
@@ -68,24 +64,16 @@ export const useAuthStore = defineStore('auth', () => {
       // 先持久化存储，再更新内存状态
       Storage.setToken(response.data.token)
       Storage.setUser(currentUser)
-      
+
       // 为WebSocket认证设置Cookie（网关需要从Cookie中读取JWT）
       Storage.setCookieToken(response.data.token)
-      
+
       // 然后更新内存状态
       token.value = response.data.token
       user.value = currentUser
-      
-      // 处理记住邮箱
-      if (rememberEmail.value) {
-        Storage.setSavedEmail(loginData.email)
-        Storage.setRememberEmail(true)
-      } else {
-        Storage.removeSavedEmail()
-        Storage.setRememberEmail(false)
-      }
-      
+
       // 登录成功后是否建立全局WebSocket连接（由开关控制）
+        //todo 后续需要关注是否需要优化
       if (WS_FEATURES.enableGlobal) {
         try {
           const wsStore = useWebSocketStore()
@@ -93,7 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (error) {
         }
       }
-      
+
       message.success('登录成功')
     } catch (error) {
       console.error('登录失败:', error)
@@ -139,9 +127,7 @@ export const useAuthStore = defineStore('auth', () => {
     message.success('密码重置成功，请使用新密码登录')
   }
 
-  /**
-   * 用户退出登录
-   */
+
   /**
    * 用户退出登录
    */
@@ -189,20 +175,18 @@ export const useAuthStore = defineStore('auth', () => {
     if (isInitialized.value) {
       return
     }
-    
+
     // 从本地存储恢复状态
     const storedToken = Storage.getToken()
     const storedUser = Storage.getUser()
-    const storedRemember = Storage.getRememberEmail()
-    const storedEmail = Storage.getSavedEmail()
-    
+
     if (storedToken && storedUser) {
       token.value = storedToken
       user.value = storedUser
-      
+
       // 恢复Cookie，确保WebSocket认证正常
       Storage.setCookieToken(storedToken)
-      
+
       // 根据开关决定是否建立全局WebSocket连接
       if (WS_FEATURES.enableGlobal) {
         setTimeout(async () => {
@@ -213,34 +197,9 @@ export const useAuthStore = defineStore('auth', () => {
         }, 100)
       }
     }
-    
-    rememberEmail.value = storedRemember
-    savedEmail.value = storedEmail
-    
+
     // 标记为已初始化
     isInitialized.value = true
-  }
-
-  /**
-   * 设置记住邮箱
-   */
-  function setRememberEmail(remember: boolean, email?: string): void {
-    rememberEmail.value = remember
-    if (remember && email) {
-      savedEmail.value = email
-      Storage.setSavedEmail(email)
-    } else if (!remember) {
-      savedEmail.value = ''
-      Storage.removeSavedEmail()
-    }
-    Storage.setRememberEmail(remember)
-  }
-
-  /**
-   * 获取保存的邮箱
-   */
-  function getSavedEmail(): string {
-    return savedEmail.value
   }
 
   /**
@@ -298,7 +257,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // ==================== 返回 ====================
-  
+
   return {
     // 状态
     user,
@@ -306,14 +265,12 @@ export const useAuthStore = defineStore('auth', () => {
     loginLoading,
     registerLoading,
     currentMode,
-    rememberEmail,
-    savedEmail,
     isInitialized,
-    
+
     // 计算属性
     isLoggedIn,
     currentNickname,
-    
+
     // 方法
     login,
     register,
@@ -322,8 +279,6 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     switchMode,
     initAuth,
-    setRememberEmail,
-    getSavedEmail,
     refreshUser,
     updateProfile,
     cancelAccount

@@ -108,6 +108,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       [
         WsEventType.MESSAGE_SEND,
         WsEventType.MESSAGE_DELETE,
+        WsEventType.MESSAGE_RECALL,
         WsEventType.FILE_UPLOAD,
         WsEventType.FILE_DELETE,
         WsEventType.MEMBER_JOIN,
@@ -179,6 +180,20 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         if (messageId) {
           roomState.value.messages = roomState.value.messages.filter(m => m.messageId !== messageId)
           handlers.onMessageDelete?.(messageId)
+        }
+        break
+      }
+
+      case WsEventType.MESSAGE_RECALL: {
+        const recallMessageId = data?.messageId
+        const recalledAt = data?.recalledAt
+        if (recallMessageId) {
+          roomState.value.messages = roomState.value.messages.map(m => {
+            if (m.messageId === recallMessageId) {
+              return { ...m, isRecalled: true, recalledAt: recalledAt || new Date().toISOString() }
+            }
+            return m
+          })
         }
         break
       }

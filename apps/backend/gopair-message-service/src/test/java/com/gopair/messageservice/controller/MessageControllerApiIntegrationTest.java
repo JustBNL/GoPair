@@ -19,27 +19,27 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * 消息 Controller 层 API 集成测试
  *
  * * [测试编排]
- *   - 主干测试流 A：发送文本 -> 分页查询 -> 获取最新 -> 统计 -> 删除
- *   - 分支测试流 B：发送图片 -> 查询详情 -> 权限校验
- *   - 边界测试流 C：空房间查询 -> 消息不存在查询 -> 不在房间发送
+ * - 主干测试流 A：发送文本 -> 分页查询 -> 获取最新 -> 统计 -> 删除
+ * - 分支测试流 B：发送图片 -> 查询详情 -> 权限校验
+ * - 边界测试流 C：空房间查询 -> 消息不存在查询 -> 不在房间发送
  *
  * * [环境与中间件]
- *   - MySQL（H2）：消息表、app_user 表
- *   - Redis：Mock（全链路无实际写操作）
- *   - RabbitMQ：Mock（webSocketMessageProducer）
- *   - realRestTemplate + userHeaders：模拟网关注入 X-User-Id / X-Nickname 请求头，
- *     确保 ContextInitFilter 能正确提取用户上下文
- *   - mockRestTemplate：Service 层调用外部服务（room-service）走 mock
+ * - MySQL（gopair_test）：消息表、app_user 表
+ * - Redis：真实连接（DB 14），测试后 flushDb() 清理
+ * - RabbitMQ：Mock（webSocketMessageProducer）
+ * - realRestTemplate + userHeaders：模拟网关注入 X-User-Id / X-Nickname 请求头，
+ *   确保 ContextInitFilter 能正确提取用户上下文
+ * - mockRestTemplate：Service 层调用外部服务（room-service）走 mock
  *
  * * [脏数据清理]
- *   - @Transactional + @AfterEach：MySQL 数据自动回滚
- *   - MockRestTemplateConfig.clear()：清理 stub 配置
+ * - @Transactional：MySQL 数据自动回滚
+ * - @AfterEach flushDb()：Redis 数据清理
+ * - MockRestTemplateConfig.clear()：清理 stub 配置
  */
 @Slf4j
 class MessageControllerApiIntegrationTest extends BaseIntegrationTest {
@@ -63,11 +63,13 @@ class MessageControllerApiIntegrationTest extends BaseIntegrationTest {
     void setUpUserAndRoom() {
         MockRestTemplateConfig.clear();
 
-        // 预置用户公开资料
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_A_ID, "Alice", "http://avatar/alice.png");
-        jdbcTemplate.update("MERGE INTO app_user (user_id, nickname, avatar) KEY(user_id) VALUES (?, ?, ?)",
-                USER_B_ID, "Bob", "http://avatar/bob.png");
+        // 预置用户公开资料，使用 MySQL INSERT ... ON DUPLICATE KEY UPDATE
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_A_ID, "Alice", "http://avatar/alice.png", "alice");
+        jdbcTemplate.update("INSERT INTO app_user (user_id, nickname, avatar, username) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), avatar = VALUES(avatar)",
+                USER_B_ID, "Bob", "http://avatar/bob.png", "bob");
 
         // 模拟用户在房间内
         mockUserInRoom(ROOM_ID, USER_A_ID, true);
@@ -86,7 +88,6 @@ class MessageControllerApiIntegrationTest extends BaseIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        verifyNoInteractions(stringRedisTemplate);
         MockRestTemplateConfig.clear();
     }
 

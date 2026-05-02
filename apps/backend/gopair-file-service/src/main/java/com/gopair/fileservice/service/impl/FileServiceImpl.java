@@ -258,6 +258,17 @@ public class FileServiceImpl implements FileService {
         return totalCleaned;
     }
 
+    @Override
+    public void deleteByObjectKey(String objectKey) {
+        if (objectKey == null || objectKey.trim().isEmpty()) {
+            log.warn("[file-service] deleteByObjectKey: objectKey is null or empty, skip");
+            return;
+        }
+        log.info("[file-service] start op:deleteByObjectKey key:{}", objectKey);
+        silentDeleteFromMinio(objectKey);
+        log.info("[file-service] success op:deleteByObjectKey key:{}", objectKey);
+    }
+
     // ==================== private helpers ====================
     private void checkFileTypeAndSize(String fileType, long fileSize) {
         if (!allowedTypesSet.contains(fileType))

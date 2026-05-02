@@ -4,59 +4,57 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 import org.junit.jupiter.api.AfterEach;
 
 /**
  * 集成测试基础类
- * 
- * 为集成测试提供Spring Boot测试环境和通用工具方法
- * 测试HTTP → Controller → Service → Repository → Database 完整链路
- * 
+ *
+ * * [核心策略]
+ * - MySQL 事务回滚：@Transactional 注解确保每个测试方法结束后自动回滚。
+ * - Redis 清理：Redis 不支持事务回滚，在 @AfterEach 中执行 flushDb() 清空当前 DB。
+ *
+ * * [执行链路]
+ * 1. Spring Boot 启动完整上下文（@SpringBootTest RANDOM_PORT）。
+ * 2. 子类注入 TestRestTemplate 发送真实 HTTP 请求，或直接注入 Service/Mapper 测试。
+ * 3. 每个测试方法结束后：
+ *    - MySQL：由 @Transactional 自动回滚，无需干预。
+ *    - Redis：执行 flushDb() 清空当前 DB（database=15）。
+ *
  * @author gopair
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@Transactional
 public abstract class BaseIntegrationTest {
 
-	/**
-	 * Spring Boot Test提供的HTTP客户端
-	 * 用于发送真实的HTTP请求测试完整链路
-	 */
 	@Autowired
 	protected TestRestTemplate restTemplate;
 
-	/**
-	 * 测试服务器的随机端口
-	 * Spring Boot会自动分配一个可用端口
-	 */
 	@LocalServerPort
 	protected int port;
 
 	@Autowired
-	private TestDatabaseCleaner testDatabaseCleaner;
+	private StringRedisTemplate redisTemplate;
 
-	/**
-	 * 构建完整的API URL
-	 * 
-	 * @param path API路径，如 "/user" 或 "/user/login"
-	 * @return 完整的URL，如 "http://localhost:8080/user"
-	 */
 	protected String getUrl(String path) {
 		return "http://localhost:" + port + path;
 	}
 
-	/**
-	 * 构建根URL
-	 * 
-	 * @return 服务器根URL，如 "http://localhost:8080"
-	 */
 	protected String getBaseUrl() {
 		return "http://localhost:" + port;
 	}
 
 	@AfterEach
-	void cleanUpAfterEach() {
-		testDatabaseCleaner.cleanDatabase();
+	void cleanUpRedis() {
+		var factory = redisTemplate.getConnectionFactory();
+		if (factory != null) {
+			var conn = factory.getConnection();
+			if (conn != null) {
+				conn.serverCommands().flushDb();
+			}
+		}
 	}
 } 

@@ -368,7 +368,7 @@ const allowedTypes = computed(() => props.allowedTypes)
         align-items: center;
         gap: 12px;
         padding: 12px;
-        background: white;
+        background: var(--surface-card);
         border-radius: 6px;
         margin-bottom: 8px;
         border: 1px solid var(--border-light);

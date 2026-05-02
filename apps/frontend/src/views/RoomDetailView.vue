@@ -1245,7 +1245,7 @@ onUnmounted(() => {
   z-index: 9999;
   padding: 8px 16px;
   background: var(--brand-primary);
-  color: white;
+  color: var(--text-on-primary);
   border-radius: 0 0 8px 8px;
   font-size: 14px;
   font-weight: 500;
@@ -1265,15 +1265,12 @@ onUnmounted(() => {
   background-repeat: no-repeat;
 }
 
-/* 暗色遮罩叠加层，确保内容可读 */
+/* 背景遮罩：统一使用 --bg-overlay，浅色白色遮罩保留背景图可见，深色深色遮罩实现暗色沉浸 */
 .room-detail-view::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(25, 35, 55, 0.92);
+  inset: 0;
+  background: var(--bg-overlay);
   z-index: 0;
 }
 
@@ -1288,7 +1285,7 @@ onUnmounted(() => {
 
     p {
       margin-top: 16px;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--text-muted);
     }
   }
 
@@ -1717,7 +1714,7 @@ onUnmounted(() => {
                 width: 12px;
                 height: 12px;
                 background: var(--color-success);
-                border: 2px solid white;
+                border: 2px solid var(--surface-bg);
                 border-radius: 50%;
               }
             }

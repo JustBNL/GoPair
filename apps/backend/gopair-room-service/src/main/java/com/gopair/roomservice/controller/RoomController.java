@@ -183,4 +183,22 @@ public class RoomController {
         boolean result = roomMemberService.isMemberInRoom(roomId, userId);
         return R.ok(result);
     }
+
+    /**
+     * 批量添加房间成员（压测场景专用，内部调用）。
+     *
+     * @param roomId 房间ID
+     * @param userIds 要添加的用户ID列表
+     * @return 成功添加的数量
+     */
+    @Operation(summary = "批量添加成员", description = "内部接口，批量将用户加入房间")
+    @PostMapping("/{roomId}/members/batch")
+    public R<Integer> addMembersBatch(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId,
+            @Parameter(description = "用户ID列表", required = true)
+            @RequestBody List<Long> userIds) {
+        int count = roomMemberService.addMembers(roomId, userIds);
+        return R.ok(count);
+    }
 }

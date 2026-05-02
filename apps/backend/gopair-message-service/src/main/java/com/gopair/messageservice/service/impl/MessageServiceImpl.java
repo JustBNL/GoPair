@@ -8,6 +8,7 @@ import com.gopair.common.core.R;
 import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.messageservice.config.MessageProperties;
+import com.gopair.messageservice.config.RestTemplateProperties;
 import com.gopair.messageservice.domain.dto.MessageQueryDto;
 import com.gopair.messageservice.domain.dto.SendMessageDto;
 import com.gopair.messageservice.domain.event.MessageSentEvent;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,18 +51,21 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final MessageProperties messageProperties;
     private final UserProfileFallbackService userProfileFallbackService;
     private final RestTemplate restTemplate;
+    private final RestTemplateProperties restTemplateProperties;
 
     public MessageServiceImpl(MessageMapper messageMapper, ApplicationEventPublisher eventPublisher,
                               WebSocketMessageProducer webSocketMessageProducer,
                               MessageProperties messageProperties,
                               UserProfileFallbackService userProfileFallbackService,
-                              RestTemplate restTemplate) {
+                              RestTemplate restTemplate,
+                              RestTemplateProperties restTemplateProperties) {
         this.messageMapper = messageMapper;
         this.eventPublisher = eventPublisher;
         this.webSocketMessageProducer = webSocketMessageProducer;
         this.messageProperties = messageProperties;
         this.userProfileFallbackService = userProfileFallbackService;
         this.restTemplate = restTemplate;
+        this.restTemplateProperties = restTemplateProperties;
     }
 
     @Override
@@ -216,6 +221,90 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         // 执行删除
         int result = messageMapper.deleteById(messageId);
         return result > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "撤回消息", module = "消息管理", includeResult = true)
+    public Boolean recallMessage(Long messageId, Long userId) {
+        log.info("撤回消息, 消息ID: {}, 操作用户ID: {}", messageId, userId);
+
+        Message message = messageMapper.selectById(messageId);
+        if (message == null) {
+            throw new MessageException(MessageErrorCode.MESSAGE_NOT_FOUND);
+        }
+
+        if (Boolean.TRUE.equals(message.getIsRecalled())) {
+            throw new MessageException(MessageErrorCode.MESSAGE_ALREADY_RECALLED);
+        }
+
+        if (!message.getSenderId().equals(userId)) {
+            throw new MessageException(MessageErrorCode.NO_PERMISSION_DELETE_MESSAGE);
+        }
+
+        long elapsedSeconds = java.time.Duration.between(
+                message.getCreateTime(), LocalDateTime.now()).getSeconds();
+        if (elapsedSeconds > messageProperties.getRecallTimeLimitSeconds()) {
+            throw new MessageException(MessageErrorCode.MESSAGE_RECALL_TIME_EXPIRED);
+        }
+
+        Message update = new Message();
+        update.setMessageId(messageId);
+        update.setIsRecalled(true);
+        update.setRecalledAt(LocalDateTime.now());
+        messageMapper.updateById(update);
+
+        deleteOssFileIfNeeded(message);
+
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("messageId", messageId);
+        payload.put("roomId", message.getRoomId());
+        payload.put("recalledAt", update.getRecalledAt().toString());
+        webSocketMessageProducer.sendEventToRoom(
+                message.getRoomId(), "message_recall", payload);
+
+        log.info("撤回消息成功, 消息ID: {}, 房间ID: {}", messageId, message.getRoomId());
+        return true;
+    }
+
+    /**
+     * 若消息为文件类型（图片/文件/语音）且有 fileUrl，则通知 file-service 删除 OSS 对象。
+     * 从 fileUrl 中提取 MinIO objectKey：
+     *   格式：{endpoint}/{bucket}/{objectKey}，例如 http://127.0.0.1:9000/gopair-files/room/123/original/abc.jpg
+     *   → objectKey = room/123/original/abc.jpg
+     */
+    private void deleteOssFileIfNeeded(Message message) {
+        if (message.getFileUrl() == null || message.getFileUrl().trim().isEmpty()) {
+            return;
+        }
+        try {
+            String fileUrl = message.getFileUrl().trim();
+            String objectKey = extractObjectKeyFromUrl(fileUrl);
+            if (objectKey == null) {
+                log.warn("无法从 fileUrl 提取 objectKey，跳过 OSS 删除: {}", fileUrl);
+                return;
+            }
+            String fileServiceUrl = restTemplateProperties.getFileServiceUrl();
+            restTemplate.delete(fileServiceUrl + "file/by-key?objectKey=" + objectKey);
+            log.info("已通知 file-service 删除 OSS 对象: {}", objectKey);
+        } catch (Exception e) {
+            log.warn("通知 file-service 删除 OSS 文件失败（不影响撤回结果）: {}", e.getMessage());
+        }
+    }
+
+    private String extractObjectKeyFromUrl(String fileUrl) {
+        String[] markers = {"gopair-files/", "gopair-files-test/"};
+        for (String marker : markers) {
+            int idx = fileUrl.indexOf(marker);
+            if (idx >= 0) {
+                return fileUrl.substring(idx + marker.length());
+            }
+        }
+        if (fileUrl.contains("/room/")) {
+            int idx = fileUrl.indexOf("/room/");
+            return fileUrl.substring(idx + 1);
+        }
+        return null;
     }
 
     @Override

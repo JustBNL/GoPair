@@ -1,8 +1,8 @@
 /**
  * GoPair 设计系统 — 全局 Design Token
- * Cool Slate + Muted Steel Blue / Emerald 配色方案
- * 冷调克制冷灰底，柔钢蓝主色 + 柔翠绿点缀
- * 拒绝高饱和暖色，走淡雅克制路线
+ * Cool Slate + Muted Steel Blue / Warm Coral Orange 配色方案
+ * 冷调克制冷灰底，柔钢蓝主色 + 暖珊瑚橙点缀
+ * 克制中注入温暖活力，拒绝高饱和暖色
  */
 
 :root {
@@ -15,13 +15,13 @@
   --brand-primary-medium: rgba(91, 135, 189, 0.14);
   --brand-primary-subtle: rgba(91, 135, 189, 0.06);
 
-  /* 柔翠绿 — 点缀色，用于消息气泡、徽章、状态、在线等 */
-  --brand-accent: #3B9E7A;
-  --brand-accent-rgb: 59, 158, 122;
-  --brand-accent-hover: #2E8B68;
-  --brand-accent-light: rgba(59, 158, 122, 0.08);
-  --brand-accent-medium: rgba(59, 158, 122, 0.14);
-  --brand-accent-subtle: rgba(59, 158, 122, 0.06);
+  /* 暖珊瑚橙 — 点缀色，用于消息气泡、徽章、状态、在线等，注入活力感 */
+  --brand-accent: #E07850;
+  --brand-accent-rgb: 224, 120, 80;
+  --brand-accent-hover: #CC5E38;
+  --brand-accent-light: rgba(224, 120, 80, 0.08);
+  --brand-accent-medium: rgba(224, 120, 80, 0.14);
+  --brand-accent-subtle: rgba(224, 120, 80, 0.06);
 
   /* ========== 表面色 ========== */
   /* 背景：冷调淡灰白，带极淡蓝灰底色，干净不冷白 */
@@ -45,8 +45,8 @@
   --border-medium: #D0D8E4;
 
   /* ========== 状态色 ========== */
-  --color-success: #3B9E7A;
-  --color-success-rgb: 59, 158, 122;
+  --color-success: #E07850;
+  --color-success-rgb: 224, 120, 80;
   --color-warning: #C48C2A;
   --color-warning-rgb: 196, 140, 42;
   --color-error: #C94D4D;
@@ -98,6 +98,11 @@
   --shadow-color-md: rgba(30, 36, 50, 0.10);
   --shadow-color-lg: rgba(30, 36, 50, 0.15);
 
+  /* 滚动条占位（在暗色模式下通过 :root.dark 覆盖） */
+  --scrollbar-track: var(--border-light);
+  --scrollbar-thumb: var(--border-default);
+  --scrollbar-thumb-hover: var(--text-muted);
+
   /* ========== 阴影 ========== */
   /* 阴影色跟随 text-primary 的冷调，保持阴影干净 */
   --shadow-sm: 0 1px 3px var(--shadow-color);
@@ -114,10 +119,20 @@
   /* ========== 消息气泡色 ========== */
   --bubble-other-bg: #EFF2F7;
   --bubble-other-text: #1E2432;
-  --bubble-own-bg: #3B9E7A;
+  --bubble-own-bg: #E07850;
   --bubble-own-text: #FFFFFF;
-  --bubble-reply-border: #3B9E7A;
-  --bubble-reply-bg: rgba(59, 158, 122, 0.06);
+  --bubble-reply-border: #E07850;
+  --bubble-reply-bg: rgba(224, 120, 80, 0.06);
+
+  /* ========== 背景遮罩色 ========== */
+  /* 半透明遮罩：用于浅色模式下保留背景图可见 */
+  --bg-overlay: rgba(255, 255, 255, 0.78);
+
+  /* 头部背景遮罩（与页面背景遮罩统一，无缝衔接） */
+  --header-bg: rgba(255, 255, 255, 0);
+  --header-border: rgba(255, 255, 255, 0.50);
+  --text-on-header: #1E2432;
+  --text-on-header-muted: rgba(30, 36, 50, 0.65);
 
   /* ========== AI 抽屉主题色 ========== */
   /* 深冷灰面板，与主应用视觉分离但不割裂 */
@@ -128,7 +143,126 @@
   --ai-border-strong: rgba(91, 135, 189, 0.35);
   --ai-accent: #5B87BD;
   --ai-accent-hover: #6E9AD0;
-  --ai-accent-secondary: #3B9E7A;
+  --ai-accent-secondary: #E07850;
+  --ai-accent-10: rgba(91, 135, 189, 0.10);
+  --ai-accent-15: rgba(91, 135, 189, 0.15);
+  --ai-accent-20: rgba(91, 135, 189, 0.20);
+  --ai-accent-60: rgba(91, 135, 189, 0.60);
+  --ai-text-primary: #EDF0F5;
+  --ai-text-secondary: #8896AA;
+  --ai-text-muted: #5C6A7A;
+  --ai-text-subtle: #3D4A5C;
+  --ai-danger: #CF6060;
+  --ai-danger-bg: rgba(207, 96, 96, 0.12);
+  --ai-danger-border: rgba(207, 96, 96, 0.3);
+  --ai-shadow: rgba(91, 135, 189, 0.25);
+  --ai-shadow-strong: rgba(91, 135, 189, 0.45);
+
+  /* ========== 主题切换全局过渡 ========== */
+  /* 当 .dark class 切换时，核心 CSS 变量属性平滑过渡 */
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    fill 0.3s ease,
+    stroke 0.3s ease;
+}
+
+/* AI 组件浅色模式覆盖（浅色页面中 AI 保持深色风格以形成对比） */
+:root {
+  /* ========== AI 抽屉主题色（浅色模式） ========== */
+  --ai-bg: #F0F4F9;
+  --ai-surface: #FFFFFF;
+  --ai-surface-raised: #EEF2F7;
+  --ai-border: rgba(91, 135, 189, 0.20);
+  --ai-border-strong: rgba(91, 135, 189, 0.40);
+  --ai-accent: #5B87BD;
+  --ai-accent-hover: #4A75AA;
+  --ai-accent-secondary: #E07850;
+  --ai-accent-10: rgba(91, 135, 189, 0.08);
+  --ai-accent-15: rgba(91, 135, 189, 0.12);
+  --ai-accent-20: rgba(91, 135, 189, 0.18);
+  --ai-accent-60: rgba(91, 135, 189, 0.60);
+  --ai-text-primary: #1E2432;
+  --ai-text-secondary: #566476;
+  --ai-text-muted: #8896AA;
+  --ai-text-subtle: #A8B5C7;
+  --ai-danger: #C94D4D;
+  --ai-danger-bg: rgba(201, 77, 77, 0.08);
+  --ai-danger-border: rgba(201, 77, 77, 0.25);
+  --ai-shadow: rgba(30, 36, 50, 0.12);
+  --ai-shadow-strong: rgba(30, 36, 50, 0.22);
+}
+
+/* ========== 暗色主题覆盖 ========== */
+/* 通过 App.vue 绑定 dark class 到根元素激活 */
+:root.dark {
+  /* 表面色 */
+  --surface-bg: #0D1117;
+  --surface-card: #161B22;
+  --surface-overlay: rgba(22, 27, 34, 0.96);
+
+  /* 文本色 */
+  --text-primary: #E6EDF3;
+  --text-secondary: #8B949E;
+  --text-muted: #6E7681;
+  --text-placeholder: #7D8590;
+
+  /* 边框色 */
+  --border-default: #30363D;
+  --border-light: #21262D;
+  --border-medium: #484F58;
+
+  /* 阴影色 */
+  --shadow-color: rgba(0, 0, 0, 0.45);
+  --shadow-color-md: rgba(0, 0, 0, 0.55);
+  --shadow-color-lg: rgba(0, 0, 0, 0.65);
+
+  /* 消息气泡色 */
+  --bubble-other-bg: #21262D;
+  --bubble-other-text: #E6EDF3;
+  --bubble-reply-bg: rgba(224, 120, 80, 0.10);
+
+  /* 危险色 */
+  --danger-hover-bg: rgba(207, 96, 96, 0.12);
+
+  /* 滚动条适配暗色 */
+  --scrollbar-track: #21262D;
+  --scrollbar-thumb: #484F58;
+  --scrollbar-thumb-hover: #6E7681;
+
+  /* 头部背景遮罩（与页面背景遮罩统一，无缝衔接） */
+  --header-bg: rgba(13, 17, 23, 0);
+  --header-border: rgba(255, 255, 255, 0.08);
+  --text-on-header: #E6EDF3;
+  --text-on-header-muted: rgba(230, 237, 243, 0.55);
+
+  /* 主品牌背景上的文字（暗色模式下白色） */
+  --text-on-primary: #FFFFFF;
+  --text-on-primary-muted: rgba(255, 255, 255, 0.75);
+
+  /* 半透明遮罩色（暗色模式下深色遮罩覆盖背景图片） */
+  --bg-overlay: rgba(13, 17, 23, 0.72);
+
+  /* 覆盖层（暗色模式下与深色卡片一致） */
+  --overlay-white-95: rgba(22, 27, 34, 0.95);
+  --overlay-white-90: rgba(22, 27, 34, 0.90);
+  --overlay-white-40: rgba(255, 255, 255, 0.40);
+  --overlay-white-30: rgba(255, 255, 255, 0.30);
+  --overlay-white-20: rgba(255, 255, 255, 0.20);
+  --overlay-white-15: rgba(255, 255, 255, 0.15);
+  --overlay-white-10: rgba(255, 255, 255, 0.10);
+
+  /* AI 抽屉主题色（深色模式） */
+  --ai-bg: #181D27;
+  --ai-surface: #1F2633;
+  --ai-surface-raised: #2A3344;
+  --ai-border: rgba(91, 135, 189, 0.18);
+  --ai-border-strong: rgba(91, 135, 189, 0.35);
+  --ai-accent: #5B87BD;
+  --ai-accent-hover: #6E9AD0;
+  --ai-accent-secondary: #E07850;
   --ai-accent-10: rgba(91, 135, 189, 0.10);
   --ai-accent-15: rgba(91, 135, 189, 0.15);
   --ai-accent-20: rgba(91, 135, 189, 0.20);

@@ -365,7 +365,7 @@ async function copyRoomCode() {
   flex: 1;
   background: var(--brand-primary);
   border: none;
-  color: white;
+  color: var(--text-on-primary);
   min-height: 44px;
 }
 .enter-btn:hover {

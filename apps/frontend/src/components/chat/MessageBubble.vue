@@ -24,15 +24,21 @@
       </div>
 
       <!-- 消息主体 -->
-      <div 
+      <div
         :class="[
           'message-body',
           `message-type-${message.messageType}`,
-          { 'has-reply': message.replyToId }
+          { 'has-reply': message.replyToId },
+          { 'message-recalled': message.isRecalled }
         ]"
       >
+        <!-- 已撤回消息 -->
+        <div v-if="message.isRecalled" class="recalled-placeholder">
+          <span class="recalled-text">消息已撤回</span>
+        </div>
+
         <!-- 文本消息 -->
-        <div v-if="message.messageType === MessageType.TEXT" class="text-message">
+        <div v-else-if="message.messageType === MessageType.TEXT" class="text-message">
           {{ message.content }}
         </div>
 
@@ -103,9 +109,9 @@
       </div>
     </div>
 
-    <!-- 消息操作菜单 - 移动端始终显示，桌面端hover显示 -->
+    <!-- 消息操作菜单 - 移动端始终显示，桌面端hover显示，已撤回消息不显示 -->
     <div
-      v-if="showActions"
+      v-if="showActions && !message.isRecalled"
       class="message-actions"
       role="toolbar"
       aria-label="消息操作"
@@ -375,6 +381,20 @@ const onDelete = () => {
 
   &.has-reply {
     border-top-left-radius: 4px;
+  }
+
+  &.message-recalled {
+    background-color: transparent;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 4px 8px;
+
+    .recalled-placeholder {
+      .recalled-text {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+    }
   }
 
   &.message-type-1 {

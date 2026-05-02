@@ -1,0 +1,127 @@
+# 集成测试环境配置
+# 使用真实 MySQL (gopair_test) + 真实 Redis，@Transactional 保证数据回滚
+spring:
+  application:
+    name: room-service-test
+
+  # 禁用 Nacos 配置中心（测试环境不需要）
+  config:
+    import: "optional:nacos:"
+  cloud:
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+
+  # RabbitMQ 测试配置（禁用自动启动监听器避免队列不存在错误）
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        auto-startup: false
+    virtual-host: /
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
+  # 真实 MySQL 测试数据库
+  datasource:
+    url: jdbc:mysql://localhost:3306/gopair_test?useSSL=false&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+    username: root
+    password: 610692
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  # 真实 Redis 测试配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: 14
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+# 服务器配置
+server:
+  port: 0
+
+# MyBatis Plus 配置
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.gopair.roomservice.domain.po
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+# 日志配置
+logging:
+  level:
+    com.gopair.roomservice: INFO
+    org.springframework.web: INFO
+    org.springframework.test: INFO
+    org.springframework.transaction: DEBUG
+    org.springframework.jdbc: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# 房间业务配置
+gopair:
+  room:
+    default-max-members: 5
+    default-expire-hours: 1
+    code-length: 8
+    reservation:
+      join-token-ttl-seconds: 30
+      pending-ttl-seconds: 30
+      reaper-interval-ms: 60000
+      rate-limit-per-ms: 100
+    password:
+      master-key: test-master-key-for-testing
+  rest-template:
+    enabled: true
+  schedule:
+    room-cleanup-interval: 10000
+    message-cleanup-interval: 10000
+    message-retain-days: 1
+
+# MQ 消息队列配置
+mq:
+  room-join:
+    exchange: room.join.exchange
+    routing-key: room.join.requested
+    queue: room.join.queue
+    dlx: dl.exchange
+    dlq: dl.queue
+  room-leave:
+    exchange: room.leave.exchange
+    routing-key: room.leave.requested
+    queue: room.leave.queue
+  user-offline:
+    exchange: websocket.topic
+    routing-key: system.offline
+    queue: user.offline.queue
