@@ -74,8 +74,17 @@ function handleEmojiClick(emoji: string) {
   }
 
   :deep(.ant-tabs-content) {
-    height: 52px;
-    overflow: hidden;
+    height: 88px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: 2px;
+    }
   }
 }
 
@@ -85,7 +94,7 @@ function handleEmojiClick(emoji: string) {
 
 .emoji-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
   gap: 2px;
   padding: 4px 0;
 }

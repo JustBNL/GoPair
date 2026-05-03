@@ -32,6 +32,7 @@
             <CopyOutlined />
             复制房间码
           </a-button>
+          <ThemeToggle />
         </div>
       </div>
 
@@ -138,244 +139,231 @@
 
       <!-- 通讯功能区域 -->
       <div class="communication-section">
-        <a-tabs
-          v-model:activeKey="activeTab"
-          type="card"
-          class="communication-tabs"
-          :tab-bar-style="{ background: 'var(--surface-bg)', margin: 0 }"
-        >
-          <!-- 聊天标签页 -->
-          <a-tab-pane key="chat" class="tab-pane">
-            <template #tab>
-              <span class="tab-title">
-                <MessageOutlined />
-                聊天
-                <a-badge v-if="unreadCount > 0" :count="unreadCount" class="tab-badge" />
-              </span>
-            </template>
-            <div class="chat-container">
-              <div class="chat-content">
-                <!-- 消息加载状态 -->
-                <div v-if="serviceStates.messages.loading" class="service-loading">
-                  <a-spin size="large" />
-                  <p>加载消息中...</p>
-                </div>
-                
-                <!-- 消息加载失败 -->
-                <div v-else-if="serviceStates.messages.error" class="service-error">
-                  <a-result status="warning" :title="serviceStates.messages.error">
-                    <template #extra>
-                      <a-button type="primary" @click="retryService('messages')">
-                        重试
-                      </a-button>
-                    </template>
-                  </a-result>
-                </div>
-                
-                <!-- 正常的消息显示 -->
-                <div v-else class="message-list-container">
-                  <div v-if="!messages || messages.length === 0" class="empty-messages">
-                    <a-empty description="暂无消息，开始聊天吧！" />
-                  </div>
-                  <div v-else class="message-items">
-                    <message-bubble
-                      v-for="message in messages"
-                      v-memo="[message.messageId, message.content, message.messageType, message.isOwn, message.senderNickname]"
-                      :key="message.messageId"
-                      :message="message"
-                      :show-sender-info="true"
-                      @reply="handleReply"
-                      @delete="(id) => handleDeleteMessage(messages.find(m => m.messageId === id)!)"
-                      @recall="(id) => handleRecallMessage(messages.find(m => m.messageId === id)!)"
-                    />
-                  </div>
-                </div>
-                <!-- Emoji 互动栏 -->
-                <div class="emoji-bar-container">
-                  <emoji-bar @send-emoji="sendEmoji" />
-                </div>
-                <div class="message-input-container">
-                  <message-input
-                    v-if="currentRoom"
-                    :room-id="currentRoom.roomId"
-                    :reply-message="replyMessage"
-                    :disabled="serviceStates.messages.error !== null"
-                    @send-message="handleSendMessage"
-                    @cancel-reply="() => (replyMessage = null)"
-                    @upload-progress="handleUploadProgress"
-                  />
-                </div>
+        <!-- 聊天标签页 -->
+        <div class="section-header">
+          <a-tabs
+            v-model:activeKey="activeTab"
+            type="card"
+            class="communication-tabs"
+            :tab-bar-style="{ background: 'var(--surface-bg)', margin: 0 }"
+          >
+            <a-tab-pane key="chat" class="tab-pane">
+              <template #tab>
+                <span class="tab-title">
+                  <MessageOutlined />
+                  聊天
+                  <a-badge v-if="unreadCount > 0" :count="unreadCount" class="tab-badge" />
+                </span>
+              </template>
+            </a-tab-pane>
+
+            <!-- 文件标签页 -->
+            <a-tab-pane key="files" class="tab-pane">
+              <template #tab>
+                <span class="tab-title">
+                  <FolderOutlined />
+                  文件
+                  <a-badge v-if="!serviceStates.files.available" status="error" class="tab-badge" />
+                </span>
+              </template>
+            </a-tab-pane>
+
+            <!-- 语音通话标签页 -->
+            <a-tab-pane key="voice" class="tab-pane">
+              <template #tab>
+                <span class="tab-title">
+                  <PhoneOutlined />
+                  语音
+                  <a-badge v-if="callState === 'in-call'" text="通话中" status="processing" class="tab-badge" />
+                  <a-badge v-else-if="callState === 'active'" text="进行中" status="warning" class="tab-badge" />
+                </span>
+              </template>
+            </a-tab-pane>
+
+            <!-- 成员标签页 -->
+            <a-tab-pane key="members" class="tab-pane">
+              <template #tab>
+                <span class="tab-title">
+                  <TeamOutlined />
+                  成员 ({{ !serviceStates.members.available ? '?' : currentRoom.currentMembers }})
+                  <a-badge v-if="!serviceStates.members.available" status="error" class="tab-badge" />
+                </span>
+              </template>
+            </a-tab-pane>
+          </a-tabs>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="section-body">
+          <!-- 聊天面板 -->
+          <div v-show="activeTab === 'chat'" class="message-list-wrapper">
+            <div v-if="serviceStates.messages.loading" class="service-loading">
+              <a-spin size="large" />
+              <p>加载消息中...</p>
+            </div>
+            <div v-else-if="serviceStates.messages.error" class="service-error">
+              <a-result status="warning" :title="serviceStates.messages.error">
+                <template #extra>
+                  <a-button type="primary" @click="retryService('messages')">
+                    重试
+                  </a-button>
+                </template>
+              </a-result>
+            </div>
+            <div v-else class="message-list-container">
+              <div v-if="!messages || messages.length === 0" class="empty-messages">
+                <a-empty description="暂无消息，开始聊天吧！" />
+              </div>
+              <div v-else class="message-items">
+                <message-bubble
+                  v-for="message in messages"
+                  v-memo="[message.messageId, message.content, message.messageType, message.isOwn, message.senderNickname]"
+                  :key="message.messageId"
+                  :message="message"
+                  :show-sender-info="true"
+                  @reply="handleReply"
+                  @delete="(id) => handleDeleteMessage(messages.find(m => m.messageId === id)!)"
+                  @recall="(id) => handleRecallMessage(messages.find(m => m.messageId === id)!)"
+                />
               </div>
             </div>
-          </a-tab-pane>
+          </div>
 
-          <!-- 文件标签页 -->
-          <a-tab-pane key="files" class="tab-pane">
-            <template #tab>
-              <span class="tab-title">
-                <FolderOutlined />
-                文件
-                <a-badge v-if="!serviceStates.files.available" status="error" class="tab-badge" />
-              </span>
-            </template>
-            <div class="files-container">
-              <!-- 文件服务加载状态 -->
-              <div v-if="serviceStates.files.loading" class="service-loading">
-                <a-spin size="large" />
-                <p>加载文件信息中...</p>
-              </div>
-              
-              <!-- 文件服务加载失败 -->
-              <div v-else-if="serviceStates.files.error" class="service-error">
-                <a-result status="warning" :title="serviceStates.files.error">
-                  <template #extra>
-                    <a-button type="primary" @click="retryService('files')">
-                      重试
-                    </a-button>
-                  </template>
-                </a-result>
-              </div>
-              
-              <!-- 正常的文件功能 -->
-              <div v-else>
-                <!-- 文件上传区域 -->
-                <!-- 文件列表 -->
-                <div class="file-list-section">
-                  <file-list
-                    :room-id="currentRoom.roomId"
-                    :refresh="fileListRefresh"
-                    @file-selected="handleFileSelected"
-                    @file-deleted="handleFileDeleted"
-                  />
-                </div>
-              </div>
+          <!-- 文件面板 -->
+          <div v-show="activeTab === 'files'" class="files-container">
+            <div v-if="serviceStates.files.loading" class="service-loading">
+              <a-spin size="large" />
+              <p>加载文件信息中...</p>
             </div>
-          </a-tab-pane>
-
-          <!-- 语音通话标签页 -->
-          <a-tab-pane key="voice" class="tab-pane">
-            <template #tab>
-              <span class="tab-title">
-                <PhoneOutlined />
-                语音
-                <a-badge v-if="callState === 'in-call'" text="通话中" status="processing" class="tab-badge" />
-                <a-badge v-else-if="callState === 'active'" text="进行中" status="warning" class="tab-badge" />
-              </span>
-            </template>
-            <div class="voice-container">
-              <voice-call-panel
+            <div v-else-if="serviceStates.files.error" class="service-error">
+              <a-result status="warning" :title="serviceStates.files.error">
+                <template #extra>
+                  <a-button type="primary" @click="retryService('files')">
+                    重试
+                  </a-button>
+                </template>
+              </a-result>
+            </div>
+            <div v-else class="file-list-section">
+              <file-list
                 :room-id="currentRoom.roomId"
-                :current-user-id="currentUser?.userId || 0"
-                :call-state="callState"
-                :is-owner="voiceIsOwner"
-                :current-call="currentCall"
-                :loading="voiceLoading"
-                :action-loading="actionLoading"
-                :is-muted="isMuted"
-                :is-speaker-off="isSpeakerOff"
-                :member-nicknames="memberNicknameMap"
-                @open="handleOpen"
-                @join="handleJoin"
-                @leave="handleLeave"
-                @end="handleEnd"
-                @toggle-mute="handleToggleMute"
-                @toggle-speaker="handleToggleSpeaker"
+                :refresh="fileListRefresh"
+                @file-selected="handleFileSelected"
+                @file-deleted="handleFileDeleted"
               />
             </div>
-          </a-tab-pane>
+          </div>
 
-          <!-- 成员标签页 -->
-          <a-tab-pane key="members" class="tab-pane">
-            <template #tab>
-              <span class="tab-title">
-                <TeamOutlined />
-                成员 ({{ !serviceStates.members.available ? '?' : currentRoom.currentMembers }})
-                <a-badge v-if="!serviceStates.members.available" status="error" class="tab-badge" />
-              </span>
-            </template>
-            <div class="members-container">
-              <!-- 成员加载状态 -->
-              <div v-if="serviceStates.members.loading" class="service-loading">
-                <a-spin size="large" />
-                <p>加载成员信息中...</p>
-              </div>
-              
-              <!-- 成员加载失败 -->
-              <div v-else-if="serviceStates.members.error" class="service-error">
-                <a-result status="warning" :title="serviceStates.members.error">
-                  <template #extra>
-                    <a-button type="primary" @click="retryService('members')">
-                      重试
-                    </a-button>
-                  </template>
-                </a-result>
-              </div>
-              
-              <!-- 正常的成员显示 -->
-              <div v-else>
-                <div class="members-header">
-                  <h4>房间成员</h4>
-                  <a-button type="text" size="small" aria-label="刷新成员列表" @click="refreshMembers">
-                    <ReloadOutlined />
-                    刷新
+          <!-- 语音面板 -->
+          <div v-show="activeTab === 'voice'" class="voice-container">
+            <voice-call-panel
+              :room-id="currentRoom.roomId"
+              :current-user-id="currentUser?.userId || 0"
+              :call-state="callState"
+              :is-owner="voiceIsOwner"
+              :current-call="currentCall"
+              :loading="voiceLoading"
+              :action-loading="actionLoading"
+              :is-muted="isMuted"
+              :is-speaker-off="isSpeakerOff"
+              :member-nicknames="memberNicknameMap"
+              @open="handleOpen"
+              @join="handleJoin"
+              @leave="handleLeave"
+              @end="handleEnd"
+              @toggle-mute="handleToggleMute"
+              @toggle-speaker="handleToggleSpeaker"
+            />
+          </div>
+
+          <!-- 成员面板 -->
+          <div v-show="activeTab === 'members'" class="members-container">
+            <div v-if="serviceStates.members.loading" class="service-loading">
+              <a-spin size="large" />
+              <p>加载成员信息中...</p>
+            </div>
+            <div v-else-if="serviceStates.members.error" class="service-error">
+              <a-result status="warning" :title="serviceStates.members.error">
+                <template #extra>
+                  <a-button type="primary" @click="retryService('members')">
+                    重试
                   </a-button>
-                </div>
-                
-                <div class="members-list">
-                  <div
-                    v-for="member in roomMembers"
-                    :key="member.userId"
-                    class="member-item"
-                  >
-                    <div class="member-avatar">
-                      <a-avatar :size="40" :src="member.avatar || undefined">
-                        <template v-if="!member.avatar">
-                          {{ memberNameInitial(member) }}
-                        </template>
-                      </a-avatar>
-                      <div v-if="memberPresence(member) === 'online'" class="online-indicator"></div>
+                </template>
+              </a-result>
+            </div>
+            <div v-else class="members-list-wrapper">
+              <div class="members-header">
+                <h4>房间成员</h4>
+                <a-button type="text" size="small" aria-label="刷新成员列表" @click="refreshMembers">
+                  <ReloadOutlined />
+                  刷新
+                </a-button>
+              </div>
+              <div class="members-list">
+                <div
+                  v-for="member in roomMembers"
+                  :key="member.userId"
+                  class="member-item"
+                >
+                  <div class="member-avatar">
+                    <a-avatar :size="40" :src="member.avatar || undefined">
+                      <template v-if="!member.avatar">
+                        {{ memberNameInitial(member) }}
+                      </template>
+                    </a-avatar>
+                    <div v-if="memberPresence(member) === 'online'" class="online-indicator"></div>
+                  </div>
+                  <div class="member-info">
+                    <div class="member-name">
+                      {{ member.nickname }}
+                      <a-tag v-if="member.isOwner" color="gold" size="small">
+                        房主
+                      </a-tag>
+                      <a-tag v-if="member.userId === currentUser?.userId" color="blue" size="small">
+                        我
+                      </a-tag>
                     </div>
-                    
-                    <div class="member-info">
-                      <div class="member-name">
-                        {{ member.nickname }}
-                        <a-tag v-if="member.isOwner" color="gold" size="small">
-                          房主
-                        </a-tag>
-                        <a-tag v-if="member.userId === currentUser?.userId" color="blue" size="small">
-                          我
-                        </a-tag>
-                      </div>
-                      <div class="member-meta">
-                        <span class="join-time">{{ formatTime(member.joinTime) }}</span>
-                        <span :class="['status', memberPresence(member)]">
-                          {{ getStatusText(memberPresence(member)) }}
-                        </span>
-                      </div>
+                    <div class="member-meta">
+                      <span class="join-time">{{ formatTime(member.joinTime) }}</span>
+                      <span :class="['status', memberPresence(member)]">
+                        {{ getStatusText(memberPresence(member)) }}
+                      </span>
                     </div>
-
-                    <!-- 成员操作 -->
-                    <div class="member-actions">
-                      <a-dropdown v-if="isOwner && member.userId !== currentUser?.userId">
-                        <a-button type="text" size="small" aria-label="成员操作">
-                          <MoreOutlined />
-                        </a-button>
-                        <template #overlay>
-                          <a-menu>
-                            <a-menu-item key="kick" @click="kickMember(member)">
-                              <UserDeleteOutlined />
-                              移出房间
-                            </a-menu-item>
-                          </a-menu>
-                        </template>
-                      </a-dropdown>
-                    </div>
+                  </div>
+                  <div class="member-actions">
+                    <a-dropdown v-if="isOwner && member.userId !== currentUser?.userId">
+                      <a-button type="text" size="small" aria-label="成员操作">
+                        <MoreOutlined />
+                      </a-button>
+                      <template #overlay>
+                        <a-menu>
+                          <a-menu-item key="kick" @click="kickMember(member)">
+                            <UserDeleteOutlined />
+                            移出房间
+                          </a-menu-item>
+                        </a-menu>
+                      </template>
+                    </a-dropdown>
                   </div>
                 </div>
               </div>
             </div>
-          </a-tab-pane>
-        </a-tabs>
+          </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="section-footer">
+          <message-input
+            v-show="activeTab === 'chat'"
+            v-if="currentRoom"
+            :room-id="currentRoom.roomId"
+            :reply-message="replyMessage"
+            :disabled="serviceStates.messages.error !== null"
+            @send-message="handleSendMessage"
+            @cancel-reply="() => (replyMessage = null)"
+            @upload-progress="handleUploadProgress"
+          />
+        </div>
       </div>
     </div>
 
@@ -445,11 +433,11 @@ import type { MessageVO, FileVO, MessageQueryDto } from '@/types/api'
 // 组件导入
 import MessageBubble from '@/components/chat/MessageBubble.vue'
 import EmojiOverlay from '@/components/chat/EmojiOverlay.vue'
-import EmojiBar from '@/components/chat/EmojiBar.vue'
 import type { EmojiParticle } from '@/types/api'
 import MessageInput from '@/components/chat/MessageInput.vue'
 import FileList from '@/components/file/FileList.vue'
 import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useVoiceCall } from '@/composables/useVoiceCall'
 
 const route = useRoute()
@@ -1298,13 +1286,13 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 24px;
-    min-height: calc(100vh - 48px);
+    height: calc(100vh - 48px);
 
     .room-header {
+      flex-shrink: 0;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 24px;
       padding: 24px;
       background: var(--surface-card);
       border-radius: 12px;
@@ -1347,10 +1335,10 @@ onUnmounted(() => {
     }
 
     .room-info-cards {
+      flex-shrink: 0;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 16px;
-      margin-bottom: 24px;
 
       .info-card {
         padding: 20px;
@@ -1364,8 +1352,8 @@ onUnmounted(() => {
       }
 
         &.active-call {
-          border: 2px solid var(--color-success);
-          background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.06) 0%, var(--surface-card) 100%);
+          border: 2px solid var(--brand-accent);
+          background: linear-gradient(135deg, rgba(var(--brand-accent-rgb), 0.06) 0%, var(--surface-card) 100%);
         }
 
         .card-header {
@@ -1376,7 +1364,7 @@ onUnmounted(() => {
 
           .card-icon {
             font-size: 18px;
-            color: var(--color-info);
+            color: var(--brand-primary);
           }
 
           h3 {
@@ -1405,7 +1393,7 @@ onUnmounted(() => {
             transition: color 0.2s;
 
             &:hover {
-              color: var(--color-info);
+              color: var(--brand-primary);
             }
 
             .copy-icon {
@@ -1414,15 +1402,15 @@ onUnmounted(() => {
           }
 
           &.password-card {
-            border: 1px solid rgba(var(--color-info-rgb), 0.2);
+            border: 1px solid rgba(var(--brand-primary-rgb), 0.2);
 
             &:hover {
-              border-color: var(--color-info);
+              border-color: var(--brand-primary);
             }
             }
 
             .card-icon {
-              color: var(--color-info);
+              color: var(--brand-primary);
             }
           }
           
@@ -1440,7 +1428,7 @@ onUnmounted(() => {
                 font-family: 'Courier New', monospace;
                 font-size: 16px;
                 font-weight: 700;
-                color: var(--color-info);
+                color: var(--brand-primary);
                 letter-spacing: 1.5px;
                 flex: 1;
 
@@ -1466,7 +1454,7 @@ onUnmounted(() => {
                 flex-shrink: 0;
 
                 &:hover {
-                  color: var(--color-info);
+                  color: var(--brand-primary);
                 }
               }
             }
@@ -1499,7 +1487,7 @@ onUnmounted(() => {
               }
 
               &.in-call {
-                background: var(--color-success);
+                background: var(--brand-accent);
                 animation: pulse 2s infinite;
               }
             }
@@ -1537,123 +1525,118 @@ onUnmounted(() => {
       display: flex;
       flex-direction: column;
 
-      .communication-tabs {
-        :deep(.ant-tabs-nav) {
-          margin: 0;
-          background: var(--surface-bg);
+      /* 上部：标签栏 */
+      .section-header {
+        flex-shrink: 0;
 
-          .ant-tabs-tab {
-            padding: 12px 16px;
-            border-radius: 0;
+        .communication-tabs {
+          :deep(.ant-tabs-nav) {
+            margin: 0;
+            background: var(--surface-bg);
 
-            .tab-title {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              font-weight: 500;
+            .ant-tabs-tab {
+              padding: 12px 16px;
+              border-radius: 0;
 
-              .tab-badge {
-                :deep(.ant-badge-count) {
-                  font-size: 10px;
-                  min-width: 16px;
-                  height: 16px;
-                  line-height: 16px;
+              .tab-title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 500;
+
+                .tab-badge {
+                  :deep(.ant-badge-count) {
+                    font-size: 10px;
+                    min-width: 16px;
+                    height: 16px;
+                    line-height: 16px;
+                  }
                 }
+              }
+            }
+
+            .ant-tabs-tab-active {
+              background: var(--surface-card);
+
+              .tab-title {
+                color: var(--brand-primary);
               }
             }
           }
 
-          .ant-tabs-tab-active {
-            background: var(--surface-card);
-
-            .tab-title {
-              color: var(--color-info);
-            }
-          }
-        }
-
-        :deep(.ant-tabs-content-holder) {
-          flex: 1;
-          overflow: hidden;
-
-          .ant-tabs-content {
-            height: 100%;
-
-            .tab-pane {
-              height: 100%;
-              padding: 0;
-              display: flex;
-              flex-direction: column;
-            }
+          :deep(.ant-tabs-content-holder) {
+            display: none;
           }
         }
       }
 
-      .chat-container {
+      /* 中部：内容区域 */
+      .section-body {
         flex: 1;
+        min-height: 0;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
-        min-height: 0;
 
-        .chat-content {
+        .service-loading,
+        .service-error {
           flex: 1;
           display: flex;
           flex-direction: column;
-          overflow: hidden;
-          min-height: 0;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
 
-          .service-loading,
-          .service-error {
-            flex: 1;
+          p {
+            margin-top: 16px;
+            color: var(--text-muted);
+          }
+        }
+      }
+
+      /* 下部：输入区 */
+      .section-footer {
+        flex-shrink: 0;
+        border-top: 1px solid var(--border-light);
+      }
+
+      /* 内容区底部视觉分隔（footer 隐藏时提供视觉收束） */
+      .section-body {
+        &::after {
+          content: '';
+          display: block;
+          flex-shrink: 0;
+          height: 1px;
+          background: var(--border-light);
+          margin-top: auto;
+        }
+      }
+
+      /* 消息列表 */
+      .message-list-wrapper {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+
+        .message-list-container {
+          flex: 1;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+
+          .message-items {
+            flex: none;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-
-            p {
-              margin-top: 16px;
-              color: var(--text-muted);
-            }
           }
 
-          .message-list-container {
+          .empty-messages {
             flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            min-height: 0;
-            
-            .message-item {
-              margin-bottom: 12px;
-              
-              &:last-child {
-                margin-bottom: 0;
-              }
-            }
-            
-            .empty-messages {
-              height: 100%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-          }
-          
-          .emoji-bar-container {
-            height: 72px;
             display: flex;
             align-items: center;
-            padding: 0 16px;
-            flex-shrink: 0;
-            border-bottom: 1px solid var(--border-light);
-            overflow: hidden;
-          }
-
-          .message-input-container {
-            border-top: 1px solid var(--border-light);
-            padding: 16px;
-            flex-shrink: 0;
+            justify-content: center;
           }
         }
       }
@@ -1713,7 +1696,7 @@ onUnmounted(() => {
                 right: 0;
                 width: 12px;
                 height: 12px;
-                background: var(--color-success);
+                background: var(--brand-accent);
                 border: 2px solid var(--surface-bg);
                 border-radius: 50%;
               }
@@ -1735,7 +1718,7 @@ onUnmounted(() => {
 
                 .status {
                   &.online {
-                    color: var(--color-success);
+                    color: var(--brand-accent);
                   }
 
                   &.offline {
@@ -1829,11 +1812,19 @@ onUnmounted(() => {
       }
 
       .communication-section {
-        .communication-tabs {
-          :deep(.ant-tabs-content-holder) {
-            flex: 1;
-            overflow: hidden;
+        .section-header {
+          .communication-tabs {
+            :deep(.ant-tabs-tab) {
+              padding: 10px 12px;
+            }
           }
+        }
+
+        .message-list-wrapper,
+        .files-container,
+        .voice-container,
+        .members-container {
+          padding: 12px;
         }
       }
     }

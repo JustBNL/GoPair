@@ -1,5 +1,10 @@
 <template>
   <div class="message-input">
+    <!-- Emoji 选择器（工具栏上方） -->
+    <div v-if="emojiPickerVisible" class="emoji-picker-inline">
+      <emoji-bar @send-emoji="handleSendEmoji" />
+    </div>
+
     <!-- 回复预览 -->
     <div v-if="replyMessage" class="reply-preview">
       <div class="reply-info">
@@ -7,9 +12,9 @@
         <span class="reply-target">{{ replyMessage.senderNickname }}</span>
         <span class="reply-content">{{ replyMessage.content }}</span>
       </div>
-      <a-button 
-        type="text" 
-        size="small" 
+      <a-button
+        type="text"
+        size="small"
         @click="cancelReply"
       >
         <close-outlined />
@@ -20,7 +25,7 @@
     <div class="input-toolbar" :class="{ 'toolbar-disabled': sending || props.disabled }">
       <!-- 表情按钮 -->
       <a-tooltip title="表情">
-        <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="表情">
+        <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="表情" @click="emojiPickerVisible = !emojiPickerVisible">
           <smile-outlined />
         </a-button>
       </a-tooltip>
@@ -54,15 +59,17 @@
       </a-tooltip>
 
       <!-- 语音录制 -->
-      <a-tooltip title="语音消息">
+      <a-tooltip
+        title="语音消息"
+        :open="false"
+        :overlay-style="{ pointerEvents: 'none' }"
+      >
         <a-button
           type="text"
           size="small"
           :disabled="sending || props.disabled"
           :class="{ 'recording': isRecording }"
-          @mousedown="startRecording"
-          @mouseup="stopRecording"
-          @mouseleave="stopRecording"
+          @click="toggleRecording"
           aria-label="语音录制"
         >
           <audio-outlined />
@@ -136,6 +143,7 @@ import {
   SendOutlined
 } from '@ant-design/icons-vue'
 import { MessageType, type MessageVO } from '@/types/api'
+import EmojiBar from './EmojiBar.vue'
 
 interface Props {
   roomId: number
@@ -169,6 +177,7 @@ const emit = defineEmits<Emits>()
 const inputText = ref('')
 const sending = ref(false)
 const uploadProgress = ref(0)
+const emojiPickerVisible = ref(false)
 
 // 语音录制
 const isRecording = ref(false)
@@ -177,6 +186,7 @@ const recordingDuration = ref(0)
 const recordingTimer = ref<number | null>(null)
 const mediaRecorder = ref<MediaRecorder | null>(null)
 const audioChunks = ref<Blob[]>([])
+const recordingStartTime = ref(0)
 
 // 组件引用
 const textareaRef = ref()
@@ -495,6 +505,17 @@ const cancelReply = () => {
   emit('cancel-reply')
 }
 
+/**
+ * 处理 Emoji 发送（来自 EmojiBar 弹窗）
+ */
+const handleSendEmoji = (emoji: string) => {
+  emojiPickerVisible.value = false
+  emit('send-message', {
+    content: emoji,
+    messageType: 5 // Emoji 互动消息类型
+  })
+}
+
 // 监听回复消息变化，自动聚焦输入框
 watch(() => props.replyMessage, (newVal) => {
   if (newVal) {
@@ -707,5 +728,10 @@ watch(() => props.replyMessage, (newVal) => {
       }
     }
   }
+}
+
+.emoji-picker-inline {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-light);
 }
 </style>
