@@ -15,11 +15,20 @@
     <div v-else-if="memberProfile" class="profile-content">
       <!-- 头像区域 -->
       <div class="profile-avatar-section">
-        <div class="avatar-wrapper">
-          <a-avatar :size="80" :src="memberProfile.avatar">
-            <template v-if="!memberProfile.avatar">
-              {{ nicknameInitial }}
-            </template>
+        <div class="avatar-wrapper clickable">
+          <a-image
+            v-if="memberProfile?.avatar"
+            :src="memberProfile.avatar"
+            :preview="{
+              src: memberProfile.avatarOriginalUrl || memberProfile.avatar
+            }"
+            :width="80"
+            :height="80"
+            :preview-mask="false"
+            class="profile-avatar-image"
+          />
+          <a-avatar v-else :size="80">
+            {{ nicknameInitial }}
           </a-avatar>
         </div>
         <div class="profile-info">
@@ -111,7 +120,7 @@ import type { FriendStatusVO, UserPublicProfile } from '@/types/chat'
 
 const props = defineProps<{
   visible: boolean
-  memberId: number
+  memberId: number | null
 }>()
 
 const emit = defineEmits<{
@@ -261,6 +270,17 @@ function handleClose() {
 .avatar-wrapper :deep(.ant-avatar) {
   border: 3px solid var(--brand-primary, #5B87BD);
   flex-shrink: 0;
+}
+
+.avatar-wrapper.clickable {
+  cursor: pointer;
+
+  :deep(.ant-image) {
+    img {
+      border-radius: 50%;
+      border: 3px solid var(--brand-primary, #5B87BD);
+    }
+  }
 }
 
 .profile-info {

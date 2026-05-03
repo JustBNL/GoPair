@@ -103,6 +103,7 @@ export interface UserPublicProfile {
   userId: number
   nickname: string
   avatar?: string
+  avatarOriginalUrl?: string
   email?: string
 }
 

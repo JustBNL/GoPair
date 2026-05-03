@@ -59,6 +59,9 @@
                   适应窗口
                 </a-button>
               </a-button-group>
+              <a-button type="link" @click="toggleOriginal">
+                {{ showOriginal ? '查看缩略图' : '查看原图' }}
+              </a-button>
             </div>
           </div>
 
@@ -184,6 +187,7 @@ const error = ref('')
 const textContent = ref('')
 const previewUrl = ref('')
 const zoomLevel = ref(100)
+const showOriginal = ref(false)
 
 const MIN_ZOOM = 25
 const MAX_ZOOM = 400
@@ -324,6 +328,27 @@ const resetZoom = () => {
 }
 
 /**
+ * 切换查看原图
+ */
+const toggleOriginal = async () => {
+  showOriginal.value = !showOriginal.value
+  if (showOriginal.value) {
+    // 加载原图
+    try {
+      loading.value = true
+      previewUrl.value = FileAPI.getDownloadUrl(props.file!.fileId)
+    } catch {
+      error.value = '原图加载失败'
+    } finally {
+      loading.value = false
+    }
+  } else {
+    // 恢复缩略图
+    previewUrl.value = props.file!.previewUrl || FileAPI.getPreviewUrl(props.file!.fileId)
+  }
+}
+
+/**
  * 媒体文件加载处理
  */
 const handleImageLoad = () => {
@@ -366,6 +391,7 @@ const handleVideoError = () => {
 watch(() => props.file, (newFile) => {
   if (newFile && props.open) {
     zoomLevel.value = 100 // 重置缩放
+    showOriginal.value = false // 重置原图状态
     loadPreview()
   }
 })
@@ -382,6 +408,7 @@ watch(() => props.open, (isOpen) => {
     textContent.value = ''
     previewUrl.value = ''
     zoomLevel.value = 100
+    showOriginal.value = false
   }
 })
 </script>

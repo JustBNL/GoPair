@@ -75,6 +75,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ThemeToggle: typeof import('./components/ThemeToggle.vue')['default']
+    UserAvatar: typeof import('./components/UserAvatar.vue')['default']
     UserProfileModal: typeof import('./components/UserProfileModal.vue')['default']
     VoiceCallPanel: typeof import('./components/voice/VoiceCallPanel.vue')['default']
   }

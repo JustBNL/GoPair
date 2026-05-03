@@ -6,24 +6,26 @@
     ]"
   >
     <!-- 用户头像 -->
-    <div class="message-avatar">
-      <a-avatar
-        v-if="message.senderAvatar"
-        :src="message.senderAvatar"
-        :alt="message.senderNickname"
+    <div class="message-avatar" style="cursor: pointer" @click="!message.isOwn && emit('viewProfile', message.senderId)">
+      <UserAvatar
+        :user-id="message.senderId"
+        :nickname="message.senderNickname"
+        :avatar="message.senderAvatar"
         :size="32"
+        :clickable="false"
         class="avatar-img"
       />
-      <a-avatar v-else :size="32" class="avatar-fallback">
-        {{ getNicknameInitial(message.senderNickname) }}
-      </a-avatar>
     </div>
 
     <!-- 消息内容区域 -->
     <div class="message-content">
       <!-- 发送者信息（仅他人消息显示昵称，不显示时间） -->
       <div v-if="!message.isOwn && showSenderInfo" class="sender-info">
-        <span class="sender-name">{{ message.senderNickname }}</span>
+        <span
+          class="sender-name"
+          :style="{ cursor: 'pointer' }"
+          @click="emit('viewProfile', message.senderId)"
+        >{{ message.senderNickname }}</span>
       </div>
 
       <!-- 回复消息 -->
@@ -174,18 +176,7 @@ import {
 import { MessageType, type MessageVO } from '@/types/api'
 import { formatTime } from '@/utils/format'
 import { renderEmojiContent } from '@/utils/emoji'
-
-/**
- * 根据昵称生成首字母/简写用于头像占位
- */
-function getNicknameInitial(nickname: string): string {
-  if (!nickname) return '?'
-  const parts = nickname.trim().split(/\s+/)
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-  }
-  return nickname.slice(0, 2).toUpperCase()
-}
+import UserAvatar from '@/components/UserAvatar.vue'
 
 interface Props {
   message: MessageVO
@@ -197,6 +188,7 @@ interface Emits {
   (e: 'reply', message: MessageVO): void
   (e: 'delete', messageId: number): void
   (e: 'recall', messageId: number): void
+  (e: 'viewProfile', senderId: number): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -344,22 +336,6 @@ const onDelete = () => {
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-
-  :deep(.ant-avatar) {
-    width: 32px;
-    height: 32px;
-    line-height: 32px;
-    font-size: 12px;
-    font-weight: 500;
-    border: 1.5px solid var(--border-light);
-    background: var(--brand-primary-light);
-    color: var(--brand-primary);
-  }
-
-  .avatar-fallback {
-    background: var(--brand-primary-light);
-    color: var(--brand-primary);
-  }
 }
 
 .message-content {

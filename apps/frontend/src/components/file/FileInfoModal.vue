@@ -50,14 +50,6 @@
       <div class="info-section">
         <h4 class="section-title">文件操作</h4>
         <div class="action-buttons">
-          <a-button
-            v-if="file.previewable"
-            type="primary"
-            @click="previewFile"
-          >
-            <eye-outlined />
-            预览
-          </a-button>
           <a-button @click="downloadFile">
             <download-outlined />
             下载
@@ -101,12 +93,13 @@
           <!-- 图片预览 -->
           <div v-if="isImageFile" class="image-preview">
             <a-image
-              :src="file.previewUrl || file.downloadUrl"
+              :src="file.downloadUrl"
               :alt="file.fileName"
               style="max-width: 100%; max-height: 300px;"
+              :preview="{ src: file.downloadUrl }"
             />
           </div>
-          
+
           <!-- 文本文件预览 -->
           <div v-else-if="isTextFile" class="text-preview">
             <a-textarea
@@ -116,7 +109,7 @@
               placeholder="加载中..."
             />
           </div>
-          
+
           <!-- 其他文件类型 -->
           <div v-else class="preview-placeholder">
             <a-result
@@ -127,6 +120,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </a-modal>
 </template>
@@ -136,7 +130,6 @@ import { ref, computed, watch } from 'vue'
 import { message as antMessage, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import {
-  EyeOutlined,
   DownloadOutlined,
   ShareAltOutlined,
   DeleteOutlined,
@@ -153,7 +146,6 @@ interface Props {
 
 interface Emits {
   (e: 'update:open', value: boolean): void
-  (e: 'preview', file: FileVO): void
   (e: 'download', file: FileVO): void
   (e: 'delete', file: FileVO): void
 }
@@ -223,15 +215,6 @@ const formatTime = (timeStr: string) => {
 }
 
 /**
- * 预览文件
- */
-const previewFile = () => {
-  if (props.file) {
-    emit('preview', props.file)
-  }
-}
-
-/**
  * 下载文件
  */
 const downloadFile = async () => {
@@ -293,7 +276,7 @@ const deleteFile = () => {
  */
 const copyPath = async () => {
   if (!props.file) return
-  
+
   try {
     await navigator.clipboard.writeText(props.file.downloadUrl)
     antMessage.success('文件路径已复制到剪贴板')
@@ -307,7 +290,7 @@ const copyPath = async () => {
  */
 const loadFilePreview = async () => {
   if (!props.file || !isTextFile.value) return
-  
+
   try {
     const blob = await FileAPI.previewFile(props.file.fileId)
     const text = await blob.text()
@@ -322,8 +305,7 @@ watch(() => props.file, (newFile) => {
   if (newFile) {
     showPreview.value = false
     fileContent.value = ''
-    
-    // 如果是文本文件，自动加载预览
+
     if (isTextFile.value) {
       showPreview.value = true
       loadFilePreview()
@@ -380,7 +362,7 @@ watch(() => props.file, (newFile) => {
       flex-wrap: wrap;
     }
 
-    .file-path {
+      .file-path {
       .path-input {
         font-family: monospace;
 

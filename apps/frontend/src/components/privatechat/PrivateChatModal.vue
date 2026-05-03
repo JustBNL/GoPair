@@ -16,12 +16,13 @@
     <div class="chat-layout">
       <!-- 左侧：好友信息 -->
       <div class="chat-sidebar">
-        <div class="sidebar-header">
-          <a-avatar :size="56" :src="friendAvatar">
-            <template v-if="!friendAvatar">
-              {{ nicknameInitial }}
-            </template>
-          </a-avatar>
+        <div class="sidebar-header" style="cursor: pointer" @click="openProfile">
+          <UserAvatar
+            :user-id="friendId || 0"
+            :nickname="friendNickname || undefined"
+            :avatar="friendAvatar || undefined"
+            :size="56"
+          />
           <div class="sidebar-user-info">
             <h4 class="sidebar-nickname">{{ friendNickname || '加载中...' }}</h4>
           </div>
@@ -59,11 +60,14 @@
               :class="{ own: msg.isOwn }"
             >
               <!-- 发送者头像（非自己的消息显示） -->
-              <a-avatar v-if="!msg.isOwn" :size="32" :src="msg.senderAvatar" class="msg-avatar">
-                <template v-if="!msg.senderAvatar">
-                  {{ (msg.senderNickname || 'U').charAt(0).toUpperCase() }}
-                </template>
-              </a-avatar>
+              <UserAvatar
+                v-if="!msg.isOwn"
+                :user-id="msg.senderId"
+                :nickname="msg.senderNickname || undefined"
+                :avatar="msg.senderAvatar || undefined"
+                :size="32"
+                class="msg-avatar"
+              />
 
               <div class="message-content-wrapper">
                 <div class="message-bubble">
@@ -169,6 +173,13 @@
     :src="previewImageUrl"
     @close="previewVisible = false"
   />
+
+  <!-- 用户资料弹窗 -->
+  <MemberProfileModal
+    v-model:visible="profileVisible"
+    :member-id="friendId"
+    @refresh-friends="() => emit('refreshFriends')"
+  />
 </template>
 
 <script setup lang="ts">
@@ -187,6 +198,8 @@ import { useAuthStore } from '@/stores/auth'
 import { FileAPI } from '@/api/file'
 import { PrivateMessageType } from '@/types/chat'
 import type { PrivateMessageVO, ConversationVO, FriendVO } from '@/types/chat'
+import MemberProfileModal from '@/components/MemberProfileModal.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -207,6 +220,8 @@ const uploading = ref(false)
 const previewVisible = ref(false)
 const previewImageUrl = ref('')
 
+const profileVisible = ref(false)
+
 const friendInfo = computed((): FriendVO | ConversationVO | undefined =>
   chatStore.friends.find(f => f.friendId === props.friendId) ||
   chatStore.conversations.find(c => c.friendId === props.friendId)
@@ -223,10 +238,6 @@ const friendAvatar = computed(() => {
   if (!info) return ''
   return (info as FriendVO).avatar || (info as ConversationVO).friendAvatar || ''
 })
-
-const nicknameInitial = computed(() =>
-  (friendNickname.value || 'U').charAt(0).toUpperCase()
-)
 
 watch(
   () => props.visible,
@@ -330,6 +341,12 @@ function scrollToBottom() {
 function handleClose() {
   chatStore.closeCurrentChat()
   emit('update:visible', false)
+}
+
+function openProfile() {
+  if (props.friendId) {
+    profileVisible.value = true
+  }
 }
 
 function formatTime(timeStr: string): string {

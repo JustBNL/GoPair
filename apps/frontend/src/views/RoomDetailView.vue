@@ -219,6 +219,7 @@
                   @reply="handleReply"
                   @delete="(id) => handleDeleteMessage(messages.find(m => m.messageId === id)!)"
                   @recall="(id) => handleRecallMessage(messages.find(m => m.messageId === id)!)"
+                  @view-profile="openMemberProfile"
                 />
               </div>
             </div>
@@ -300,12 +301,13 @@
                   :key="member.userId"
                   class="member-item"
                 >
-                  <div class="member-avatar">
-                    <a-avatar :size="40" :src="member.avatar || undefined">
-                      <template v-if="!member.avatar">
-                        {{ memberNameInitial(member) }}
-                      </template>
-                    </a-avatar>
+                  <div class="member-avatar" style="cursor: pointer" @click="openMemberProfile(member.userId)">
+                    <UserAvatar
+                      :user-id="member.userId"
+                      :nickname="member.nickname"
+                      :avatar="member.avatar"
+                      :size="40"
+                    />
                     <div v-if="memberPresence(member) === 'online'" class="online-indicator"></div>
                   </div>
                   <div class="member-info">
@@ -391,6 +393,14 @@
       :friend-id="privateChatFriendId"
       @refresh-friends="handleRefreshFriends"
     />
+
+    <!-- 用户资料弹窗 -->
+    <MemberProfileModal
+      v-model:visible="memberProfileVisible"
+      :member-id="memberProfileUserId"
+      @open-chat="handleOpenPrivateChat"
+      @refresh-friends="handleRefreshFriends"
+    />
   </div>
 </template>
 
@@ -442,6 +452,8 @@ import FileList from '@/components/file/FileList.vue'
 import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
 import FriendsDropdown from '@/components/privatechat/FriendsDropdown.vue'
 import PrivateChatModal from '@/components/privatechat/PrivateChatModal.vue'
+import MemberProfileModal from '@/components/MemberProfileModal.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useVoiceCall } from '@/composables/useVoiceCall'
 
@@ -459,6 +471,10 @@ const activeTab = ref('chat')
 // 私聊状态
 const privateChatVisible = ref(false)
 const privateChatFriendId = ref<number | null>(null)
+
+// 用户资料弹窗状态
+const memberProfileVisible = ref(false)
+const memberProfileUserId = ref<number | null>(null)
 
 // WebSocket状态 - 使用新的Composable架构
 const roomId = computed(() => currentRoom.value?.roomId || 0)
@@ -1127,6 +1143,11 @@ const goBack = async () => {
 function handleOpenPrivateChat(friendId: number) {
   privateChatFriendId.value = friendId
   privateChatVisible.value = true
+}
+
+function openMemberProfile(userId: number) {
+  memberProfileUserId.value = userId
+  memberProfileVisible.value = true
 }
 
 function handleRefreshFriends() {

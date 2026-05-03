@@ -41,6 +41,19 @@
         class="sort-select"
       />
 
+      <!-- 刷新按钮 -->
+      <a-button
+        type="text"
+        size="small"
+        aria-label="刷新文件列表"
+        :loading="loading"
+        @click="loadFileList"
+        class="refresh-btn"
+      >
+        <ReloadOutlined />
+        刷新
+      </a-button>
+
       <!-- 批量操作 -->
       <a-dropdown v-if="selectedFiles.length > 0" :trigger="['click']">
         <a-button type="primary">
@@ -97,14 +110,31 @@
             <div class="file-icon">
               <a-image
                 v-if="file.iconType === 'image'"
-                :src="file.downloadUrl"
+                :src="file.previewUrl || file.downloadUrl"
                 :alt="file.fileName"
                 :width="48"
                 :height="48"
-                :preview="true"
                 style="object-fit: cover; border-radius: 4px;"
+                :preview="{
+                  src: file.downloadUrl,
+                  toolbar: [
+                    {
+                      key: 'download',
+                      content: () => h(DownloadOutlined, { style: { fontSize: '18px' } }),
+                      ariaLabel: '下载原图',
+                      onClick: () => downloadFile(file),
+                    },
+                  ]
+                }"
               />
               <file-icon v-else :file-type="file.fileType" />
+            </div>
+
+            <!-- 文件类型标签 -->
+            <div class="file-type-badge">
+              <a-tag :color="getFileTypeColor(file.fileType)" size="small">
+                {{ file.fileType.toUpperCase() }}
+              </a-tag>
             </div>
 
             <!-- 文件信息 -->
@@ -114,29 +144,17 @@
               </div>
               <div class="file-meta">
                 <span class="file-size">{{ file.fileSizeFormatted }}</span>
+                <span class="meta-separator">|</span>
                 <span class="file-uploader">{{ file.uploaderNickname }}</span>
+                <span class="meta-separator">|</span>
                 <span class="file-time">{{ formatTime(file.uploadTime) }}</span>
-              </div>
-              <div class="file-stats">
+                <span class="meta-separator">|</span>
                 <span class="download-count">下载 {{ file.downloadCount }} 次</span>
               </div>
             </div>
 
             <!-- 文件操作 -->
             <div class="file-actions" @click.stop>
-              <!-- 预览按钮 -->
-              <a-tooltip title="预览">
-                <a-button
-                  v-if="file.previewable"
-                  type="text"
-                  size="small"
-                  aria-label="预览文件"
-                  @click="previewFile(file)"
-                >
-                  <eye-outlined />
-                </a-button>
-              </a-tooltip>
-
               <a-tooltip title="下载">
                 <a-button
                   type="text"
@@ -153,26 +171,7 @@
                   <more-outlined />
                 </a-button>
                 <template #overlay>
-                  <a-menu>
-                    <a-menu-item key="info" @click="showFileInfo(file)">
-                      <info-circle-outlined />
-                      文件信息
-                    </a-menu-item>
-                    <a-menu-item key="share" @click="shareFile(file)">
-                      <share-alt-outlined />
-                      分享链接
-                    </a-menu-item>
-                    <a-menu-divider v-if="canDelete(file)" />
-                    <a-menu-item 
-                      v-if="canDelete(file)"
-                      key="delete" 
-                      danger 
-                      @click="deleteFile(file)"
-                    >
-                      <delete-outlined />
-                      删除
-                    </a-menu-item>
-                  </a-menu>
+                  <a-menu :items="buildFileMenuItems(file)" />
                 </template>
               </a-dropdown>
             </div>
@@ -198,17 +197,11 @@
       v-model:open="showInfoModal"
       :file="selectedFileInfo"
     />
-
-    <!-- 文件预览模态框 -->
-    <file-preview-modal
-      v-model:open="showPreviewModal"
-      :file="previewFileInfo"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
 import { message as antMessage, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import {
@@ -216,17 +209,16 @@ import {
   DownloadOutlined,
   DeleteOutlined,
   FolderOpenOutlined,
-  EyeOutlined,
   MoreOutlined,
   InfoCircleOutlined,
-  ShareAltOutlined
+  ShareAltOutlined,
+  ReloadOutlined
 } from '@ant-design/icons-vue'
 import { FileAPI, type RoomFileStats } from '@/api/file'
 import type { FileVO, PageResult } from '@/types/api'
 import { useAuthStore } from '@/stores/auth'
 import FileIcon from './FileIcon.vue'
 import FileInfoModal from './FileInfoModal.vue'
-import FilePreviewModal from './FilePreviewModal.vue'
 
 interface Props {
   roomId: number
@@ -245,6 +237,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 const authStore = useAuthStore()
+const currentUserId = computed(() => authStore.user?.userId)
 
 // 数据状态
 const loading = ref(false)
@@ -267,9 +260,7 @@ const pagination = ref({
 
 // 模态框
 const showInfoModal = ref(false)
-const showPreviewModal = ref(false)
 const selectedFileInfo = ref<FileVO | null>(null)
-const previewFileInfo = ref<FileVO | null>(null)
 
 // 文件类型选项
 const fileTypeOptions = [
@@ -382,14 +373,6 @@ const toggleSelect = (fileId: number) => {
 }
 
 /**
- * 预览文件
- */
-const previewFile = (file: FileVO) => {
-  previewFileInfo.value = file
-  showPreviewModal.value = true
-}
-
-/**
  * 下载文件
  */
 const downloadFile = async (file: FileVO) => {
@@ -493,9 +476,48 @@ const batchDelete = () => {
  * 检查是否可以删除（仅上传者或房主可删除）
  */
 const canDelete = (file: FileVO): boolean => {
-  const authStore = useAuthStore()
-  const currentUserId = authStore.user?.userId
-  return file.uploaderId === currentUserId || isOwner.value
+  return file.uploaderId === currentUserId.value || props.isOwner
+}
+
+/**
+ * 构建文件操作菜单项配置
+ */
+const buildFileMenuItems = (file: FileVO) => {
+  const items: Array<{
+    key: string
+    icon?: () => ReturnType<typeof h>
+    label: string
+    onClick?: () => void
+    danger?: boolean
+  }> = [
+    {
+      key: 'info',
+      icon: () => h(InfoCircleOutlined),
+      label: '文件信息',
+      onClick: () => showFileInfo(file)
+    },
+    {
+      key: 'share',
+      icon: () => h(ShareAltOutlined),
+      label: '分享链接',
+      onClick: () => shareFile(file)
+    }
+  ]
+
+  if (canDelete(file)) {
+    items.push(
+      { type: 'divider' as const, key: 'divider-delete' },
+      {
+        key: 'delete',
+        icon: () => h(DeleteOutlined),
+        label: '删除',
+        danger: true,
+        onClick: () => deleteFile(file)
+      }
+    )
+  }
+
+  return items
 }
 
 /**
@@ -510,12 +532,39 @@ const formatTime = (timeStr: string) => {
  */
 const formatFileSize = (bytes: number): string => {
   if (!bytes || bytes <= 0) return '0 B'
-  
+
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+/**
+ * 获取文件类型对应的颜色
+ */
+const getFileTypeColor = (fileType: string): string => {
+  const colorMap: Record<string, string> = {
+    pdf: 'red',
+    doc: 'blue',
+    docx: 'blue',
+    xls: 'green',
+    xlsx: 'green',
+    ppt: 'orange',
+    pptx: 'orange',
+    txt: 'default',
+    md: 'default',
+    jpg: 'purple',
+    jpeg: 'purple',
+    png: 'purple',
+    gif: 'purple',
+    mp4: 'magenta',
+    mp3: 'cyan',
+    zip: 'gold',
+    rar: 'gold',
+    '7z': 'gold'
+  }
+  return colorMap[fileType.toLowerCase()] || 'default'
 }
 
 // 监听刷新标志，每次值变化（无论 true/false）都触发刷新
@@ -531,6 +580,11 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .file-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+
   .file-stats {
     display: flex;
     gap: 24px;
@@ -571,6 +625,10 @@ onMounted(() => {
     .sort-select {
       width: clamp(120px, 30%, 140px);
     }
+
+    .refresh-btn {
+      flex-shrink: 0;
+    }
   }
 
   .file-content {
@@ -607,7 +665,23 @@ onMounted(() => {
 
         .file-icon {
           flex-shrink: 0;
-          font-size: 32px;
+          font-size: 36px;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .file-type-badge {
+          flex-shrink: 0;
+
+          :deep(.ant-tag) {
+            font-size: 10px;
+            padding: 0 6px;
+            line-height: 18px;
+            border-radius: 4px;
+          }
         }
 
         .file-info {
@@ -616,6 +690,7 @@ onMounted(() => {
 
           .file-name {
             font-weight: 500;
+            color: var(--text-primary);
             margin-bottom: 4px;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -624,24 +699,38 @@ onMounted(() => {
 
           .file-meta {
             display: flex;
-            align-items: center;
-            gap: 12px;
+            flex-wrap: wrap;
+            gap: 6px;
             font-size: 12px;
             color: var(--text-muted);
-            margin-bottom: 2px;
+            margin-bottom: 0;
+
+            span {
+              display: inline-flex;
+              align-items: center;
+            }
+
+            /* 分隔符：竖线风格 */
+            .meta-separator {
+              color: var(--border-default);
+              user-select: none;
+              padding: 0 2px;
+            }
 
             .file-size {
               font-weight: 500;
               color: var(--text-secondary);
             }
-          }
 
-          .file-stats {
-            font-size: 12px;
-            color: var(--text-muted);
+            .file-uploader {
+              color: var(--text-muted);
+            }
+
+            .file-time {
+              color: var(--text-muted);
+            }
 
             .download-count {
-              color: var(--color-info);
             }
           }
         }
@@ -689,6 +778,10 @@ onMounted(() => {
               flex-direction: column;
               align-items: flex-start;
               gap: 2px;
+
+              .download-count {
+                margin-left: 0;
+              }
             }
           }
 

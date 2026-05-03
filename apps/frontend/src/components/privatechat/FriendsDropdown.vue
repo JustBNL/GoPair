@@ -81,11 +81,12 @@
               class="friend-item"
               @click="handleSelectFriend(friend)"
             >
-              <a-avatar :size="40" :src="friend.avatar">
-                <template v-if="!friend.avatar">
-                  {{ getInitial(friend.nickname) }}
-                </template>
-              </a-avatar>
+              <UserAvatar
+                :user-id="friend.friendId"
+                :nickname="friend.nickname"
+                :avatar="friend.avatar"
+                :size="40"
+              />
               <div class="friend-info">
                 <div class="friend-name">{{ friend.nickname }}</div>
                 <div v-if="friend.lastMessageContent" class="friend-preview">
@@ -146,11 +147,12 @@
               :key="user.userId"
               class="friend-item search-result-item"
             >
-              <a-avatar :size="40" :src="user.avatar">
-                <template v-if="!user.avatar">
-                  {{ getInitial(user.nickname) }}
-                </template>
-              </a-avatar>
+              <UserAvatar
+                :user-id="user.userId"
+                :nickname="user.nickname"
+                :avatar="user.avatar"
+                :size="40"
+              />
               <div class="friend-info">
                 <div class="friend-name">{{ user.nickname }}</div>
                 <div class="friend-preview email-preview">{{ user.email || '无邮箱' }}</div>
@@ -266,6 +268,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useChatStore } from '@/stores/chat'
 import type { FriendVO } from '@/types/chat'
+import UserAvatar from '@/components/UserAvatar.vue'
 
 const emit = defineEmits<{
   (e: 'openChat', friendId: number): void

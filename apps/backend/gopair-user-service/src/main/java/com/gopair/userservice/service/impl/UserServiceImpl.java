@@ -68,7 +68,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         this.restTemplate = restTemplate;
         this.fileServiceProperties = fileServiceProperties;
     }
-    
+
     /**
      * 根据昵称查询用户
      */
@@ -77,7 +77,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         queryWrapper.eq(User::getNickname, nickname);
         return userMapper.selectOne(queryWrapper);
     }
-    
+
     /**
      * 根据邮箱查询用户
      */
@@ -100,15 +100,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         if (StringUtils.hasText(registerRequest.getNickname()) && getUserByNickname(registerRequest.getNickname()) != null) {
             throw new UserException(UserErrorCode.NICKNAME_ALREADY_EXISTS);
         }
-        
+
         // 检查邮箱是否已存在
         if (StringUtils.hasText(registerRequest.getEmail()) && getUserByEmail(registerRequest.getEmail()) != null) {
             throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
-        
+
         // 转换为PO
         User user = BeanCopyUtils.copyBean(registerRequest, User.class);
-        
+
         // 默认状态
         if (user.getStatus() == null) {
             user.setStatus(UserStatus.NORMAL.getCode());
@@ -116,7 +116,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
 
         // 密码加密
         user.setPassword(passwordUtils.encode(user.getPassword()));
-        
+
         // 插入
         int result = userMapper.insert(user);
         if (result > 0) {
@@ -140,7 +140,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         if (currentUser == null) {
             throw new UserException(UserErrorCode.USER_NOT_FOUND);
         }
-        
+
         // 昵称唯一
         if (StringUtils.hasText(userDto.getNickname())) {
             User existingUser = getUserByNickname(userDto.getNickname());
@@ -207,6 +207,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
             return List.of();
         }
         List<Long> batch = new ArrayList<>(unique);
+        //todo这些设置200后面可以优化
         int max = 200;
         if (batch.size() > max) {
             batch = batch.subList(0, max);
@@ -356,4 +357,4 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         loginResponse.setAvatarOriginalUrl(user.getAvatarOriginalUrl());
         return loginResponse;
     }
-} 
+}
