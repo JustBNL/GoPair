@@ -96,6 +96,7 @@
 
         <!-- 操作按钮 -->
         <div class="form-actions">
+          <a-button @click="handleLogout" class="logout-btn">退出登录</a-button>
           <a-button @click="handleClose">取消</a-button>
           <a-button
             type="primary"
@@ -153,9 +154,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Form, message } from 'ant-design-vue'
+import { Form, message, Modal } from 'ant-design-vue'
 import { DownOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useRoomStore } from '@/stores/room'
 import { FileAPI } from '@/api/file'
 import { useRouter } from 'vue-router'
 
@@ -163,6 +165,7 @@ const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ (e: 'update:visible', v: boolean): void }>()
 
 const authStore = useAuthStore()
+const roomStore = useRoomStore()
 const router = useRouter()
 const loading = ref(false)
 const showPassword = ref(false)
@@ -347,6 +350,20 @@ async function handleCancelAccount() {
 function handleClose() {
   emit('update:visible', false)
 }
+
+function handleLogout() {
+  Modal.confirm({
+    title: '确认退出',
+    content: '确定要退出登录吗？',
+    okText: '确认',
+    cancelText: '取消',
+    onOk: async () => {
+      await authStore.logout()
+      await router.push('/login')
+      roomStore.clearRoomData()
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -500,6 +517,16 @@ function handleClose() {
 
 .save-btn:hover {
   background: var(--brand-primary-hover);
+}
+
+.logout-btn {
+  color: var(--color-error) !important;
+  border: 1px solid var(--color-error) !important;
+}
+
+.logout-btn:hover {
+  background: var(--color-error) !important;
+  color: var(--text-on-primary) !important;
 }
 
 /* 注销账号区域 */

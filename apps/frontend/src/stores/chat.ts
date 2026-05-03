@@ -5,7 +5,8 @@ import type {
   FriendRequestVO,
   ConversationVO,
   FriendStatusVO,
-  PrivateMessageVO
+  PrivateMessageVO,
+  UserSearchResultVO
 } from '@/types/chat'
 import { ChatAPI } from '@/api/chat'
 
@@ -25,6 +26,11 @@ export const useChatStore = defineStore('chat', () => {
 
   // 发出的申请
   const outgoingRequests = ref<FriendRequestVO[]>([])
+
+  // ==================== 用户搜索状态 ====================
+  const searchResults = ref<UserSearchResultVO[]>([])
+  const searchLoading = ref(false)
+  const searchTotal = ref(0)
 
   // ==================== 私聊会话状态 ====================
   const conversations = ref<ConversationVO[]>([])
@@ -110,6 +116,28 @@ export const useChatStore = defineStore('chat', () => {
     return res.data
   }
 
+  async function fetchSearchResults(keyword: string, pageNum = 1, pageSize = 20) {
+    if (!keyword.trim()) {
+      searchResults.value = []
+      searchTotal.value = 0
+      return
+    }
+    searchLoading.value = true
+    try {
+      const res = await ChatAPI.searchUsers(keyword, pageNum, pageSize)
+      searchResults.value = res.data?.records || []
+      searchTotal.value = res.data?.total || 0
+    } finally {
+      searchLoading.value = false
+    }
+  }
+
+  /** 清空搜索结果 */
+  function clearSearchResults() {
+    searchResults.value = []
+    searchTotal.value = 0
+  }
+
   // ==================== 私聊操作 ====================
 
   async function openChat(friendId: number) {
@@ -172,6 +200,7 @@ export const useChatStore = defineStore('chat', () => {
     // State
     friends, friendsLoading,
     incomingRequests, incomingCount, outgoingRequests,
+    searchResults, searchLoading, searchTotal,
     conversations, conversationsLoading,
     currentFriendId, currentConversationId,
     currentMessages, messagesLoading,
@@ -179,6 +208,7 @@ export const useChatStore = defineStore('chat', () => {
     // Friend actions
     fetchFriends, fetchIncomingRequests, fetchOutgoingRequests,
     sendRequest, acceptRequest, rejectRequest, removeFriend, checkFriendStatus,
+    fetchSearchResults, clearSearchResults,
 
     // Chat actions
     fetchConversations, fetchMessages,

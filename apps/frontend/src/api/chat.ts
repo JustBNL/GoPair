@@ -8,7 +8,8 @@ import type {
   SendPrivateMessageDto,
   FriendRequestDto,
   FriendStatusVO,
-  UserPublicProfile
+  UserPublicProfile,
+  UserSearchResultVO
 } from '@/types/chat'
 
 /**
@@ -53,6 +54,16 @@ export class ChatAPI {
     return http.get<UserPublicProfile>(`/chat/friend/user/${userId}`)
   }
 
+  static async searchUsers(
+    keyword: string,
+    pageNum = 1,
+    pageSize = 20
+  ): Promise<ApiResponse<PageResult<UserSearchResultVO>>> {
+    return http.get<PageResult<UserSearchResultVO>>(
+      `/chat/friend/search?keyword=${encodeURIComponent(keyword)}&pageNum=${pageNum}&pageSize=${pageSize}`
+    )
+  }
+
   // ==================== 私聊消息 ====================
 
   static async sendMessage(dto: SendPrivateMessageDto): Promise<ApiResponse<PrivateMessageVO>> {
@@ -92,6 +103,7 @@ export const {
   getOutgoingRequests,
   checkFriendStatus,
   getUserProfile,
+  searchUsers,
   sendMessage: sendPrivateMessage,
   getConversations,
   getMessages,

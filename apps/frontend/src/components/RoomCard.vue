@@ -7,7 +7,6 @@
           <a-tag :color="statusColor" class="status-tag">{{ statusText }}</a-tag>
         </div>
       </div>
-      <p class="room-description" v-if="props.room.description">{{ props.room.description }}</p>
       <div class="room-meta">
         <div class="meta-item">
           <TeamOutlined class="meta-icon" />
@@ -37,6 +36,7 @@
           </span>
         </div>
       </div>
+      <p class="room-description" v-if="props.room.description">{{ props.room.description }}</p>
       <div class="room-owner" v-if="props.room.ownerNickname">
         <UserOutlined class="owner-icon" />
         <span>房主：{{ props.room.ownerNickname }}</span>

@@ -4,7 +4,9 @@ import com.gopair.chatservice.domain.dto.FriendRequestDto;
 import com.gopair.chatservice.domain.dto.FriendStatusVO;
 import com.gopair.chatservice.domain.vo.FriendRequestVO;
 import com.gopair.chatservice.domain.vo.FriendVO;
+import com.gopair.chatservice.domain.vo.UserSearchResultVO;
 import com.gopair.chatservice.service.FriendService;
+import com.gopair.common.core.PageResult;
 import com.gopair.framework.context.UserContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -93,6 +95,18 @@ public class FriendController {
             @Parameter(description = "用户ID", required = true)
             @PathVariable Long userId) {
         return friendService.getUserPublicProfile(userId);
+    }
+
+    @Operation(summary = "搜索用户", description = "通过关键词搜索用户，同时匹配昵称和邮箱（OR 关系）")
+    @GetMapping("/search")
+    public PageResult<UserSearchResultVO> searchUsers(
+            @Parameter(description = "搜索关键词", required = true)
+            @RequestParam String keyword,
+            @Parameter(description = "页码")
+            @RequestParam(defaultValue = "1") int pageNum,
+            @Parameter(description = "每页大小")
+            @RequestParam(defaultValue = "20") int pageSize) {
+        return friendService.searchUsers(keyword, pageNum, pageSize, getCurrentUserId());
     }
 
     private Long getCurrentUserId() {

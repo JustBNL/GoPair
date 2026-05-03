@@ -104,3 +104,12 @@ export interface UserPublicProfile {
   avatar?: string
   email?: string
 }
+
+/** 用户搜索结果VO */
+export interface UserSearchResultVO {
+  userId: number
+  nickname: string
+  avatar?: string
+  email?: string
+  friendStatus: FriendStatusVO
+}

@@ -264,6 +264,7 @@ export interface FileVO {
   fileName: string
   fileSize: number
   fileSizeFormatted: string
+  thumbnailSize?: number
   fileType: string
   contentType: string
   downloadCount: number

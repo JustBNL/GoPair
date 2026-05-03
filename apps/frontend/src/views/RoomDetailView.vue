@@ -32,6 +32,7 @@
             <CopyOutlined />
             复制房间码
           </a-button>
+          <FriendsDropdown @open-chat="handleOpenPrivateChat" />
           <ThemeToggle />
         </div>
       </div>
@@ -389,6 +390,13 @@
       :particles="emojiParticles"
       @particle-done="removeParticle"
     />
+
+    <!-- 私聊模态框 -->
+    <PrivateChatModal
+      v-model:visible="privateChatVisible"
+      :friend-id="privateChatFriendId"
+      @refresh-friends="handleRefreshFriends"
+    />
   </div>
 </template>
 
@@ -422,6 +430,7 @@ import { VoiceAPI } from '@/api/voice'
 import { useRoomWebSocket } from '@/composables/useRoomWebSocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
+import { useChatStore } from '@/stores/chat'
 import type { RoomInfo, RoomMember } from '@/types/room'
 import {
   memberNameInitial,
@@ -437,18 +446,25 @@ import type { EmojiParticle } from '@/types/api'
 import MessageInput from '@/components/chat/MessageInput.vue'
 import FileList from '@/components/file/FileList.vue'
 import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
+import FriendsDropdown from '@/components/privatechat/FriendsDropdown.vue'
+import PrivateChatModal from '@/components/privatechat/PrivateChatModal.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useVoiceCall } from '@/composables/useVoiceCall'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 
 // 基础状态
 const loading = ref(true)
 const globalLoading = ref(false)
 const currentRoom = ref<RoomInfo | null>(null)
 const activeTab = ref('chat')
+
+// 私聊状态
+const privateChatVisible = ref(false)
+const privateChatFriendId = ref<number | null>(null)
 
 // WebSocket状态 - 使用新的Composable架构
 const roomId = computed(() => currentRoom.value?.roomId || 0)
@@ -1117,6 +1133,16 @@ const goBack = async () => {
   router.push('/rooms')
 }
 
+function handleOpenPrivateChat(friendId: number) {
+  privateChatFriendId.value = friendId
+  privateChatVisible.value = true
+}
+
+function handleRefreshFriends() {
+  chatStore.fetchFriends()
+  chatStore.fetchIncomingRequests()
+}
+
 /**
  * 格式化时间
  */
@@ -1533,16 +1559,37 @@ onUnmounted(() => {
           :deep(.ant-tabs-nav) {
             margin: 0;
             background: var(--surface-bg);
+            padding: 12px 12px 0;
+
+            &::before {
+              display: none;
+            }
+
+            .ant-tabs-tabs-list {
+              gap: 4px;
+            }
 
             .ant-tabs-tab {
-              padding: 12px 16px;
-              border-radius: 0;
+              padding: 10px 20px;
+              border-radius: 10px 10px 0 0;
+              border: 1px solid transparent;
+              border-bottom: none;
+              background: transparent;
+              margin: 0;
+              transition: background 0.2s ease, border-color 0.2s ease;
+
+              &:hover:not(.ant-tabs-tab-active) {
+                background: var(--brand-primary-subtle);
+                border-color: var(--border-light);
+              }
 
               .tab-title {
                 display: flex;
                 align-items: center;
                 gap: 8px;
                 font-weight: 500;
+                color: var(--text-muted);
+                transition: color 0.2s ease;
 
                 .tab-badge {
                   :deep(.ant-badge-count) {
@@ -1557,6 +1604,9 @@ onUnmounted(() => {
 
             .ant-tabs-tab-active {
               background: var(--surface-card);
+              border-color: var(--border-light);
+              border-bottom-color: var(--surface-card);
+              box-shadow: var(--shadow-sm);
 
               .tab-title {
                 color: var(--brand-primary);
@@ -1565,6 +1615,11 @@ onUnmounted(() => {
           }
 
           :deep(.ant-tabs-content-holder) {
+            border-top: 1px solid var(--border-light);
+            margin-top: -1px;
+          }
+
+          :deep(.ant-tabs-content) {
             display: none;
           }
         }

@@ -4,6 +4,8 @@ import com.gopair.chatservice.domain.dto.FriendRequestDto;
 import com.gopair.chatservice.domain.dto.FriendStatusVO;
 import com.gopair.chatservice.domain.vo.FriendRequestVO;
 import com.gopair.chatservice.domain.vo.FriendVO;
+import com.gopair.chatservice.domain.vo.UserSearchResultVO;
+import com.gopair.common.core.PageResult;
 
 import java.util.List;
 
@@ -87,4 +89,16 @@ public interface FriendService {
      * @return 用户VO（昵称、头像、邮箱）
      */
     Object getUserPublicProfile(Long userId);
+
+    /**
+     * 搜索用户（用于好友搜索场景）。
+     * 通过 keyword 同时匹配昵称和邮箱（OR 关系），并附上与当前用户的好友关系状态。
+     *
+     * @param keyword 搜索关键词
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @param currentUserId 当前用户ID
+     * @return 分页搜索结果
+     */
+    PageResult<UserSearchResultVO> searchUsers(String keyword, int pageNum, int pageSize, Long currentUserId);
 }

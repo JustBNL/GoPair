@@ -8,19 +8,15 @@
       <div class="header-content">
         <div class="brand-section">
           <BrandLogo class="logo-icon" :size="32" aria-hidden="true" />
-          <h1 class="page-title">房间管理</h1>
+          <h1 class="page-title">主页</h1>
         </div>
         <div class="user-section">
-          <FriendsDropdown @open-chat="handleOpenPrivateChat" />
           <div class="user-avatar-btn" @click="profileVisible = true" title="编辑个人资料">
             <img v-if="authStore.user?.avatar" :src="authStore.user.avatar" class="user-avatar user-avatar-img" alt="avatar" />
             <div v-else class="user-avatar">{{ nicknameInitial }}</div>
             <span class="welcome-text">{{ authStore.currentNickname }}</span>
           </div>
-          <a-button type="text" @click="handleLogout" class="logout-btn">
-            <LogoutOutlined />
-            退出登录
-          </a-button>
+          <FriendsDropdown @open-chat="handleOpenPrivateChat" />
           <ThemeToggle />
         </div>
       </div>
@@ -131,9 +127,6 @@
     <!-- AI 聊天助手 -->
     <AiChatDrawer />
 
-    <!-- 好友列表下拉 -->
-    <FriendsDropdown @open-chat="handleOpenPrivateChat" />
-
     <!-- 私聊模态框 -->
     <PrivateChatModal
       v-model:visible="privateChatVisible"
@@ -150,7 +143,6 @@ import { message, Modal } from 'ant-design-vue'
 import {
   PlusOutlined,
   TeamOutlined,
-  LogoutOutlined,
   ReloadOutlined
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
@@ -295,27 +287,6 @@ async function refreshRooms() {
 /**
  * 翻页
  */
-function handlePageChange(page: number) {
-  roomStore.fetchUserRooms({ pageNum: page, pageSize: roomStore.pagination.pageSize })
-}
-
-/**
- * 退出登录
- * 先导航离开当前页面，再清理数据，避免组件在卸载过程中响应式崩溃
- */
-function handleLogout() {
-  Modal.confirm({
-    title: '确认退出',
-    content: '确定要退出登录吗？',
-    okText: '确认',
-    cancelText: '取消',
-    onOk: async () => {
-      await authStore.logout()
-      await router.push('/login')
-      roomStore.clearRoomData()
-    }
-  })
-}
 
 // ==================== 生命周期 ====================
 
@@ -415,17 +386,6 @@ onMounted(async () => {
 .welcome-text {
   color: var(--text-on-header-muted);
   font-size: 16px;
-}
-
-.logout-btn {
-  color: var(--text-secondary) !important;
-  border: 1px solid var(--border-default) !important;
-}
-
-.logout-btn:hover {
-  color: var(--text-primary) !important;
-  background: var(--brand-primary-light) !important;
-  border-color: var(--brand-primary) !important;
 }
 
 /* ==================== 主要内容区域 ==================== */
