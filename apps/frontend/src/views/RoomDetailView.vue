@@ -1252,8 +1252,11 @@ const handleTabChange = (key: string) => {
 onMounted(async () => {
   await loadRoomInfo()
   if (currentRoom.value) {
-    await initRoomSubscription() // 改为房间订阅
+    await initRoomSubscription()
     initPasswordState()
+  }
+  if (authStore.user) {
+    chatStore.initChat()
   }
 })
 

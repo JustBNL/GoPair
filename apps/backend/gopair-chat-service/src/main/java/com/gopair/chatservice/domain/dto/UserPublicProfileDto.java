@@ -11,5 +11,6 @@ import lombok.Data;
 public class UserPublicProfileDto {
     private Long userId;
     private String nickname;
+    private String email;
     private String avatar;
 }

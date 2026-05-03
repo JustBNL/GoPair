@@ -28,13 +28,44 @@
         upload_time, create_time, update_time
     </sql>
 
-    <!-- 分页查询房间文件列表（按上传时间倒序） -->
-    <select id="selectPageByRoomId" resultMap="RoomFileResultMap">
+    <!-- 动态分页查询房间文件列表（支持搜索、类型筛选、排序） -->
+    <select id="selectPage" resultMap="RoomFileResultMap">
         SELECT
             <include refid="Base_Column_List"/>
         FROM room_file
-        WHERE room_id = #{roomId}
-        ORDER BY upload_time DESC
+        <where>
+            <if test="roomId != null">
+                AND room_id = #{roomId}
+            </if>
+            <!-- 关键字搜索：模糊匹配文件名 -->
+            <if test="keyword != null and keyword != ''">
+                AND file_name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <!-- 文件类型筛选：通过业务分类映射到扩展名 IN 条件 -->
+            <if test="fileType != null and fileType != ''">
+                AND file_type IN (
+                    <choose>
+                        <when test="fileType == 'image'">'jpg','jpeg','png','gif','bmp','webp','svg'</when>
+                        <when test="fileType == 'document'">'pdf','doc','docx','xls','xlsx','ppt','pptx'</when>
+                        <when test="fileType == 'video'">'mp4','avi','mov','wmv','flv','mkv','webm'</when>
+                        <when test="fileType == 'audio'">'mp3','wav','flac','aac','ogg','wma'</when>
+                        <when test="fileType == 'archive'">'zip','rar','7z','tar','gz','bz2'</when>
+                        <when test="fileType == 'other'">'txt','md','json','xml','csv','log','js','ts','html','css'</when>
+                        <otherwise>''</otherwise>
+                    </choose>
+                )
+            </if>
+        </where>
+        ORDER BY
+            <choose>
+                <when test="sortField == 'fileName'">file_name</when>
+                <when test="sortField == 'fileSize'">file_size</when>
+                <otherwise>upload_time</otherwise>
+            </choose>
+            <choose>
+                <when test="sortOrder == 'asc'">ASC</when>
+                <otherwise>DESC</otherwise>
+            </choose>
     </select>
 
     <!-- 统计房间文件数量 -->

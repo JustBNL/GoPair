@@ -36,7 +36,8 @@ public enum ChatErrorCode implements ErrorCode {
     USER_NOT_FOUND(20615, "用户不存在"),
     MESSAGE_TYPE_INVALID(20616, "消息类型无效"),
     MESSAGE_CONTENT_EMPTY(20617, "消息内容不能为空"),
-    FILE_URL_EMPTY(20618, "文件URL不能为空");
+    FILE_URL_EMPTY(20618, "文件URL不能为空"),
+    SEARCH_SERVICE_UNAVAILABLE(20619, "搜索服务暂时不可用，请稍后重试");
 
     private final int code;
     private final String message;

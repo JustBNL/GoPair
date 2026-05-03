@@ -11,4 +11,24 @@
         </foreach>
     </select>
 
+    <select id="searchUsers" resultType="com.gopair.chatservice.domain.dto.UserPublicProfileDto">
+        SELECT user_id AS userId, nickname, email, avatar
+        FROM user
+        WHERE status = '0'
+          AND user_id != #{excludeUserId}
+          AND (nickname LIKE CONCAT('%', #{keyword}, '%')
+               OR email LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY user_id DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+    <select id="countUsers" resultType="long">
+        SELECT COUNT(1)
+        FROM user
+        WHERE status = '0'
+          AND user_id != #{excludeUserId}
+          AND (nickname LIKE CONCAT('%', #{keyword}, '%')
+               OR email LIKE CONCAT('%', #{keyword}, '%'))
+    </select>
+
 </mapper>

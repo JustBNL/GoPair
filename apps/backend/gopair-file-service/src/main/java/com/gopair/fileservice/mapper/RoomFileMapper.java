@@ -18,13 +18,24 @@ import java.util.List;
 public interface RoomFileMapper extends BaseMapper<RoomFile> {
 
     /**
-     * 分页查询房间文件列表（按上传时间倒序）
+     * 动态分页查询房间文件列表
      *
-     * @param page   分页参数
-     * @param roomId 房间ID
-     * @return 文件分页数据
+     * @param page      分页参数（传入已构造好的 Page 对象）
+     * @param roomId    房间ID（必填）
+     * @param keyword   搜索关键字（可选，模糊匹配文件名）
+     * @param fileType  文件类型分类（可选，image/document/video/audio/archive/other）
+     * @param sortField 排序字段（可选，uploadTime/fileSize/fileName，默认为 uploadTime）
+     * @param sortOrder 排序方向（可选，asc/desc，默认为 desc）
+     * @return 分页结果
      */
-    IPage<RoomFile> selectPageByRoomId(Page<RoomFile> page, @Param("roomId") Long roomId);
+    IPage<RoomFile> selectPage(
+        Page<RoomFile> page,
+        @Param("roomId") Long roomId,
+        @Param("keyword") String keyword,
+        @Param("fileType") String fileType,
+        @Param("sortField") String sortField,
+        @Param("sortOrder") String sortOrder
+    );
 
     /**
      * 统计房间文件数量

@@ -31,6 +31,7 @@ export const useChatStore = defineStore('chat', () => {
   const searchResults = ref<UserSearchResultVO[]>([])
   const searchLoading = ref(false)
   const searchTotal = ref(0)
+  const searchError = ref<string | null>(null)
 
   // ==================== 好友搜索状态 ====================
   const friendSearchResults = ref<FriendVO[]>([])
@@ -124,13 +125,17 @@ export const useChatStore = defineStore('chat', () => {
     if (!keyword.trim()) {
       searchResults.value = []
       searchTotal.value = 0
+      searchError.value = null
       return
     }
     searchLoading.value = true
+    searchError.value = null
     try {
       const res = await ChatAPI.searchUsers(keyword, pageNum, pageSize)
       searchResults.value = res.data?.records || []
       searchTotal.value = res.data?.total || 0
+    } catch {
+      searchError.value = '搜索服务暂时不可用，请稍后重试'
     } finally {
       searchLoading.value = false
     }
@@ -140,6 +145,7 @@ export const useChatStore = defineStore('chat', () => {
   function clearSearchResults() {
     searchResults.value = []
     searchTotal.value = 0
+    searchError.value = null
   }
 
   /** 搜索好友列表（通过后端过滤） */
@@ -220,7 +226,7 @@ export const useChatStore = defineStore('chat', () => {
     // State
     friends, friendsLoading,
     incomingRequests, incomingCount, outgoingRequests,
-    searchResults, searchLoading, searchTotal,
+    searchResults, searchLoading, searchTotal, searchError,
     friendSearchResults, friendSearchLoading,
     conversations, conversationsLoading,
     currentFriendId, currentConversationId,

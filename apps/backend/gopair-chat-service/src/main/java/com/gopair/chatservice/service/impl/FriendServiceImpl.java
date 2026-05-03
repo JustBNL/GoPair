@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gopair.chatservice.config.ChatWebSocketProducer;
 import com.gopair.chatservice.domain.dto.FriendRequestDto;
 import com.gopair.chatservice.domain.dto.FriendStatusVO;
+import com.gopair.chatservice.domain.dto.UserPublicProfileDto;
 import com.gopair.chatservice.domain.po.Friend;
 import com.gopair.chatservice.domain.po.FriendRequest;
 import com.gopair.chatservice.domain.vo.FriendRequestVO;
 import com.gopair.chatservice.domain.vo.FriendVO;
 import com.gopair.chatservice.domain.vo.UserSearchResultVO;
 import com.gopair.common.core.PageResult;
+import com.gopair.chatservice.enums.ChatErrorCode;
 import com.gopair.chatservice.enums.FriendStatus;
 import com.gopair.chatservice.exception.ChatException;
 import com.gopair.chatservice.mapper.FriendMapper;
@@ -43,6 +45,7 @@ public class FriendServiceImpl implements FriendService {
     private final FriendRequestMapper friendRequestMapper;
     private final ChatWebSocketProducer chatWebSocketProducer;
     private final UserProfileFallbackService userProfileFallbackService;
+    private final UserPublicMapper userPublicMapper;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -383,57 +386,37 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
+    @LogRecord(operation = "搜索用户", module = "好友管理")
     public PageResult<UserSearchResultVO> searchUsers(String keyword, int pageNum, int pageSize, Long currentUserId) {
         if (!StringUtils.hasText(keyword)) {
             return new PageResult<>(Collections.emptyList(), 0L, (long) pageNum, (long) pageSize);
         }
 
         try {
-            String encodedKeyword = java.net.URLEncoder.encode(keyword, java.nio.charset.StandardCharsets.UTF_8);
-            String url = USER_SERVICE_URL + "page?keyword=" + encodedKeyword
-                    + "&pageNum=" + pageNum
-                    + "&pageSize=" + pageSize;
-            String response = restTemplate.getForObject(url, String.class);
-            Map<String, Object> body = objectMapper.readValue(response, Map.class);
-            Map<String, Object> data = (Map<String, Object>) body.get("data");
-            if (data == null) {
-                return new PageResult<>(Collections.emptyList(), 0L, (long) pageNum, (long) pageSize);
-            }
-
-            List<Map<String, Object>> records = (List<Map<String, Object>>) data.get("records");
-            Long total = data.get("total") != null ? Long.valueOf(data.get("total").toString()) : 0L;
+            int offset = (pageNum - 1) * pageSize;
+            List<UserPublicProfileDto> records = userPublicMapper.searchUsers(keyword, pageNum, pageSize, offset, currentUserId);
+            long total = userPublicMapper.countUsers(keyword, currentUserId);
 
             if (records == null || records.isEmpty()) {
                 return new PageResult<>(Collections.emptyList(), total, (long) pageNum, (long) pageSize);
             }
 
             List<UserSearchResultVO> results = new ArrayList<>(records.size());
-            for (Map<String, Object> record : records) {
-                Object uid = record.get("userId");
-                if (uid == null) continue;
-                Long userId = Long.valueOf(uid.toString());
-
-                // 过滤掉当前用户自己
-                if (userId.equals(currentUserId)) continue;
-
+            for (UserPublicProfileDto record : records) {
                 UserSearchResultVO vo = new UserSearchResultVO();
-                vo.setUserId(userId);
-                vo.setNickname((String) record.get("nickname"));
-                vo.setAvatar((String) record.get("avatar"));
-                vo.setEmail((String) record.get("email"));
-
-                // 附加好友关系状态
-                vo.setFriendStatus(checkFriendStatus(userId, currentUserId));
+                vo.setUserId(record.getUserId());
+                vo.setNickname(record.getNickname());
+                vo.setAvatar(record.getAvatar());
+                vo.setEmail(record.getEmail());
+                vo.setFriendStatus(checkFriendStatus(record.getUserId(), currentUserId));
                 results.add(vo);
             }
 
-            Long pages = pageSize > 0 ? (total + pageSize - 1) / pageSize : 0L;
             return new PageResult<>(results, total, (long) pageNum, (long) pageSize);
 
         } catch (Exception e) {
             log.warn("搜索用户失败: keyword={}, error={}", keyword, e.getMessage());
-            return new PageResult<>(Collections.emptyList(), 0L, (long) pageNum, (long) pageSize);
+            throw new ChatException(ChatErrorCode.SEARCH_SERVICE_UNAVAILABLE);
         }
     }
 }

@@ -74,8 +74,17 @@ public class FileController {
     public R<PageResult<FileVO>> getRoomFiles(
             @Parameter(description = "房间ID") @PathVariable Long roomId,
             @RequestParam(defaultValue = "1") int pageNum,
-            @RequestParam(defaultValue = "20") int pageSize) {
-        return R.ok(fileService.getRoomFiles(roomId, pageNum, pageSize));
+            @RequestParam(defaultValue = "20") int pageSize,
+            @Parameter(description = "搜索关键字（模糊匹配文件名）")
+            @RequestParam(required = false) String keyword,
+            @Parameter(description = "文件类型分类（image/document/video/audio/archive/other）")
+            @RequestParam(required = false) String fileType,
+            @Parameter(description = "排序字段（uploadTime/fileSize/fileName）")
+            @RequestParam(defaultValue = "uploadTime") String sortField,
+            @Parameter(description = "排序方向（asc/desc）")
+            @RequestParam(defaultValue = "desc") String sortOrder) {
+        return R.ok(fileService.getRoomFiles(
+            roomId, pageNum, pageSize, keyword, fileType, sortField, sortOrder));
     }
 
     @Operation(summary = "获取文件信息")

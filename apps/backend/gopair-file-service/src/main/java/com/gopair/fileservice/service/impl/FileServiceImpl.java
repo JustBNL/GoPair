@@ -1,5 +1,6 @@
 package com.gopair.fileservice.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.service.WebSocketMessageProducer;
@@ -156,9 +157,12 @@ public class FileServiceImpl implements FileService {
 
     /** @FileServiceImpl.java (146-147) query */
     @Override
-    public PageResult<FileVO> getRoomFiles(Long roomId, int pageNum, int pageSize) {
+    public PageResult<FileVO> getRoomFiles(Long roomId, int pageNum, int pageSize,
+                                           String keyword, String fileType,
+                                           String sortField, String sortOrder) {
         Page<RoomFile> page = new Page<>(pageNum, pageSize);
-        Page<RoomFile> result = (Page<RoomFile>) roomFileMapper.selectPageByRoomId(page, roomId);
+        IPage<RoomFile> result = roomFileMapper.selectPage(
+            page, roomId, keyword, fileType, sortField, sortOrder);
         List<FileVO> voList = result.getRecords().stream().map(this::toVO).toList();
         PageResult<FileVO> pr = new PageResult<>();
         pr.setRecords(voList); pr.setTotal(result.getTotal());

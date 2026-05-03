@@ -19,7 +19,7 @@
         v-model:value="searchKeyword"
         placeholder="搜索文件名..."
         :loading="loading"
-        @search="handleSearch"
+        @input="handleSearchDebounced"
         class="search-input"
       />
 
@@ -202,6 +202,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, h } from 'vue'
+import { debounce } from 'lodash-es'
 import { message as antMessage, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import {
@@ -258,6 +259,23 @@ const pagination = ref({
   total: 0
 })
 
+/**
+ * 从 sortBy 值（如 "uploadTime_desc"）提取排序字段
+ */
+const parseSortField = (sortByValue: string): 'uploadTime' | 'fileSize' | 'fileName' => {
+  const part = sortByValue.split('_')[0]
+  if (part === 'fileSize' || part === 'fileName') return part
+  return 'uploadTime'
+}
+
+/**
+ * 从 sortBy 值（如 "uploadTime_desc"）提取排序方向
+ */
+const parseSortOrder = (sortByValue: string): 'asc' | 'desc' => {
+  const part = sortByValue.split('_')[1]
+  return part === 'asc' ? 'asc' : 'desc'
+}
+
 // 模态框
 const showInfoModal = ref(false)
 const selectedFileInfo = ref<FileVO | null>(null)
@@ -292,13 +310,16 @@ const loadFileList = async () => {
     const response = await FileAPI.getRoomFiles(
       props.roomId,
       pagination.value.current,
-      pagination.value.pageSize
+      pagination.value.pageSize,
+      searchKeyword.value || undefined,
+      selectedFileType.value || undefined,
+      parseSortField(sortBy.value),
+      parseSortOrder(sortBy.value)
     )
 
     fileList.value = response.data.records
     pagination.value.total = response.data.total
 
-    // 加载统计信息
     await loadFileStats()
 
   } catch (error) {
@@ -322,12 +343,12 @@ const loadFileStats = async () => {
 }
 
 /**
- * 处理搜索
+ * 处理搜索（debounced，300ms 后触发）
  */
-const handleSearch = () => {
+const handleSearchDebounced = debounce(() => {
   pagination.value.current = 1
   loadFileList()
-}
+}, 300)
 
 /**
  * 处理类型筛选

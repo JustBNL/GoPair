@@ -99,10 +99,14 @@ export class FileAPI {
   static async getRoomFiles(
     roomId: number,
     pageNum: number = 1,
-    pageSize: number = 20
+    pageSize: number = 20,
+    keyword?: string,
+    fileType?: string,
+    sortField: 'uploadTime' | 'fileSize' | 'fileName' = 'uploadTime',
+    sortOrder: 'asc' | 'desc' = 'desc'
   ): Promise<ApiResponse<PageResult<FileVO>>> {
     return http.get(API_ENDPOINTS.FILE_ROOM_LIST(roomId), {
-      params: { pageNum, pageSize }
+      params: { pageNum, pageSize, keyword, fileType, sortField, sortOrder }
     } as any)
   }
 
@@ -227,20 +231,5 @@ export class FileAPI {
    */
   static async accessSharedFile(shareToken: string): Promise<ApiResponse<FileVO>> {
     return request.get(`/file/share/${shareToken}`)
-  }
-
-  /**
-   * 文件搜索
-   */
-  static async searchFiles(
-    roomId: number,
-    keyword: string,
-    fileType?: string,
-    pageNum: number = 1,
-    pageSize: number = 20
-  ): Promise<ApiResponse<PageResult<FileVO>>> {
-    return request.get(`/file/room/${roomId}/search`, {
-      params: { keyword, fileType, pageNum, pageSize }
-    })
   }
 }

@@ -34,14 +34,20 @@ public interface FileService {
     FileVO uploadFile(MultipartFile file, Long roomId, Long userId, String nickname);
 
     /**
-     * 分页获取房间文件列表
+     * 分页获取房间文件列表（支持搜索、类型筛选、排序）
      *
-     * @param roomId   房间ID
-     * @param pageNum  页码（从1开始）
-     * @param pageSize 每页大小
+     * @param roomId    房间ID
+     * @param pageNum   页码（从1开始）
+     * @param pageSize  每页大小
+     * @param keyword   搜索关键字（模糊匹配文件名，可为空）
+     * @param fileType  文件类型分类（image/document/video/audio/archive/other，可为空）
+     * @param sortField 排序字段（uploadTime/fileSize/fileName，默认为 uploadTime）
+     * @param sortOrder 排序方向（asc/desc，默认为 desc）
      * @return 文件分页结果
      */
-    PageResult<FileVO> getRoomFiles(Long roomId, int pageNum, int pageSize);
+    PageResult<FileVO> getRoomFiles(Long roomId, int pageNum, int pageSize,
+                                     String keyword, String fileType,
+                                     String sortField, String sortOrder);
 
     /**
      * 获取单个文件信息（含动态生成的Presigned URL）

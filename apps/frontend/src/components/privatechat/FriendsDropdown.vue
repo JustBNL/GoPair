@@ -137,9 +137,17 @@
             </a-input>
           </div>
 
+          <!-- 搜索异常 -->
+          <div
+            v-if="chatStore.searchError && !chatStore.searchLoading"
+            class="error-state"
+          >
+            <p class="error-text">{{ chatStore.searchError }}</p>
+          </div>
+
           <!-- 搜索结果列表 -->
           <div
-            v-if="searchKeyword.trim() && chatStore.searchResults.length > 0"
+            v-else-if="searchKeyword.trim() && chatStore.searchResults.length > 0"
             class="friends-list"
           >
             <div
@@ -658,6 +666,17 @@ watch(dropdownOpen, (open) => {
 .empty-hint {
   font-size: 12px;
   color: var(--text-muted, #999);
+  margin: 0;
+}
+
+.error-state {
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.error-text {
+  font-size: 14px;
+  color: var(--color-error, #e74c3c);
   margin: 0;
 }
 
