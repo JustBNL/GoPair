@@ -4,7 +4,7 @@
 
     <select id="selectByUserIds" resultType="com.gopair.chatservice.domain.dto.UserPublicProfileDto">
         SELECT user_id AS userId, nickname, avatar
-        FROM app_user
+        FROM user
         WHERE user_id IN
         <foreach collection="userIds" item="id" open="(" separator="," close=")">
             #{id}

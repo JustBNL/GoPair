@@ -246,6 +246,9 @@ public class FriendServiceImpl implements FriendService {
 
     private Map<Long, String> fetchEmailsByUserIds(List<Long> userIds) {
         Map<Long, String> result = new HashMap<>();
+        if (userIds == null || userIds.isEmpty()) {
+            return result;
+        }
         try {
             String idParam = userIds.stream()
                     .map(String::valueOf)
@@ -334,8 +337,7 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Object getUserPublicProfile(Long userId) {
+    public Map<String, Object> getUserPublicProfile(Long userId) {
         try {
             String response = restTemplate.getForObject(USER_SERVICE_URL + userId, String.class);
             Map<String, Object> body = objectMapper.readValue(response, Map.class);

@@ -108,16 +108,10 @@
                 <EyeOutlined v-if="passwordHidden" />
                 <EyeInvisibleOutlined v-else />
               </span>
-            </div>
-            <div v-if="isOwner" class="password-visibility-control">
-              <a-tooltip :title="currentRoom.passwordVisible === 1 ? '成员可查看密码，点击关闭' : '成员不可查看密码，点击开启'">
-                <a-switch
-                  :checked="currentRoom.passwordVisible === 1"
-                  @change="togglePasswordVisible"
-                  size="small"
-                  checked-children="成员可见"
-                  un-checked-children="成员隐藏"
-                />
+              <a-tooltip v-if="isOwner" :title="currentRoom.passwordVisible === 1 ? '成员不可查看' : '成员可查看'">
+                <span class="member-visibility-toggle" @click.stop="togglePasswordVisible">
+                  <TeamOutlined :style="{ color: currentRoom.passwordVisible === 1 ? 'var(--brand-primary)' : 'var(--text-muted)' }" />
+                </span>
               </a-tooltip>
             </div>
           </div>
@@ -408,7 +402,6 @@ import dayjs from 'dayjs'
 import {
   ArrowLeftOutlined,
   CopyOutlined,
-  TeamOutlined,
   ClockCircleOutlined,
   KeyOutlined,
   MessageOutlined,
@@ -419,7 +412,8 @@ import {
   UserDeleteOutlined,
   LockOutlined,
   EyeOutlined,
-  EyeInvisibleOutlined
+  EyeInvisibleOutlined,
+  TeamOutlined
 } from '@ant-design/icons-vue'
 
 // API和工具导入
@@ -1439,21 +1433,24 @@ onUnmounted(() => {
           
           .password-card-content {
             display: flex;
-            flex-direction: column;
-            gap: 12px;
-            
+            align-items: center;
+            line-height: 1;
+
             .password-display {
               display: flex;
               align-items: center;
+              line-height: 1;
+              flex: 1;
               gap: 10px;
-              
+
               .password-value {
                 font-family: 'Courier New', monospace;
                 font-size: 16px;
                 font-weight: 700;
                 color: var(--brand-primary);
                 letter-spacing: 1.5px;
-                flex: 1;
+                line-height: 1;
+                vertical-align: middle;
 
                 &.hidden {
                   color: var(--text-muted);
@@ -1469,24 +1466,29 @@ onUnmounted(() => {
                 }
               }
 
-              .password-toggle {
+              .password-toggle,
+              .member-visibility-toggle {
                 cursor: pointer;
-                color: var(--text-muted);
                 font-size: 16px;
                 transition: color 0.2s;
                 flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                line-height: 1;
 
                 &:hover {
                   color: var(--brand-primary);
                 }
               }
-            }
 
-            .password-visibility-control {
-              display: flex;
-              align-items: center;
-              padding-top: 8px;
-              border-top: 1px solid var(--border-light);
+              .password-toggle {
+                color: var(--text-muted);
+              }
+
+              .member-visibility-toggle {
+                padding-left: 8px;
+                border-left: 1px solid var(--border-light);
+              }
             }
           }
 

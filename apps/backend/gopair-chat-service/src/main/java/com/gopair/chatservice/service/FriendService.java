@@ -8,6 +8,7 @@ import com.gopair.chatservice.domain.vo.UserSearchResultVO;
 import com.gopair.common.core.PageResult;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 好友关系服务接口。
@@ -95,9 +96,9 @@ public interface FriendService {
      * 获取任意用户的公开资料。
      *
      * @param userId 用户ID
-     * @return 用户VO（昵称、头像、邮箱）
+     * @return 用户公开资料 Map（昵称、头像、邮箱）
      */
-    Object getUserPublicProfile(Long userId);
+    Map<String, Object> getUserPublicProfile(Long userId);
 
     /**
      * 搜索用户（用于好友搜索场景）。

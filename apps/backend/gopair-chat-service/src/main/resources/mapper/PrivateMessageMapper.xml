@@ -46,7 +46,7 @@
     <select id="selectMessageVOPage" resultMap="PrivateMessageVOMap">
         SELECT <include refid="PrivateMessageVOColumns"/>
         FROM private_message pm
-        LEFT JOIN app_user u ON pm.sender_id = u.user_id
+        LEFT JOIN user u ON pm.sender_id = u.user_id
         WHERE pm.conversation_id = #{conversationId} AND pm.is_recalled = 0
         ORDER BY pm.create_time ASC
     </select>
@@ -54,7 +54,7 @@
     <select id="selectLatestMessageByConversation" resultMap="PrivateMessageVOMap">
         SELECT <include refid="PrivateMessageVOColumns"/>
         FROM private_message pm
-        LEFT JOIN app_user u ON pm.sender_id = u.user_id
+        LEFT JOIN user u ON pm.sender_id = u.user_id
         WHERE pm.conversation_id = #{conversationId} AND pm.is_recalled = 0
         ORDER BY pm.create_time DESC
         LIMIT 1
