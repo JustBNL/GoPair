@@ -7,6 +7,7 @@ import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
 import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.dto.UpdateRoomPasswordDto;
+import com.gopair.roomservice.domain.dto.UpdatePasswordVisibilityDto;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.domain.vo.JoinAcceptedVO;
@@ -139,6 +140,18 @@ public class RoomController {
             @RequestBody UpdateRoomPasswordDto dto) {
         Long userId = UserContextHolder.getCurrentUserId();
         roomService.updateRoomPassword(roomId, userId, dto.getMode(), dto.getRawPassword(), dto.getVisible());
+        return R.ok(null);
+    }
+
+    /** 更新房间密码可见性（仅房主） */
+    @Operation(summary = "更新房间密码可见性", description = "房主切换密码是否对成员可见")
+    @PatchMapping("/{roomId}/password/visibility")
+    public R<Void> updatePasswordVisibility(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId,
+            @RequestBody @Validated UpdatePasswordVisibilityDto dto) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        roomService.updatePasswordVisibility(roomId, userId, dto.getVisible());
         return R.ok(null);
     }
 

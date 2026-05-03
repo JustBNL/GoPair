@@ -34,8 +34,9 @@ export class ChatAPI {
     return http.delete<void>(`/chat/friend/${friendId}`)
   }
 
-  static async getFriends(): Promise<ApiResponse<FriendVO[]>> {
-    return http.get<FriendVO[]>('/chat/friend')
+  static async getFriends(keyword?: string): Promise<ApiResponse<FriendVO[]>> {
+    const params = keyword ? `?keyword=${encodeURIComponent(keyword)}` : ''
+    return http.get<FriendVO[]>(`/chat/friend${params}`)
   }
 
   static async getIncomingRequests(): Promise<ApiResponse<FriendRequestVO[]>> {

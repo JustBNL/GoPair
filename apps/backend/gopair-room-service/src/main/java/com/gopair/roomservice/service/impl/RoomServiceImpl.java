@@ -726,7 +726,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * @param userId      当前登录用户 ID（必须是房主）
      * @param mode        新密码模式（可为 null，表示不修改模式）
      * @param rawPassword 原始密码（FOLLOW_MODES_FIXED 时必填）
-     * @param visible     密码是否对成员可见（可为 null）
+     * @param visible     密码是否对成员可见（可为 null，为 null 则不修改）
      */
     @Override
     @LogRecord(operation = "更新房间密码", module = "房间管理")
@@ -742,7 +742,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         int passwordMode = mode != null ? mode : RoomConst.PASSWORD_MODE_NONE;
         room.setPasswordMode(passwordMode);
-        room.setPasswordVisible(visible != null ? visible : 1);
+        if (visible != null) {
+            room.setPasswordVisible(visible);
+        }
 
         String masterKey = roomConfig.getPassword().getMasterKey();
         if (passwordMode == RoomConst.PASSWORD_MODE_FIXED) {
@@ -771,6 +773,47 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             }
         });
         log.info("[房间服务] 房间{}密码已更新，模式={}", roomId, passwordMode);
+    }
+
+    /**
+     * 更新房间密码可见性（仅切换可见性，不涉及密码模式变更）。
+     *
+     * * [执行链路]
+     * 1. 查询房间并校验存在性。
+     * 2. 校验操作者是否为房主。
+     * 3. 更新 passwordVisible 字段。
+     * 4. 事务提交后：同步更新 Redis 缓存。
+     *
+     * @param roomId  房间 ID
+     * @param userId  当前登录用户 ID（必须是房主）
+     * @param visible 密码是否对成员可见（0-隐藏 1-显示）
+     */
+    @Override
+    @LogRecord(operation = "更新房间密码可见性", module = "房间管理")
+    @Transactional(rollbackFor = Exception.class)
+    public void updatePasswordVisibility(Long roomId, Long userId, Integer visible) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        if (!room.getOwnerId().equals(userId)) {
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
+        }
+
+        room.setPasswordVisible(visible);
+        roomMapper.updateById(room);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    roomCacheSyncService.setPasswordMode(roomId, room.getPasswordMode());
+                } catch (Exception e) {
+                    log.warn("[房间服务] Redis 更新密码可见性失败 roomId={} 错误={}", roomId, e.getMessage());
+                }
+            }
+        });
+        log.info("[房间服务] 房间{}密码可见性已更新，visible={}", roomId, visible);
     }
 
     /**

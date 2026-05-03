@@ -51,6 +51,10 @@ export class RoomAPI {
     return http.patch<void>(API_ENDPOINTS.ROOM_UPDATE_PASSWORD(roomId), data)
   }
 
+  static async updatePasswordVisibility(roomId: number, visible: number): Promise<ApiResponse<void>> {
+    return http.patch<void>(API_ENDPOINTS.ROOM_UPDATE_PASSWORD_VISIBILITY(roomId), { visible })
+  }
+
   static async getRoomCurrentPassword(roomId: number): Promise<ApiResponse<RoomInfo>> {
     return http.get<RoomInfo>(API_ENDPOINTS.ROOM_CURRENT_PASSWORD(roomId))
   }
@@ -70,6 +74,7 @@ export const {
   leaveRoom,
   closeRoom,
   updateRoomPassword,
+  updatePasswordVisibility,
   getRoomCurrentPassword,
   kickMember
 } = RoomAPI

@@ -18,6 +18,9 @@ public class FriendVO {
     @Schema(description = "好友昵称", example = "张三")
     private String nickname;
 
+    @Schema(description = "好友邮箱")
+    private String email;
+
     @Schema(description = "好友头像", example = "http://example.com/avatar.jpg")
     private String avatar;
 

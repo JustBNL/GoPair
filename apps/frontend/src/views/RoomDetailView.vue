@@ -423,7 +423,7 @@ import {
 } from '@ant-design/icons-vue'
 
 // API和工具导入
-import { getRoomMembers, updateRoomPassword, getRoomCurrentPassword, RoomAPI } from '@/api/room'
+import { getRoomMembers, updateRoomPassword, updatePasswordVisibility, getRoomCurrentPassword, RoomAPI } from '@/api/room'
 import { MessageAPI } from '@/api/message'
 import { FileAPI } from '@/api/file'
 import { VoiceAPI } from '@/api/voice'
@@ -618,10 +618,7 @@ const togglePasswordVisible = async () => {
   if (!currentRoom.value || !isOwner.value) return
   const newVisible = currentRoom.value.passwordVisible === 1 ? 0 : 1
   try {
-    await updateRoomPassword(currentRoom.value.roomId, {
-      mode: currentRoom.value.passwordMode ?? 0,
-      visible: newVisible
-    })
+    await updatePasswordVisibility(currentRoom.value.roomId, newVisible)
     currentRoom.value = { ...currentRoom.value, passwordVisible: newVisible }
     antMessage.success(newVisible === 1 ? '已允许成员查看密码' : '已禁止成员查看密码')
   } catch (e: any) {

@@ -46,9 +46,18 @@
               v-model:value="friendSearchKeyword"
               placeholder="搜索好友"
               allow-clear
+              @keyup.enter="handleFriendSearch"
             >
-              <template #prefix>
-                <SearchOutlined class="search-icon" />
+              <template #suffix>
+                <a-button
+                  type="text"
+                  size="small"
+                  class="search-btn"
+                  :loading="chatStore.friendSearchLoading"
+                  @click="handleFriendSearch"
+                >
+                  <SearchOutlined />
+                </a-button>
               </template>
             </a-input>
           </div>
@@ -65,9 +74,9 @@
           </div>
 
           <!-- 好友列表 -->
-          <div class="friends-list" v-if="filteredFriends.length > 0">
+          <div class="friends-list" v-if="displayedFriends.length > 0">
             <div
-              v-for="friend in filteredFriends"
+              v-for="friend in displayedFriends"
               :key="friend.friendId"
               class="friend-item"
               @click="handleSelectFriend(friend)"
@@ -91,13 +100,13 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-else-if="!chatStore.friendsLoading" class="empty-state">
+          <div v-else-if="!chatStore.friendsLoading && !chatStore.friendSearchLoading" class="empty-state">
             <p class="empty-text">{{ friendSearchKeyword ? '没有找到好友' : '暂无好友' }}</p>
             <p v-if="!friendSearchKeyword" class="empty-hint">在房间里添加好友开始聊天吧</p>
           </div>
 
           <!-- 加载中 -->
-          <div v-if="chatStore.friendsLoading" class="loading-state">
+          <div v-if="chatStore.friendsLoading || chatStore.friendSearchLoading" class="loading-state">
             <a-spin size="small" />
             <span>加载中...</span>
           </div>
@@ -111,10 +120,18 @@
               v-model:value="searchKeyword"
               placeholder="搜索昵称或邮箱"
               allow-clear
-              @input="handleSearchInput"
+              @keyup.enter="handleSearchInput"
             >
-              <template #prefix>
-                <SearchOutlined class="search-icon" />
+              <template #suffix>
+                <a-button
+                  type="text"
+                  size="small"
+                  class="search-btn"
+                  :loading="chatStore.searchLoading"
+                  @click="handleSearchInput"
+                >
+                  <SearchOutlined />
+                </a-button>
               </template>
             </a-input>
           </div>
@@ -270,14 +287,11 @@ const addingUserId = ref<number | null>(null)
 // 防抖定时器
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-const filteredFriends = computed(() => {
-  if (!friendSearchKeyword.value.trim()) {
-    return chatStore.friends
+const displayedFriends = computed(() => {
+  if (friendSearchKeyword.value.trim()) {
+    return chatStore.friendSearchResults
   }
-  const kw = friendSearchKeyword.value.toLowerCase()
-  return chatStore.friends.filter(f =>
-    f.nickname.toLowerCase().includes(kw)
-  )
+  return chatStore.friends
 })
 
 const pendingIncoming = computed(() =>
@@ -291,7 +305,17 @@ function switchTab(tab: 'friends' | 'search') {
   } else {
     searchKeyword.value = ''
     chatStore.clearSearchResults()
+    chatStore.clearFriendSearchResults()
   }
+}
+
+function handleFriendSearch() {
+  const kw = friendSearchKeyword.value.trim()
+  if (!kw) {
+    chatStore.clearFriendSearchResults()
+    return
+  }
+  chatStore.fetchFriendSearchResults(kw)
 }
 
 function handleSearchInput() {
@@ -381,6 +405,7 @@ watch(dropdownOpen, (open) => {
     friendSearchKeyword.value = ''
     searchKeyword.value = ''
     chatStore.clearSearchResults()
+    chatStore.clearFriendSearchResults()
   }
 })
 </script>

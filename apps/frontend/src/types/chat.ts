@@ -22,6 +22,7 @@ export enum PrivateMessageType {
 export interface FriendVO {
   friendId: number
   nickname: string
+  email?: string
   avatar?: string
   remark?: string
   createdAt: string

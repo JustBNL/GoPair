@@ -58,6 +58,15 @@ public interface FriendService {
     List<FriendVO> getFriends(Long userId);
 
     /**
+     * 在好友列表中按关键词搜索（昵称 OR 邮箱）。
+     *
+     * @param userId 当前用户ID
+     * @param keyword 搜索关键词
+     * @return 匹配的好友VO列表
+     */
+    List<FriendVO> searchFriends(Long userId, String keyword);
+
+    /**
      * 获取收到的待处理好友申请列表。
      *
      * @param userId 当前用户ID

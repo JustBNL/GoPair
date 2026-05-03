@@ -24,4 +24,14 @@
           AND status = '1'
     </delete>
 
+    <select id="selectFriendIdsByKeyword" resultType="java.lang.Long">
+        SELECT CASE WHEN f.user_id = #{userId} THEN f.friend_id ELSE f.user_id END
+        FROM friend f
+        JOIN user u ON u.id = CASE WHEN f.user_id = #{userId} THEN f.friend_id ELSE f.user_id END
+        WHERE (f.user_id = #{userId} OR f.friend_id = #{userId})
+          AND f.status = '1'
+          AND (u.nickname LIKE CONCAT('%', #{keyword}, '%')
+               OR u.email LIKE CONCAT('%', #{keyword}, '%'))
+    </select>
+
 </mapper>

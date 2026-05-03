@@ -32,4 +32,9 @@ public interface FriendMapper extends BaseMapper<Friend> {
      * 删除指定双向好友关系。
      */
     int deleteByPair(@Param("userIdA") Long userIdA, @Param("userIdB") Long userIdB);
+
+    /**
+     * 在好友列表中按关键词搜索（昵称 OR 邮箱），返回匹配的好友用户ID。
+     */
+    List<Long> selectFriendIdsByKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
 }

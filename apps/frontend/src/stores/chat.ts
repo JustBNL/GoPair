@@ -32,6 +32,10 @@ export const useChatStore = defineStore('chat', () => {
   const searchLoading = ref(false)
   const searchTotal = ref(0)
 
+  // ==================== 好友搜索状态 ====================
+  const friendSearchResults = ref<FriendVO[]>([])
+  const friendSearchLoading = ref(false)
+
   // ==================== 私聊会话状态 ====================
   const conversations = ref<ConversationVO[]>([])
   const conversationsLoading = ref(false)
@@ -138,6 +142,22 @@ export const useChatStore = defineStore('chat', () => {
     searchTotal.value = 0
   }
 
+  /** 搜索好友列表（通过后端过滤） */
+  async function fetchFriendSearchResults(keyword: string) {
+    friendSearchLoading.value = true
+    try {
+      const res = await ChatAPI.getFriends(keyword)
+      friendSearchResults.value = res.data || []
+    } finally {
+      friendSearchLoading.value = false
+    }
+  }
+
+  /** 清空好友搜索结果 */
+  function clearFriendSearchResults() {
+    friendSearchResults.value = []
+  }
+
   // ==================== 私聊操作 ====================
 
   async function openChat(friendId: number) {
@@ -201,6 +221,7 @@ export const useChatStore = defineStore('chat', () => {
     friends, friendsLoading,
     incomingRequests, incomingCount, outgoingRequests,
     searchResults, searchLoading, searchTotal,
+    friendSearchResults, friendSearchLoading,
     conversations, conversationsLoading,
     currentFriendId, currentConversationId,
     currentMessages, messagesLoading,
@@ -209,6 +230,7 @@ export const useChatStore = defineStore('chat', () => {
     fetchFriends, fetchIncomingRequests, fetchOutgoingRequests,
     sendRequest, acceptRequest, rejectRequest, removeFriend, checkFriendStatus,
     fetchSearchResults, clearSearchResults,
+    fetchFriendSearchResults, clearFriendSearchResults,
 
     // Chat actions
     fetchConversations, fetchMessages,

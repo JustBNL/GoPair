@@ -31,6 +31,7 @@ export const API_ENDPOINTS = {
   ROOM_LEAVE: (roomId: number) => `/room/${roomId}/leave`,
   ROOM_CLOSE: (roomId: number) => `/room/${roomId}/close`,
   ROOM_UPDATE_PASSWORD: (roomId: number) => `/room/${roomId}/password`,
+  ROOM_UPDATE_PASSWORD_VISIBILITY: (roomId: number) => `/room/${roomId}/password/visibility`,
   ROOM_CURRENT_PASSWORD: (roomId: number) => `/room/${roomId}/password/current`,
   ROOM_KICK_MEMBER: (roomId: number, userId: number) => `/room/${roomId}/members/${userId}`,
   

@@ -132,6 +132,16 @@ public interface RoomService {
     void kickMember(Long roomId, Long operatorId, Long targetUserId);
 
     /**
+     * 更新房间密码可见性（仅房主）
+     * <p>专门处理可见性切换，不涉及密码模式变更。
+     *
+     * @param roomId  房间ID
+     * @param userId  操作用户ID（必须是房主）
+     * @param visible 密码是否可见（0-隐藏 1-显示）
+     */
+    void updatePasswordVisibility(Long roomId, Long userId, Integer visible);
+
+    /**
      * 检查用户是否为房间成员
      *
      * @param roomId 房间ID

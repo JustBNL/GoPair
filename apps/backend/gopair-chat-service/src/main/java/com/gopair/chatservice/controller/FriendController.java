@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -65,7 +66,12 @@ public class FriendController {
 
     @Operation(summary = "获取好友列表")
     @GetMapping
-    public List<FriendVO> getFriends() {
+    public List<FriendVO> getFriends(
+            @Parameter(description = "搜索关键词（可选）")
+            @RequestParam(required = false) String keyword) {
+        if (StringUtils.hasText(keyword)) {
+            return friendService.searchFriends(getCurrentUserId(), keyword);
+        }
         return friendService.getFriends(getCurrentUserId());
     }
 

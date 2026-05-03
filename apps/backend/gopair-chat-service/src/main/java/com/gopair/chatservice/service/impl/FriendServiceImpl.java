@@ -202,6 +202,72 @@ public class FriendServiceImpl implements FriendService {
     }
 
     @Override
+    @LogRecord(operation = "搜索好友", module = "好友管理")
+    public List<FriendVO> searchFriends(Long userId, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return getFriends(userId);
+        }
+
+        List<Long> friendIds = friendMapper.selectFriendIdsByKeyword(userId, keyword);
+        if (friendIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LambdaQueryWrapper<Friend> wrapper = new LambdaQueryWrapper<>();
+        wrapper.and(w -> w
+                .eq(Friend::getUserId, userId).in(Friend::getFriendId, friendIds)
+                .or()
+                .eq(Friend::getFriendId, userId).in(Friend::getUserId, friendIds)
+        ).eq(Friend::getStatus, '1');
+
+        List<Friend> friends = friendMapper.selectList(wrapper);
+
+        List<FriendVO> result = friends.stream().map(f -> {
+            Long actualFriendId = f.getUserId().equals(userId) ? f.getFriendId() : f.getUserId();
+            FriendVO vo = new FriendVO();
+            vo.setFriendId(actualFriendId);
+            vo.setRemark(f.getRemark());
+            vo.setCreatedAt(f.getCreateTime() != null ? f.getCreateTime().format(DF) : null);
+            return vo;
+        }).collect(Collectors.toList());
+
+        userProfileFallbackService.fillMissingFriendProfiles(result, friendIds);
+
+        Map<Long, String> emails = fetchEmailsByUserIds(friendIds);
+        for (FriendVO friend : result) {
+            String email = emails.get(friend.getFriendId());
+            if (email != null) {
+                friend.setEmail(email);
+            }
+        }
+
+        return result;
+    }
+
+    private Map<Long, String> fetchEmailsByUserIds(List<Long> userIds) {
+        Map<Long, String> result = new HashMap<>();
+        try {
+            String idParam = userIds.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(","));
+            String response = restTemplate.getForObject(USER_SERVICE_URL + "by-ids?ids=" + idParam, String.class);
+            var body = objectMapper.readValue(response, Map.class);
+            var dataArray = (List<Map<String, Object>>) body.get("data");
+            if (dataArray != null) {
+                for (Map<String, Object> item : dataArray) {
+                    Object uid = item.get("userId");
+                    if (uid != null) {
+                        result.put(Long.valueOf(uid.toString()), (String) item.get("email"));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[聊天-好友搜索] 获取邮箱失败: {}", e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
     @LogRecord(operation = "获取收到的申请", module = "好友管理")
     public List<FriendRequestVO> getIncomingRequests(Long userId) {
         LambdaQueryWrapper<FriendRequest> wrapper = new LambdaQueryWrapper<>();
