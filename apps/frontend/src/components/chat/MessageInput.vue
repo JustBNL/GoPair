@@ -22,10 +22,10 @@
     </div>
 
     <!-- 工具栏 -->
-    <div class="input-toolbar" :class="{ 'toolbar-disabled': sending || props.disabled }">
+    <div class="input-toolbar" :class="{ 'toolbar-disabled': sending || props.disabled || isRecording }">
       <!-- 表情按钮 -->
       <a-tooltip title="表情">
-        <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="表情" @click="emojiPickerVisible = !emojiPickerVisible">
+        <a-button type="text" size="small" :disabled="sending || props.disabled || isRecording" aria-label="表情" @click="emojiPickerVisible = !emojiPickerVisible">
           <smile-outlined />
         </a-button>
       </a-tooltip>
@@ -36,9 +36,9 @@
           :show-upload-list="false"
           :before-upload="handleFileUpload"
           accept="*/*"
-          :disabled="sending || props.disabled"
+          :disabled="sending || props.disabled || isRecording"
         >
-          <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="发送文件">
+          <a-button type="text" size="small" :disabled="sending || props.disabled || isRecording" aria-label="发送文件">
             <paper-clip-outlined />
           </a-button>
         </a-upload>
@@ -50,31 +50,27 @@
           :show-upload-list="false"
           :before-upload="handleImageUpload"
           accept="image/*"
-          :disabled="sending || props.disabled"
+          :disabled="sending || props.disabled || isRecording"
         >
-          <a-button type="text" size="small" :disabled="sending || props.disabled" aria-label="发送图片">
+          <a-button type="text" size="small" :disabled="sending || props.disabled || isRecording" aria-label="发送图片">
             <picture-outlined />
           </a-button>
         </a-upload>
       </a-tooltip>
 
       <!-- 语音录制 -->
-      <a-tooltip
+      <a-button
+        type="text"
+        size="small"
+        :disabled="sending || props.disabled || isRecording"
+        :class="{ 'recording': isRecording }"
+        @click="startRecording"
+        @touchstart.prevent.passive="startRecording"
+        aria-label="语音录制"
         title="语音消息"
-        :open="false"
-        :overlay-style="{ pointerEvents: 'none' }"
       >
-        <a-button
-          type="text"
-          size="small"
-          :disabled="sending || props.disabled"
-          :class="{ 'recording': isRecording }"
-          @click="toggleRecording"
-          aria-label="语音录制"
-        >
-          <audio-outlined />
-        </a-button>
-      </a-tooltip>
+        <audio-outlined />
+      </a-button>
     </div>
 
     <!-- 输入区域 -->
@@ -117,14 +113,17 @@
       title="录制语音"
       :footer="null"
       :closable="false"
+      :mask-closable="true"
       centered
+      :body-style="{ padding: '24px', cursor: 'pointer' }"
+      @cancel="stopRecording"
     >
-      <div class="recording-modal">
+      <div class="recording-modal" @click="stopRecording">
         <div class="recording-animation">
           <div class="pulse-circle"></div>
           <audio-outlined class="audio-icon" />
         </div>
-        <p class="recording-tip">松开发送，按住说话</p>
+        <p class="recording-tip">点击任意区域结束录制</p>
         <p class="recording-duration">{{ formatRecordingDuration }}</p>
       </div>
     </a-modal>
@@ -415,25 +414,44 @@ const startRecording = async () => {
     mediaRecorder.value = new MediaRecorder(stream)
     audioChunks.value = []
     recordingDuration.value = 0
+    recordingStartTime.value = Date.now()
 
     mediaRecorder.value.ondataavailable = (event) => {
       audioChunks.value.push(event.data)
     }
 
     mediaRecorder.value.onstop = async () => {
-      // 确保无论 onstop 如何被触发，都清理 stream tracks
+      // 检查最小录制时长，防误触
+      const elapsed = Date.now() - recordingStartTime.value
+      if (elapsed < 300) {
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop())
+        }
+        mediaRecorder.value = null
+        audioChunks.value = []
+        isRecording.value = false
+        showRecordingModal.value = false
+        if (recordingTimer.value) {
+          clearInterval(recordingTimer.value)
+          recordingTimer.value = null
+        }
+        antMessage.info('说话时间太短')
+        return
+      }
+
+      // 确保清理 stream tracks
       if (stream) {
         stream.getTracks().forEach(track => track.stop())
         stream = null
       }
 
-      const audioBlob = new Blob(audioChunks.value, { type: 'audio/wav' })
+      const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
 
       // 上传语音文件到文件服务
       try {
         sending.value = true
         const { FileAPI } = await import('@/api/file')
-        const file = new File([audioBlob], `voice_${Date.now()}.wav`, { type: 'audio/wav' })
+        const file = new File([audioBlob], `voice_${Date.now()}.webm`, { type: 'audio/webm' })
         const response = await FileAPI.uploadFile(
           { roomId: props.roomId, file },
           (progressEvent) => {
@@ -461,6 +479,8 @@ const startRecording = async () => {
         uploadProgress.value = 0
       } finally {
         sending.value = false
+        mediaRecorder.value = null
+        audioChunks.value = []
       }
     }
 
@@ -474,7 +494,6 @@ const startRecording = async () => {
     }, 1000)
 
   } catch (error) {
-    // 无论 getUserMedia 还是 MediaRecorder 创建失败，都要清理已获取的流
     if (stream) {
       stream.getTracks().forEach(track => track.stop())
     }

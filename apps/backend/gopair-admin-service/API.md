@@ -595,8 +595,8 @@ GET /admin/files/page
         "uploaderNickname": "李四",
         "fileName": "架构设计图.png",
         "filePath": "/uploads/2026/04/15/xxx.png",
-        "thumbnailPath": "/uploads/thumbs/xxx.png",
         "fileSize": 2048000,
+        "thumbnailSize": 153600,
         "fileType": "png",
         "contentType": "image/png",
         "downloadCount": 15,
@@ -638,8 +638,8 @@ GET /admin/files/{fileId}
     "uploaderNickname": "李四",
     "fileName": "架构设计图.png",
     "filePath": "/uploads/2026/04/15/xxx.png",
-    "thumbnailPath": "/uploads/thumbs/xxx.png",
     "fileSize": 2048000,
+    "thumbnailSize": 153600,
     "fileType": "png",
     "contentType": "image/png",
     "downloadCount": 15,
@@ -1002,8 +1002,8 @@ GET /admin/voice-calls/{callId}/participants
 | uploaderNickname | String | 上传者昵称 |
 | fileName | String | 文件名 |
 | filePath | String | 文件存储路径 |
-| thumbnailPath | String | 缩略图路径 |
 | fileSize | Long | 文件大小（字节） |
+| thumbnailSize | Long | 缩略图字节数（图片类型有值，非图片为0） |
 | fileType | String | 文件类型扩展名 |
 | contentType | String | MIME 类型 |
 | downloadCount | Integer | 下载次数 |

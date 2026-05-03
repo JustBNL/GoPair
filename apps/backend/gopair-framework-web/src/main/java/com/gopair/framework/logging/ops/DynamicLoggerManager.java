@@ -3,8 +3,7 @@ package com.gopair.framework.logging.ops;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggingSystem;
-import org.springframework.cloud.context.environment.EnvironmentChangeEvent;
-import org.springframework.cloud.context.scope.refresh.RefreshScopeRefreshedEvent;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,30 +31,11 @@ public class DynamicLoggerManager {
     }
     
     /**
-     * 监听RefreshScope刷新事件
+     * 监听应用就绪事件，初始化日志级别记录
      */
     @EventListener
-    public void handleRefreshScopeRefresh(RefreshScopeRefreshedEvent event) {
-        log.info("[日志管理] 检测到RefreshScope刷新事件，开始刷新日志配置");
-        refreshLoggerLevels();
-    }
-    
-    /**
-     * 监听环境变量变更事件
-     */
-    @EventListener
-    public void handleEnvironmentChange(EnvironmentChangeEvent event) {
-        log.info("[日志管理] 检测到环境变量变更事件，变更的键: {}", event.getKeys());
-        
-        // 检查是否有日志相关的配置变更
-        boolean hasLoggingChange = event.getKeys().stream()
-                .anyMatch(key -> key.startsWith("logging.level.") || 
-                                key.startsWith("gopair.logging."));
-        
-        if (hasLoggingChange) {
-            log.info("[日志管理] 检测到日志相关配置变更，开始刷新日志配置");
-            refreshLoggerLevels();
-        }
+    public void handleApplicationReady(ApplicationReadyEvent event) {
+        log.info("[日志管理] 应用已就绪，日志级别监控已启动");
     }
     
     /**
@@ -110,7 +90,11 @@ public class DynamicLoggerManager {
      */
     public String getLogLevel(String loggerName) {
         try {
-            LogLevel logLevel = loggingSystem.getLoggerConfiguration(loggerName).getEffectiveLevel();
+            var config = loggingSystem.getLoggerConfiguration(loggerName);
+            if (config == null) {
+                return "NOT_CONFIGURED";
+            }
+            LogLevel logLevel = config.getEffectiveLevel();
             return logLevel != null ? logLevel.name() : "INHERITED";
         } catch (Exception e) {
             log.warn("[日志管理] 获取Logger级别失败 - Logger: {}", loggerName, e);

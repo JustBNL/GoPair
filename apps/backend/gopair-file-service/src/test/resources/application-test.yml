@@ -98,7 +98,7 @@ gopair:
     max-file-size: 104857600
     max-room-size: 1073741824
     thumbnail-size: 200
-    allowed-types: pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,json,xml,csv,jpg,jpeg,png,gif,bmp,webp,svg,mp4,avi,mov,mp3,wav,flac,aac,zip,rar,7z,tar,gz
+    allowed-types: pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,json,xml,csv,jpg,jpeg,png,gif,bmp,webp,svg,mp4,avi,mov,mp3,wav,flac,aac,webm,zip,rar,7z,tar,gz
     avatar-max-size: 5242880
 
 # 日志配置

@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    password: ${DB_PASSWORD:610692}
+
+gopair:
+  admin:
+    jwt:
+      secret: ${JWT_SECRET:hZ3UDLoIEAiyUChiKDNVaMrXK65vrKY+e/MxxDeu3wdjQgsBsl6/fsPr/kR/fbs0W8/3AGbt515cqMXs/AkdDw==}

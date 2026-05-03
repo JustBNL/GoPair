@@ -1,15 +1,5 @@
-spring:
-  application:
-    name: admin-service
-  config:
-    import:
-      - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
-      - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
-  cloud:
-    nacos:
-      server-addr: localhost:8848
-      username: nacos
-      password: nacos
-      discovery:
-        enabled: true
-        namespace: ''
+# ============================================================
+# bootstrap.yml 已弃用
+# 本文件曾用于 Spring Cloud Nacos 配置中心引导，
+# 现已改用 application.yml 中的本地配置，admin-service 完全独立运行。
+# ============================================================

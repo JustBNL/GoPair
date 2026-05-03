@@ -47,6 +47,6 @@ gopair:
     # 缩略图尺寸（像素）
     thumbnail-size: 200
     # 允许的文件类型（逗号分隔）
-    allowed-types: pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,json,xml,csv,jpg,jpeg,png,gif,bmp,webp,svg,mp4,avi,mov,mp3,wav,flac,aac,zip,rar,7z,tar,gz
+    allowed-types: pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,json,xml,csv,jpg,jpeg,png,gif,bmp,webp,svg,mp4,avi,mov,mp3,wav,flac,aac,webm,zip,rar,7z,tar,gz
     # 头像文件最大限制（字节），默认 5MB
     avatar-max-size: 5242880

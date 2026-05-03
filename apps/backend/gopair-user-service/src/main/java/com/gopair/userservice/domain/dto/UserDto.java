@@ -63,4 +63,10 @@ public class UserDto extends BaseQuery {
      * 当前密码（修改密码时用于验证身份）
      */
     private String currentPassword;
+
+    /**
+     * 通用搜索关键词，同时匹配昵称和邮箱（OR 关系）。
+     * 用于好友搜索等场景。
+     */
+    private String keyword;
 }

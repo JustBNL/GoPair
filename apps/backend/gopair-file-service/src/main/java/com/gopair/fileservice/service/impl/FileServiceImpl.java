@@ -112,24 +112,27 @@ public class FileServiceImpl implements FileService {
         long fs = file.getSize();
         log.info("[file-service] start op:uploadFile roomId:{} userId:{} file:{} size:{}B", roomId, userId, fn, fs);
         checkFileTypeAndSize(ft, fs);
-        // 原子预占配额：Redis INCRBY 本身原子，窗口极短，高并发下不会明显超卖
-        reserveRoomQuota(roomId, fs);
         String uuid = UUID.randomUUID().toString().replace("-", "");
         String ok = buildObjectKey(roomId, "original", uuid, ft);
         String tk = null;
+        long thumbnailBytes = 0;
         try {
-            // 一次性读取流，避免重复消费导致第二次 getInputStream() 得到已关闭流
             byte[] rawBytes = file.getBytes();
-            ByteArrayInputStream source = new ByteArrayInputStream(rawBytes);
-            uploadToMinio(source, ok, file.getContentType(), fs);
             if (IMAGE_TYPES.contains(ft)) {
                 tk = buildObjectKey(roomId, "thumbnail", uuid + "_thumb", ft);
                 byte[] tb = generateThumbnail(new ByteArrayInputStream(rawBytes), ft);
-                uploadToMinio(new ByteArrayInputStream(tb), tk, file.getContentType(), tb.length);
+                thumbnailBytes = tb.length;
+                // 原子预占配额（含原图 + 缩略图）
+                reserveRoomQuota(roomId, fs + thumbnailBytes);
+                uploadToMinio(new ByteArrayInputStream(rawBytes), ok, file.getContentType(), fs);
+                uploadToMinio(new ByteArrayInputStream(tb), tk, file.getContentType(), thumbnailBytes);
+            } else {
+                // 非图片不生成缩略图，仅预占原图配额
+                reserveRoomQuota(roomId, fs);
+                uploadToMinio(new ByteArrayInputStream(rawBytes), ok, file.getContentType(), fs);
             }
-            RoomFile rf = buildRoomFile(roomId, userId, nickname, fn, ok, tk, fs, ft, file.getContentType());
+            RoomFile rf = buildRoomFile(roomId, userId, nickname, fn, ok, tk, fs, thumbnailBytes, ft, file.getContentType());
             roomFileMapper.insert(rf);
-            // 双重校验：若 DB 实际总和已超限（极端情况），删除记录并抛异常
             if (!syncAndCheckRoomQuota(roomId)) {
                 roomFileMapper.deleteById(rf.getFileId());
                 throw new FileException(FileErrorCode.ROOM_QUOTA_EXCEEDED);
@@ -138,13 +141,15 @@ public class FileServiceImpl implements FileService {
             log.info("[file-service] success op:uploadFile fileId:{}", rf.getFileId());
             return toVO(rf);
         } catch (FileException e) {
-            releaseRoomQuota(roomId, fs);
+            if (thumbnailBytes > 0) releaseRoomQuota(roomId, fs + thumbnailBytes);
+            else releaseRoomQuota(roomId, fs);
             throw e;
         } catch (Exception e) {
             log.error("[file-service] failed op:uploadFile err:{}", e.getMessage(), e);
             silentDeleteFromMinio(ok);
-            if (tk != null) silentDeleteFromMinio(tk);
-            releaseRoomQuota(roomId, fs);
+            silentDeleteFromMinio(tk);
+            if (thumbnailBytes > 0) releaseRoomQuota(roomId, fs + thumbnailBytes);
+            else releaseRoomQuota(roomId, fs);
             throw new FileException(FileErrorCode.FILE_UPLOAD_FAILED, e.getMessage());
         }
     }
@@ -181,7 +186,7 @@ public class FileServiceImpl implements FileService {
     public String generatePreviewUrl(Long fileId) {
         log.info("[file-service] start op:generatePreviewUrl fileId:{}", fileId);
         RoomFile rf = getFileOrThrow(fileId);
-        String key = rf.getThumbnailPath() != null ? rf.getThumbnailPath() : rf.getFilePath();
+        String key = buildThumbnailObjectKey(rf.getFilePath());
         String url = buildPresignedUrl(key);
         log.info("[file-service] success op:generatePreviewUrl fileId:{}", fileId);
         return url;
@@ -206,9 +211,9 @@ public class FileServiceImpl implements FileService {
         log.info("[file-service] start op:deleteFile fileId:{} userId:{}", fileId, userId);
         if (!rf.getUploaderId().equals(userId)) throw new FileException(FileErrorCode.FILE_ACCESS_DENIED);
         silentDeleteFromMinio(rf.getFilePath());
-        if (rf.getThumbnailPath() != null) silentDeleteFromMinio(rf.getThumbnailPath());
+        silentDeleteThumbnail(rf.getFilePath());
         roomFileMapper.deleteById(fileId);
-        releaseRoomQuota(rf.getRoomId(), rf.getFileSize()); // 释放配额
+        releaseRoomQuota(rf.getRoomId(), rf.getFileSize() + (rf.getThumbnailSize() != null ? rf.getThumbnailSize() : 0));
         publishFileEvent(rf.getRoomId(), fileId, rf.getFileName(), "file_delete");
         log.info("[file-service] success op:deleteFile fileId:{}", fileId);
     }
@@ -250,7 +255,7 @@ public class FileServiceImpl implements FileService {
             try {
                 for (RoomFile file : batch) {
                     silentDeleteFromMinio(file.getFilePath());
-                    if (file.getThumbnailPath() != null) silentDeleteFromMinio(file.getThumbnailPath());
+                    silentDeleteThumbnail(file.getFilePath());
                 }
                 List<Long> ids = batch.stream().map(RoomFile::getFileId).toList();
                 roomFileMapper.deleteByIds(ids);
@@ -378,6 +383,17 @@ public class FileServiceImpl implements FileService {
         return String.format("room/%d/%s/%s.%s", roomId, cat, name, ext);
     }
 
+    private String buildThumbnailObjectKey(String filePath) {
+        if (filePath == null || !filePath.contains("/original/")) return filePath;
+        return filePath.replace("/original/", "/thumbnail/").replaceFirst("(\\.[^.]+)$", "_thumb$1");
+    }
+
+    private void silentDeleteThumbnail(String filePath) {
+        if (filePath == null || !filePath.contains("/original/")) return;
+        String thumbnailKey = buildThumbnailObjectKey(filePath);
+        silentDeleteFromMinio(thumbnailKey);
+    }
+
     private void uploadToMinio(InputStream in, String key, String ct, long size) throws Exception {
         minioClient.putObject(PutObjectArgs.builder()
                 .bucket(minioProperties.getBucketName()).object(key)
@@ -438,15 +454,15 @@ public class FileServiceImpl implements FileService {
     }
 
     private RoomFile buildRoomFile(Long roomId, Long userId, String nickname, String fileName,
-                                    String filePath, String thumbnailPath, long fileSize,
-                                    String fileType, String contentType) {
+                                    String filePath, String thumbnailKey, long fileSize,
+                                    long thumbnailSize, String fileType, String contentType) {
         RoomFile f = new RoomFile();
         f.setRoomId(roomId);
         f.setUploaderId(userId);
         f.setUploaderNickname(nickname);
         f.setFileName(fileName);
         f.setFilePath(filePath);
-        f.setThumbnailPath(thumbnailPath);
+        f.setThumbnailSize(thumbnailSize);
         f.setFileSize(fileSize);
         f.setFileType(fileType);
         f.setContentType(contentType);
@@ -483,6 +499,7 @@ public class FileServiceImpl implements FileService {
         vo.setFileName(r.getFileName());
         vo.setFileSize(r.getFileSize());
         vo.setFileSizeFormatted(FileVO.formatFileSize(r.getFileSize()));
+        vo.setThumbnailSize(r.getThumbnailSize());
         vo.setFileType(r.getFileType());
         vo.setContentType(r.getContentType());
         vo.setDownloadCount(r.getDownloadCount());
@@ -490,8 +507,7 @@ public class FileServiceImpl implements FileService {
         vo.setIconType(FileVO.resolveIconType(r.getFileType()));
         vo.setPreviewable(FileVO.isPreviewable(r.getFileType()));
         vo.setDownloadUrl(buildPresignedUrl(r.getFilePath()));
-        String pk = r.getThumbnailPath() != null ? r.getThumbnailPath() : r.getFilePath();
-        vo.setPreviewUrl(buildPresignedUrl(pk));
+        vo.setPreviewUrl(buildPresignedUrl(buildThumbnailObjectKey(r.getFilePath())));
         return vo;
     }
 }

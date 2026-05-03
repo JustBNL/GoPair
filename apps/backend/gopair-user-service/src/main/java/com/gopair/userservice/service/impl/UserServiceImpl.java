@@ -225,11 +225,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         PageHelper.startPage(userDto.getPageNum(), userDto.getPageSize());
 
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-        if (StringUtils.hasText(userDto.getNickname())) {
-            queryWrapper.like(User::getNickname, userDto.getNickname());
-        }
-        if (StringUtils.hasText(userDto.getEmail())) {
-            queryWrapper.like(User::getEmail, userDto.getEmail());
+        if (StringUtils.hasText(userDto.getKeyword())) {
+            // keyword 同时匹配昵称和邮箱（OR 关系）
+            queryWrapper.and(w -> w
+                    .like(User::getNickname, userDto.getKeyword())
+                    .or()
+                    .like(User::getEmail, userDto.getKeyword()));
+        } else {
+            if (StringUtils.hasText(userDto.getNickname())) {
+                queryWrapper.like(User::getNickname, userDto.getNickname());
+            }
+            if (StringUtils.hasText(userDto.getEmail())) {
+                queryWrapper.like(User::getEmail, userDto.getEmail());
+            }
         }
         if (userDto.getStatus() != null) {
             queryWrapper.eq(User::getStatus, userDto.getStatus());

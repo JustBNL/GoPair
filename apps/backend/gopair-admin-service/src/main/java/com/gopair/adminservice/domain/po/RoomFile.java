@@ -30,9 +30,9 @@ public class RoomFile extends BaseEntity {
 
     private String filePath;
 
-    private String thumbnailPath;
-
     private Long fileSize;
+
+    private Long thumbnailSize;
 
     private String fileType;
 

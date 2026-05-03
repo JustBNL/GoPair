@@ -46,6 +46,11 @@ public class FileVO {
     private Long fileSize;
 
     /**
+     * 缩略图字节数（仅图片类型有值，非图片为 0）
+     */
+    private Long thumbnailSize;
+
+    /**
      * 文件大小格式化字符串（如 1.5 MB）
      */
     private String fileSizeFormatted;

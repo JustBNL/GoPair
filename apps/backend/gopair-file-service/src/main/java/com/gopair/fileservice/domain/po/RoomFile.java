@@ -55,15 +55,14 @@ public class RoomFile extends BaseEntity {
     private String filePath;
 
     /**
-     * MinIO中缩略图的对象Key（仅图片类型有值）
-     * 格式：room/{roomId}/thumbnail/{uuid}_thumb.{ext}
-     */
-    private String thumbnailPath;
-
-    /**
      * 文件大小（字节）
      */
     private Long fileSize;
+
+    /**
+     * 缩略图字节数（仅图片类型有值，非图片为 0）
+     */
+    private Long thumbnailSize;
 
     /**
      * 文件扩展名（小写，如 jpg/pdf/zip）

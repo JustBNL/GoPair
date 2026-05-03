@@ -61,11 +61,16 @@
     </select>
 
     <select id="selectConversationIdsByUser" resultType="java.lang.Long">
-        SELECT DISTINCT conversation_id
-        FROM private_message
-        WHERE (sender_id = #{userId} OR receiver_id = #{userId})
-          AND is_recalled = 0
-        ORDER BY create_time DESC
+        SELECT t.conversation_id
+        FROM (
+          SELECT conversation_id, create_time,
+            ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY create_time DESC) AS rn
+          FROM private_message
+          WHERE (sender_id = #{userId} OR receiver_id = #{userId})
+            AND is_recalled = 0
+        ) t
+        WHERE t.rn = 1
+        ORDER BY t.create_time DESC
     </select>
 
     <select id="countByConversation" resultType="java.lang.Long">

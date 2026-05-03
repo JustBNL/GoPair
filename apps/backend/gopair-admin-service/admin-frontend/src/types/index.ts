@@ -136,8 +136,8 @@ export interface RoomFile {
   uploaderNickname: string
   fileName: string
   filePath: string
-  thumbnailPath: string | null
   fileSize: number
+  thumbnailSize: number
   fileType: string
   contentType: string
   downloadCount: number

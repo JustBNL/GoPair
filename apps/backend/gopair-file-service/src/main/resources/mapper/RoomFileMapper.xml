@@ -11,8 +11,8 @@
         <result column="uploader_nickname" property="uploaderNickname"/>
         <result column="file_name" property="fileName"/>
         <result column="file_path" property="filePath"/>
-        <result column="thumbnail_path" property="thumbnailPath"/>
         <result column="file_size" property="fileSize"/>
+        <result column="thumbnail_size" property="thumbnailSize"/>
         <result column="file_type" property="fileType"/>
         <result column="content_type" property="contentType"/>
         <result column="download_count" property="downloadCount"/>
@@ -24,7 +24,7 @@
     <!-- 通用列 -->
     <sql id="Base_Column_List">
         file_id, room_id, uploader_id, uploader_nickname, file_name, file_path,
-        thumbnail_path, file_size, file_type, content_type, download_count,
+        file_size, thumbnail_size, file_type, content_type, download_count,
         upload_time, create_time, update_time
     </sql>
 
@@ -44,9 +44,9 @@
         WHERE room_id = #{roomId}
     </select>
 
-    <!-- 统计房间文件总大小 -->
+    <!-- 统计房间文件总大小（含原图 + 缩略图） -->
     <select id="sumFileSizeByRoomId" resultType="long">
-        SELECT IFNULL(SUM(file_size), 0)
+        SELECT IFNULL(SUM(file_size), 0) + IFNULL(SUM(thumbnail_size), 0)
         FROM room_file
         WHERE room_id = #{roomId}
     </select>

@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================
+  logback-spring.xml — 临时禁用 OTEL Appender 用于排查启动问题
+  排查完成后恢复：取消注释 <appender name="OTEL"> 和 <appender-ref ref="OTEL"/>
+  ============================================================
+-->
 <configuration scan="true" scanPeriod="30 seconds">
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
+    <!-- 【临时禁用】OTEL Appender，抑制 Logback 初始化阶段的静默异常 -->
+    <!--
     <appender name="OTEL" class="com.gopair.common.logback.MdcAwareOtelAppender"/>
+    -->
 
     <springProfile name="dev">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -12,9 +21,12 @@
         </appender>
     </springProfile>
 
+    <!-- 【临时禁用】OTEL 引用，抑制 Logback 初始化阶段的静默异常 -->
+    <!--
     <root level="INFO">
         <appender-ref ref="OTEL"/>
     </root>
+    -->
 
     <springProfile name="dev">
         <root level="INFO">
