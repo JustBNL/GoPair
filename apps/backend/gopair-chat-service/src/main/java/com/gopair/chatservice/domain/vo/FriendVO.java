@@ -24,6 +24,9 @@ public class FriendVO {
     @Schema(description = "好友头像", example = "http://example.com/avatar.jpg")
     private String avatar;
 
+    @Schema(description = "好友头像原图URL")
+    private String avatarOriginalUrl;
+
     @Schema(description = "好友备注")
     private String remark;
 

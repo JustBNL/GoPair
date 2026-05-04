@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 
 /**
  * 房间成员服务实现类
- * 
+ *
  * @author gopair
  */
 @Slf4j
@@ -146,11 +146,11 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         roomMember.setLastActiveTime(LocalDateTime.now());
 
         int insertRows = roomMemberMapper.insert(roomMember);
-        
+
         if (insertRows > 0) {
             log.info("[房间服务] 用户{}加入房间{}成功，角色={}", userId, roomId, role);
         }
-        
+
         return insertRows > 0;
     }
 
@@ -170,11 +170,11 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
                    .eq(RoomMember::getUserId, userId);
 
         int deleteRows = roomMemberMapper.delete(queryWrapper);
-        
+
         if (deleteRows > 0) {
             log.info("[房间服务] 用户{}离开房间{}成功", userId, roomId);
         }
-        
+
         return deleteRows > 0;
     }
 
@@ -191,7 +191,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         LambdaQueryWrapper<RoomMember> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoomMember::getRoomId, roomId)
                    .eq(RoomMember::getUserId, userId);
-        
+
         RoomMember member = roomMemberMapper.selectOne(queryWrapper);
         return member != null;
     }
@@ -446,16 +446,17 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
      * 查询指定用户参与的房间列表（分页），支持按状态过滤。
      *
      * * [核心策略]
-     * - 两段式分页：过滤条件（status）在 room 表而非 room_member 表，必须先过滤再分页。
-     * - 轻量投影：第2步仅查 roomId + createTime 两个字段，由数据库完成排序，避免全量 Room 实体拉入 JVM。
+     * - 两段式分页：状态过滤在 room 表而非 room_member 表，先过滤再分页。
+     * - 单次 JOIN 填充：userRole 和 joinTime 通过 JOIN 查询一次性获取，避免二次 DB 往返。
+     * - relationshipType 由 ownerId 在内存中推导，无需额外查询。
      *
      * * [执行链路]
-     * 1. 查成员表：以 userId 查 room_member，提取所有关联 roomId（去重）；无记录则直接返回空结果。
-     * 2. 计数 + 轻量投影：
-     *    - 2a. COUNT 查询获取过滤后房间总数。
-     *    - 2b. 仅查 roomId + createTime，按 create_time DESC 由数据库排序（createTime 为 null 的房间追加到末尾）。
-     * 3. Java 侧分页：根据 pageNum/pageSize 截取当页 roomId 列表。
-     * 4. 查房间详情：IN 查询当页 roomId，按截取顺序转换为 RoomVO 并返回。
+     * 1. 获取全量 roomId：从 room_member 查出用户参与的所有 roomId（去重）；无记录则直接返回空。
+     * 2. 计数：调用 countUserRoomsWithRelationship 获取过滤后房间总数。
+     * 3. 预排序：调用 selectAllRoomIdsOrderedByUserId 获取全量 ID 列表（已按 createTime DESC 排序）。
+     * 4. 内存分页：截取当页 roomId 列表。
+     * 5. JOIN 查询：调用 selectUserRoomsWithRelationship 一次性获取 Room 基础字段 + userRole + joinTime。
+     * 6. 推导关系类型：ownerId == userId → "created"；否则 → "joined"。
      *
      * @param userId 用户 ID
      * @param query  查询条件（含分页参数 pageNum/pageSize、status、includeHistory）
@@ -476,30 +477,15 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             return new PageResult<>(List.of(), 0L, (long) query.getPageNum(), (long) query.getPageSize());
         }
 
-        // 2a. 计数：仅查符合过滤条件的房间总数，不拉实体
-        LambdaQueryWrapper<Room> countQuery = new LambdaQueryWrapper<>();
-        countQuery.in(Room::getRoomId, allRoomIds);
-        applyRoomStatusFilter(countQuery, query);
-        long realTotal = roomMapper.selectCount(countQuery);
+        Integer status = resolveStatus(query);
+        long realTotal = roomMapper.countUserRoomsWithRelationship(userId, status);
 
         if (realTotal == 0) {
             return new PageResult<>(List.of(), 0L, (long) query.getPageNum(), (long) query.getPageSize());
         }
 
-        // 2b. 轻量投影：仅 roomId + createTime，数据库层 ORDER BY create_time DESC
-        LambdaQueryWrapper<Room> orderedQuery = new LambdaQueryWrapper<>();
-        orderedQuery.in(Room::getRoomId, allRoomIds)
-                .select(Room::getRoomId, Room::getCreateTime)
-                .orderByDesc(Room::getCreateTime);
-        applyRoomStatusFilter(orderedQuery, query);
-        List<Room> orderedRooms = roomMapper.selectList(orderedQuery);
+        List<Long> filteredRoomIds = roomMapper.selectAllRoomIdsOrderedByUserId(userId, status);
 
-        // 构建有序 roomId 列表（createTime 为 null 的房间在数据库排序结果中会排在末尾，无需额外处理）
-        List<Long> filteredRoomIds = orderedRooms.stream()
-                .map(Room::getRoomId)
-                .collect(Collectors.toList());
-
-        // 3. Java 侧分页（截取当页 roomId）
         int pageNum = query.getPageNum();
         int pageSize = query.getPageSize();
         int fromIndex = (pageNum - 1) * pageSize;
@@ -508,36 +494,31 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         if (fromIndex >= realTotal) {
             return new PageResult<>(List.of(), realTotal, (long) pageNum, (long) pageSize);
         }
-
-        // 4. 获取当前页的 roomId 并查询房间详情
         List<Long> pageRoomIds = filteredRoomIds.subList(fromIndex, toIndex);
-        LambdaQueryWrapper<Room> roomQueryWrapper = new LambdaQueryWrapper<>();
-        roomQueryWrapper.in(Room::getRoomId, pageRoomIds);
-        List<Room> pageRooms = roomMapper.selectList(roomQueryWrapper);
 
-        // 5. 按 pageRoomIds 顺序转换（保持分页顺序）
-        Map<Long, Room> roomMap = pageRooms.stream()
-                .collect(Collectors.toMap(Room::getRoomId, room -> room));
-        List<RoomVO> roomVOList = pageRoomIds.stream()
-                .map(roomMap::get)
-                .filter(room -> room != null)
-                .map(room -> BeanCopyUtils.copyBean(room, RoomVO.class))
-                .collect(Collectors.toList());
+        List<RoomVO> roomVOList = roomMapper.selectUserRoomsWithRelationship(pageRoomIds, userId);
+
+        for (RoomVO room : roomVOList) {
+            room.setRelationshipType(userId.equals(room.getOwnerId()) ? "created" : "joined");
+        }
 
         return new PageResult<>(roomVOList, realTotal, (long) pageNum, (long) pageSize);
     }
 
     /**
-     * 按房间状态过滤：精确匹配 status（若传）或不传时默认仅返回活跃（status=0）的房间。
+     * 解析查询条件中的房间状态。
+     *
+     * @param query 查询条件
+     * @return 房间状态（null 表示不限状态）
      */
-    private void applyRoomStatusFilter(LambdaQueryWrapper<Room> roomQueryWrapper, RoomQueryDto query) {
+    private Integer resolveStatus(RoomQueryDto query) {
         if (query.getStatus() != null) {
-            roomQueryWrapper.eq(Room::getStatus, query.getStatus());
-            return;
+            return query.getStatus();
         }
         if (!Boolean.TRUE.equals(query.getIncludeHistory())) {
-            roomQueryWrapper.eq(Room::getStatus, 0);
+            return 0;
         }
+        return null;
     }
 
     /**
@@ -559,13 +540,13 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     public boolean deleteByRoomId(Long roomId) {
         LambdaQueryWrapper<RoomMember> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoomMember::getRoomId, roomId);
-        
+
         int deleteRows = roomMemberMapper.delete(queryWrapper);
-        
+
         if (deleteRows > 0) {
             log.info("[房间服务] 房间{}的所有成员已删除", roomId);
         }
-        
+
         return deleteRows > 0;
     }
 
@@ -632,4 +613,4 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         }
         return updated;
     }
-} 
+}

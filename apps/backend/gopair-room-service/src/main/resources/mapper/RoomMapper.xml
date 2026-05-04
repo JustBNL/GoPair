@@ -70,4 +70,55 @@
           AND current_members <![CDATA[ > ]]> 0
     </update>
 
+    <!-- 查询用户参与的房间列表（带用户角色、加入时间） -->
+    <select id="selectUserRoomsWithRelationship" resultType="com.gopair.roomservice.domain.vo.RoomVO">
+        SELECT r.room_id           AS roomId,
+               r.room_code         AS roomCode,
+               r.room_name         AS roomName,
+               r.description       AS description,
+               r.max_members       AS maxMembers,
+               r.current_members   AS currentMembers,
+               r.owner_id          AS ownerId,
+               r.status            AS status,
+               r.expire_time       AS expireTime,
+               r.create_time       AS createTime,
+               r.update_time       AS updateTime,
+               r.password_mode     AS passwordMode,
+               r.password_visible  AS passwordVisible,
+               rm.role             AS userRole,
+               rm.join_time        AS joinTime
+        FROM room r
+        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId}
+        WHERE r.room_id IN
+        <foreach collection="roomIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <!-- 统计用户参与的房间数量（支持状态过滤） -->
+    <select id="countUserRoomsWithRelationship" resultType="java.lang.Long">
+        SELECT COUNT(DISTINCT r.room_id)
+        FROM room r
+        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId}
+        <where>
+            <if test="status != null">
+                r.status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 查询用户参与的所有房间 ID（按 createTime 降序） -->
+    <select id="selectAllRoomIdsOrderedByUserId" resultType="java.lang.Long">
+        SELECT r.room_id
+        FROM room r
+        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId}
+        <where>
+            <if test="status != null">
+                r.status = #{status}
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
 </mapper> 

@@ -40,7 +40,7 @@ public class UserProfileFallbackServiceImpl implements UserProfileFallbackServic
 
         List<UserPublicProfileDto> dbResults = userPublicMapper.selectByUserIds(distinct);
         for (UserPublicProfileDto dto : dbResults) {
-            profiles.put(dto.getUserId(), new ProfileEntry(dto.getNickname(), dto.getAvatar()));
+            profiles.put(dto.getUserId(), new ProfileEntry(dto.getNickname(), dto.getEmail(), dto.getAvatar(), dto.getAvatarOriginalUrl()));
         }
 
         if (profiles.size() < distinct.size()) {
@@ -53,8 +53,14 @@ public class UserProfileFallbackServiceImpl implements UserProfileFallbackServic
                 if (friend.getNickname() == null && entry.nickname != null) {
                     friend.setNickname(entry.nickname);
                 }
+                if (friend.getEmail() == null && entry.email != null) {
+                    friend.setEmail(entry.email);
+                }
                 if (friend.getAvatar() == null && entry.avatar != null) {
                     friend.setAvatar(entry.avatar);
+                }
+                if (friend.getAvatarOriginalUrl() == null && entry.avatarOriginalUrl != null) {
+                    friend.setAvatarOriginalUrl(entry.avatarOriginalUrl);
                 }
             }
             if (friend.getNickname() == null) {
@@ -77,7 +83,11 @@ public class UserProfileFallbackServiceImpl implements UserProfileFallbackServic
                     Object uid = item.get("userId");
                     if (uid != null) {
                         profiles.put(Long.valueOf(uid.toString()),
-                                new ProfileEntry((String) item.get("nickname"), (String) item.get("avatar")));
+                                new ProfileEntry(
+                                        (String) item.get("nickname"),
+                                        (String) item.get("email"),
+                                        (String) item.get("avatar"),
+                                        (String) item.get("avatarOriginalUrl")));
                     }
                 }
             }
@@ -86,5 +96,5 @@ public class UserProfileFallbackServiceImpl implements UserProfileFallbackServic
         }
     }
 
-    private record ProfileEntry(String nickname, String avatar) {}
+    private record ProfileEntry(String nickname, String email, String avatar, String avatarOriginalUrl) {}
 }

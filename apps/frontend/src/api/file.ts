@@ -56,6 +56,14 @@ export class FileAPI {
   }
 
   /**
+   * 下载指定用户的头像原图
+   */
+  static async downloadUserAvatar(userId: number): Promise<string> {
+    const res = await http.get<string>(`/file/avatar/${userId}/download`)
+    return res.data
+  }
+
+  /**
    * 上传文件
    */
   static async uploadFile(

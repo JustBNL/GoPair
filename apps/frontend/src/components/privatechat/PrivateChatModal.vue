@@ -17,18 +17,31 @@
       <!-- 左侧：好友信息 -->
       <div class="chat-sidebar">
         <div class="sidebar-header" style="cursor: pointer" @click="openProfile">
-          <UserAvatar
-            :user-id="friendId || 0"
-            :nickname="friendNickname || undefined"
-            :avatar="friendAvatar || undefined"
-            :size="56"
-          />
+          <div class="avatar-wrapper clickable">
+            <a-image
+              v-if="friendAvatar"
+              :src="friendAvatar"
+              :preview="{
+                src: friendAvatarOriginalUrl || friendAvatar
+              }"
+              :width="56"
+              :height="56"
+              :preview-mask="false"
+              class="profile-avatar-image"
+            />
+            <a-avatar v-else :size="56">{{ nicknameInitial }}</a-avatar>
+          </div>
           <div class="sidebar-user-info">
             <h4 class="sidebar-nickname">{{ friendNickname || '加载中...' }}</h4>
+            <p class="sidebar-email">{{ friendEmail || '暂无邮箱' }}</p>
+            <p class="sidebar-added-time">{{ formatAddedTime(friendCreatedAt) }}</p>
           </div>
         </div>
-        <a-divider style="margin: 12px 0" />
+        <a-divider style="margin: 8px 0" />
         <div class="sidebar-actions">
+          <a-button type="text" size="small" class="download-avatar-btn" @click.stop="handleDownloadAvatar">
+            <DownloadOutlined /> 下载头像
+          </a-button>
           <a-popconfirm
             title="确定删除该好友？"
             ok-text="确定"
@@ -187,8 +200,8 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { message } from 'ant-design-vue'
 import {
   CloseOutlined,
-  FileOutlined,
   DownloadOutlined,
+  FileOutlined,
   PaperClipOutlined,
   PictureOutlined,
   SendOutlined
@@ -237,6 +250,24 @@ const friendAvatar = computed(() => {
   const info = friendInfo.value
   if (!info) return ''
   return (info as FriendVO).avatar || (info as ConversationVO).friendAvatar || ''
+})
+
+const friendEmail = computed(() => {
+  return (friendInfo.value as FriendVO)?.email || ''
+})
+
+const friendAvatarOriginalUrl = computed(() => {
+  return (friendInfo.value as FriendVO)?.avatarOriginalUrl || ''
+})
+
+const friendCreatedAt = computed(() => {
+  return (friendInfo.value as FriendVO)?.createdAt || ''
+})
+
+const nicknameInitial = computed(() => {
+  const name = friendNickname.value
+  if (!name) return '?'
+  return name.trim().slice(0, 2).toUpperCase()
 })
 
 watch(
@@ -359,6 +390,26 @@ function formatTime(timeStr: string): string {
   }
 }
 
+function formatAddedTime(timeStr: string): string {
+  if (!timeStr) return ''
+  try {
+    const d = new Date(timeStr.replace(' ', 'T'))
+    return `添加于 ${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+  } catch {
+    return ''
+  }
+}
+
+async function handleDownloadAvatar() {
+  if (!props.friendId) return
+  try {
+    const url = await FileAPI.downloadUserAvatar(props.friendId)
+    window.open(url, '_blank')
+  } catch {
+    message.error('下载头像失败')
+  }
+}
+
 function formatFileSize(bytes?: number): string {
   if (!bytes) return ''
   if (bytes < 1024) return `${bytes} B`
@@ -422,8 +473,39 @@ function formatFileSize(bytes?: number): string {
   word-break: break-all;
 }
 
+.sidebar-added-time {
+  font-size: 11px;
+  color: var(--text-muted, #999);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sidebar-actions {
   margin-top: auto;
+}
+
+.avatar-wrapper.clickable {
+  cursor: pointer;
+}
+
+.avatar-wrapper.clickable :deep(.ant-image),
+.avatar-wrapper.clickable :deep(.ant-avatar) {
+  border-radius: 50%;
+}
+
+.download-avatar-btn {
+  font-size: 12px;
+  padding: 2px 4px;
+  height: auto;
+  color: var(--text-muted, #999);
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.download-avatar-btn:hover {
+  color: var(--brand-primary, #5B87BD);
 }
 
 /* 右侧聊天区 */

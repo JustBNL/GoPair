@@ -55,6 +55,14 @@ public class FileController {
         return R.ok(url);
     }
 
+    @Operation(summary = "下载指定用户的头像原图", description = "生成指定用户头像原图的下载Presigned URL")
+    @GetMapping("/avatar/{userId}/download")
+    public R<String> downloadUserAvatar(@PathVariable Long userId) {
+        log.info("[文件服务] 下载指定用户头像原图 userId:{}", userId);
+        String url = fileService.generateAvatarDownloadUrl(userId);
+        return R.ok(url);
+    }
+
     @Operation(summary = "上传文件", description = "上传文件到房间，图片类型自动生成缩略图")
     @PostMapping("/upload")
     public R<FileVO> uploadFile(

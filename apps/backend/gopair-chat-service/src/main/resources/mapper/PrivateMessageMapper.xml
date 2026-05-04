@@ -3,7 +3,7 @@
 <mapper namespace="com.gopair.chatservice.mapper.PrivateMessageMapper">
 
     <resultMap id="PrivateMessageVOMap" type="com.gopair.chatservice.domain.vo.PrivateMessageVO">
-        <id column="message_id" property="messageId"/>
+        <id column="id" property="id"/>
         <result column="conversation_id" property="conversationId"/>
         <result column="sender_id" property="senderId"/>
         <result column="receiver_id" property="receiverId"/>
@@ -21,7 +21,7 @@
     </resultMap>
 
     <sql id="PrivateMessageVOColumns">
-        pm.message_id,
+        pm.id,
         pm.conversation_id,
         pm.sender_id,
         pm.receiver_id,

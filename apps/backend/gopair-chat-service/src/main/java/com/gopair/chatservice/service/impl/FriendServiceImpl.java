@@ -10,6 +10,7 @@ import com.gopair.chatservice.domain.po.FriendRequest;
 import com.gopair.chatservice.domain.vo.FriendRequestVO;
 import com.gopair.chatservice.domain.vo.FriendVO;
 import com.gopair.chatservice.domain.vo.UserSearchResultVO;
+import com.gopair.chatservice.mapper.UserPublicMapper;
 import com.gopair.common.core.PageResult;
 import com.gopair.chatservice.enums.ChatErrorCode;
 import com.gopair.chatservice.enums.FriendStatus;

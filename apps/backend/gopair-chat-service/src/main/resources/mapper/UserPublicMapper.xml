@@ -3,7 +3,7 @@
 <mapper namespace="com.gopair.chatservice.mapper.UserPublicMapper">
 
     <select id="selectByUserIds" resultType="com.gopair.chatservice.domain.dto.UserPublicProfileDto">
-        SELECT user_id AS userId, nickname, avatar
+        SELECT user_id AS userId, nickname, email, avatar, avatar_original_url AS avatarOriginalUrl
         FROM user
         WHERE user_id IN
         <foreach collection="userIds" item="id" open="(" separator="," close=")">

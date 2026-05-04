@@ -24,6 +24,7 @@ export interface FriendVO {
   nickname: string
   email?: string
   avatar?: string
+  avatarOriginalUrl?: string
   remark?: string
   createdAt: string
   lastMessageTime?: string

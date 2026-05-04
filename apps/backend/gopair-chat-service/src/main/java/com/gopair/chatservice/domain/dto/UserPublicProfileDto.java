@@ -13,4 +13,5 @@ public class UserPublicProfileDto {
     private String nickname;
     private String email;
     private String avatar;
+    private String avatarOriginalUrl;
 }

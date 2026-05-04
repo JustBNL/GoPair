@@ -402,18 +402,12 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
     /**
      * 获取当前用户参与的房间列表（创建的房间 + 加入的房间）。
-     *
-     * * [核心策略]
-     * - 双层职责分离：RoomMemberService.getUserRooms 负责查"用户参与了哪些房间"；
-     *   本方法负责补充"用户在这些房间中的角色和关系"。
-     * - IN 查询优化：增强关系信息时，使用 IN 查询批量获取所有 room_member 记录，
-     *   而不是逐房间查询，将 2N 次查询压缩为 2 次。
+     * 委托 RoomMemberService.getUserRooms 实现，本方法不承担具体查询逻辑。
      *
      * * [执行链路]
      * 1. userId 防御性校验。
-     * 2. 调用 roomMemberService.getUserRooms 获取分页后的房间列表（已按状态过滤、分页）。
-     * 3. 调用 enhanceRoomsWithUserRelationship 补充 userRole、joinTime、relationshipType。
-     * 4. 返回带关系增强的 RoomVO 列表。
+     * 2. 委托 roomMemberService.getUserRooms 获取分页结果。
+     * 3. 返回结果。
      *
      * @param userId 当前登录用户 ID
      * @param query  查询条件（分页、状态过滤等）
@@ -426,14 +420,10 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
 
-        // RoomMemberService 负责：过滤用户参与的房间、按状态过滤、分页
-        PageResult<RoomVO> memberRooms = roomMemberService.getUserRooms(userId, query);
+        PageResult<RoomVO> result = roomMemberService.getUserRooms(userId, query);
 
-        // 补充用户在每个房间的角色、加入时间、关系类型（created / joined）
-        enhanceRoomsWithUserRelationship(memberRooms.getRecords(), userId);
-
-        log.info("[房间服务] 用户{}获取房间列表成功，共{}个房间", userId, memberRooms.getTotal());
-        return memberRooms;
+        log.info("[房间服务] 用户{}获取房间列表成功，共{}个房间", userId, result.getTotal());
+        return result;
     }
 
     /**
@@ -601,80 +591,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     public boolean isRoomCodeUnique(String roomCode) {
         Room room = roomMapper.selectByRoomCode(roomCode);
         return room == null;
-    }
-
-    /**
-     * 为房间列表补充用户在每个房间的关系信息。
-     *
-     * * [核心策略]
-     * - IN 查询优化：将原本需要逐房间查询用户角色的 2N 次 DB 操作，合并为 1 次 IN 查询，
-     *   将复杂度从 O(2N) 降至 O(2)，在房间数量较多时效果显著（10个房间：20次→2次，减少90%）。
-     * - 降级兜底：若 room_member 中查不到记录（理论上不应发生），退化通过 ownerId 判断。
-     *
-     * * [执行链路]
-     * 1. 空值保护：rooms 为空或 userId 为空时直接返回。
-     * 2. 批量 IN 查询：一次查询获取用户在所有房间的成员记录，存入 Map<roomId, RoomMember>。
-     * 3. 内存填充：遍历房间列表，根据查到的成员信息填充 userRole、joinTime、relationshipType。
-     *    - ownerId == userId 或 role == ROLE_OWNER → "created"
-     *    - 否则 → "joined"
-     * 4. 异常兜底：若单条填充失败，降级为普通成员 joined，不影响其他房间数据。
-     *
-     * @param rooms  房间列表（已由 RoomMemberService.getUserRooms 返回）
-     * @param userId 用户 ID
-     */
-    private void enhanceRoomsWithUserRelationship(List<RoomVO> rooms, Long userId) {
-        if (rooms == null || rooms.isEmpty() || userId == null) {
-            return;
-        }
-
-        // 提取当前页所有房间 ID
-        List<Long> roomIds = rooms.stream()
-                .map(RoomVO::getRoomId)
-                .collect(Collectors.toList());
-
-        // IN 查询：一次性获取用户在这些房间的所有成员关系（N → 1）
-        LambdaQueryWrapper<RoomMember> userMembershipQuery = new LambdaQueryWrapper<>();
-        userMembershipQuery.in(RoomMember::getRoomId, roomIds)
-                .eq(RoomMember::getUserId, userId);
-        Map<Long, RoomMember> userMemberships = roomMemberMapper.selectList(userMembershipQuery)
-                .stream()
-                .collect(Collectors.toMap(RoomMember::getRoomId, m -> m));
-
-        // 内存中填充关系数据（逐条赋值，无额外 DB 查询）
-        for (RoomVO room : rooms) {
-            try {
-                RoomMember membership = userMemberships.get(room.getRoomId());
-                if (membership != null) {
-                    room.setUserRole(membership.getRole());
-                    room.setJoinTime(membership.getJoinTime());
-
-                    // 判断关系类型：房主→创建的关系，普通成员→加入的关系
-                    if (room.getOwnerId().equals(userId) || (membership.getRole() != null && membership.getRole() == RoomConst.ROLE_OWNER)) {
-                        room.setRelationshipType("created");
-                    } else {
-                        room.setRelationshipType("joined");
-                    }
-                } else {
-                    // 降级：理论上 room_member 中必有记录，退化为通过 ownerId 判断
-                    if (room.getOwnerId().equals(userId)) {
-                        room.setUserRole(RoomConst.ROLE_OWNER);
-                        room.setRelationshipType("created");
-                        room.setJoinTime(room.getCreateTime());
-                    } else {
-                        room.setUserRole(RoomConst.ROLE_MEMBER);
-                        room.setRelationshipType("joined");
-                        log.warn("[房间服务] 用户{}在房间{}中的成员信息缺失，使用降级处理", userId, room.getRoomId());
-                    }
-                }
-            } catch (Exception e) {
-                // 单条失败不影响其他房间，降级为普通成员
-                log.error("[房间服务] 增强房间{}的用户关系信息失败", room.getRoomId(), e);
-                room.setUserRole(RoomConst.ROLE_MEMBER);
-                room.setRelationshipType("joined");
-            }
-        }
-
-        log.info("[房间服务] 为用户{}增强了{}个房间的关系信息", userId, rooms.size());
     }
 
     // ==================== 密码相关方法 ====================
