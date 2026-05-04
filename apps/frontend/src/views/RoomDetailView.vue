@@ -1719,6 +1719,22 @@ onUnmounted(() => {
         }
       }
 
+      .file-list-section {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .files-container {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
       .members-container {
         flex: 1;
         padding: 16px;

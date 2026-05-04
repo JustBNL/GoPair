@@ -61,54 +61,15 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements RoomService {
 
-    /**
-     * 房间基础 Mapper，提供 room 表的 CRUD
-     */
     private final RoomMapper roomMapper;
-
-    /**
-     * 房间成员 Mapper，提供 room_member 表的 CRUD
-     */
     private final RoomMemberMapper roomMemberMapper;
-
-    /**
-     * 房间成员服务，处理成员维度的业务逻辑
-     */
     private final RoomMemberService roomMemberService;
-
-    /**
-     * 加入预占服务，基于 Redis + Lua 保证防重、防超卖的异步入房
-     */
     private final JoinReservationService joinReservationService;
-
-    /**
-     * 加入结果查询服务，轮询 Redis 中异步入房的最终状态
-     */
     private final JoinResultQueryService joinResultQueryService;
-
-    /**
-     * 房间缓存同步服务，负责 Redis 与 DB 数据的最终一致性
-     */
     private final RoomCacheSyncService roomCacheSyncService;
-
-    /**
-     * 离开房间事件 MQ 生产者，触发 LeaveRoomConsumer 异步处理
-     */
     private final LeaveRoomProducer leaveRoomProducer;
-
-    /**
-     * Redis 操作模板，写缓存/删缓存
-     */
     private final StringRedisTemplate stringRedisTemplate;
-
-    /**
-     * WebSocket 消息推送，所有房间事件通知（成员变化、状态变更等）
-     */
     private final WebSocketMessageProducer wsProducer;
-
-    /**
-     * 房间配置，包含密码 masterKey、默认过期时长等
-     */
     private final RoomConfig roomConfig;
 
     /**

@@ -179,17 +179,17 @@
         </div>
 
         <!-- 分页器 -->
-        <div v-if="fileList.length > 0" class="file-pagination">
-          <a-pagination
-            v-model:current="pagination.current"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            :show-size-changer="false"
-            :show-quick-jumper="true"
-            @change="handlePageChange"
-          />
-        </div>
       </a-spin>
+    </div>
+    <div v-if="fileList.length > 0" class="file-pagination">
+      <a-pagination
+        v-model:current="pagination.current"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :show-size-changer="false"
+        :show-quick-jumper="true"
+        @change="handlePageChange"
+      />
     </div>
 
     <!-- 文件信息模态框 -->
@@ -603,8 +603,9 @@ onMounted(() => {
 .file-list {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 
   .file-stats {
     display: flex;
@@ -634,6 +635,7 @@ onMounted(() => {
     gap: 12px;
     margin-bottom: 16px;
     flex-wrap: wrap;
+    padding: 16px;
 
     .search-input {
       width: clamp(120px, 30%, 200px);
@@ -653,6 +655,10 @@ onMounted(() => {
   }
 
   .file-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+
     .empty-state {
       padding: 40px;
       text-align: center;
@@ -769,11 +775,13 @@ onMounted(() => {
         }
       }
     }
+  }
 
-    .file-pagination {
-      margin-top: 24px;
-      text-align: center;
-    }
+  .file-pagination {
+    flex-shrink: 0;
+    padding: 16px;
+    margin-top: 16px;
+    text-align: center;
   }
 }
 
