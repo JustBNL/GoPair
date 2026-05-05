@@ -100,7 +100,7 @@
           <div class="card-content password-card-content">
             <div class="password-display">
               <span v-if="!passwordHidden" class="password-value">
-                {{ currentPasswordDisplay || '••••••' }}
+                {{ currentPassword || '••••••' }}
                 <span v-if="currentRoom.passwordMode === 2 && remainingSeconds > 0" class="totp-timer">({{ remainingSeconds }}s)</span>
               </span>
               <span v-else class="password-value hidden">••••••</span>
@@ -456,6 +456,7 @@ import MemberProfileModal from '@/components/MemberProfileModal.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useVoiceCall } from '@/composables/useVoiceCall'
+import { useRoomPassword } from '@/composables/useRoomPassword'
 
 const route = useRoute()
 const router = useRouter()
@@ -553,13 +554,6 @@ const newMessage = ref('')
 const fileCount = ref(0)
 const fileListRefresh = ref(false)
 
-// 密码相关状态
-const passwordHidden = ref(true)
-const currentPasswordDisplay = ref('')
-const remainingSeconds = ref(0)
-let totpTimeout: ReturnType<typeof setTimeout> | null = null
-let totpInitialized = false
-
 // 密码区域是否显示
 const showPasswordArea = computed(() => {
   if (!currentRoom.value) return false
@@ -569,61 +563,22 @@ const showPasswordArea = computed(() => {
   return currentRoom.value.passwordVisible === 1
 })
 
-/**
- * 加载当前密码（房主或 passwordVisible=1 的成员可调用）
- */
-const loadCurrentPassword = async () => {
-  if (!currentRoom.value || !showPasswordArea.value) return
-  try {
-    const data = await getRoomCurrentPassword(currentRoom.value.roomId)
-    if (data?.data) {
-      currentPasswordDisplay.value = data.data.currentPassword || ''
-      remainingSeconds.value = data.data.remainingSeconds ?? 0
-    }
-  } catch {
-    // API 失败时保留已有的 remainingSeconds，避免定时器继续空转
-  }
-}
-
-function scheduleNextRefresh() {
-  if (!showPasswordArea.value || currentRoom.value?.passwordMode !== 2) return
-  totpTimeout = setTimeout(async () => {
-    await loadCurrentPassword()
-    scheduleNextRefresh()
-  }, (remainingSeconds.value > 0 ? remainingSeconds.value : 300) * 1000)
-}
-
-/**
- * 启动 TOTP 预约刷新（仅 mode=2 时）
- */
-const startTotpTimer = () => {
-  if (totpInitialized) return
-  totpInitialized = true
-  stopTotpTimeout()
-  loadCurrentPassword()
-  scheduleNextRefresh()
-}
-
-/**
- * 停止 TOTP 预约
- */
-const stopTotpTimeout = () => {
-  if (totpTimeout) {
-    clearTimeout(totpTimeout)
-    totpTimeout = null
-  }
-}
-
-/**
- * 切换密码明文/遮罩显示（不改后端）
- */
-const togglePasswordVisibility = async () => {
-  passwordHidden.value = !passwordHidden.value
-  if (!passwordHidden.value && !currentPasswordDisplay.value) {
-    // 无论房主还是成员，只要展开且没有缓存密码，就调接口获取
-    await loadCurrentPassword()
-  }
-}
+const {
+  passwordHidden,
+  currentPassword,
+  remainingSeconds,
+  initPasswordState,
+  resetPasswordState,
+  togglePasswordVisibility,
+} = useRoomPassword({
+  roomId: () => currentRoom.value!.roomId,
+  passwordMode: () => currentRoom.value?.passwordMode,
+  passwordVisible: () => currentRoom.value?.passwordVisible,
+  isOwner: () => isOwner.value,
+  showPasswordArea: () => showPasswordArea.value,
+  loadPasswordApi: (roomId: number) =>
+    getRoomCurrentPassword(roomId).then(r => r?.data ?? null),
+})
 
 /**
  * 房主切换密码是否对成员可见（调后端接口）
@@ -637,20 +592,6 @@ const togglePasswordVisible = async () => {
     antMessage.success(newVisible === 1 ? '已允许成员查看密码' : '已禁止成员查看密码')
   } catch (e: any) {
     antMessage.error(e?.response?.data?.msg || '操作失败')
-  }
-}
-
-/**
- * 初始化密码状态
- */
-const initPasswordState = () => {
-  if (!currentRoom.value) return
-  const mode = currentRoom.value.passwordMode
-  if (!mode || mode === 0) return
-  if (mode === 2) {
-    startTotpTimer()
-  } else if (mode === 1) {
-    loadCurrentPassword()
   }
 }
 
@@ -1260,8 +1201,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  stopTotpTimeout()
-  totpInitialized = false
+  resetPasswordState()
 })
 </script>
 

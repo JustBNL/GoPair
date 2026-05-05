@@ -83,7 +83,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      *
      * * [执行链路]
      * 1. 参数校验：userId 防御性校验（来自 UserContextHolder，非请求体传入）。
-     * 2. 构造房间：设置房主、初始成员数=1、过期时间、预设密码模式。
+     * 2. 构造房间：设置房主、初始成员数由 room_member 聚合计算、过期时间、预设密码模式。
      * 3. 生成唯一邀请码：通过 {@code RoomCodeUtils.generateWithRetry} 重试确保不冲突。
      * 4. 插入房间（insert）：MyBatis-Plus 自动回填 roomId。
      * 5. 计算并回写密码 Hash：固定密码走加盐加密，TOTP 走密钥生成（两次写表）。
@@ -110,7 +110,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         room.setDescription(roomDto.getDescription());
         // maxMembers 由 DTO 层 @NotNull 保证非空
         room.setMaxMembers(roomDto.getMaxMembers());
-        room.setCurrentMembers(1); // 创建者自动加入
         room.setOwnerId(userId);
         room.setStatus(RoomConst.STATUS_ACTIVE);
         room.setVersion(0);
@@ -138,18 +137,21 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.ROOM_CREATION_FAILED);
         }
 
-        // 插入后使用真实 roomId 计算密码 Hash 并回写（两次写表，但更安全）
+        // 创建者自动加入房间（房主角色，insert room_member）
+        roomMemberService.addMember(room.getRoomId(), userId, RoomConst.ROLE_OWNER);
+
+        // 插入后回写密码 Hash + currentMembers（合并为一次 updateById）
         String masterKey = roomConfig.getPassword().getMasterKey();
+        Long memberCount = roomMemberMapper.selectCount(
+                new LambdaQueryWrapper<RoomMember>()
+                        .eq(RoomMember::getRoomId, room.getRoomId()));
+        room.setCurrentMembers(memberCount.intValue());
         if (passwordMode == RoomConst.PASSWORD_MODE_FIXED) {
             room.setPasswordHash(PasswordUtils.encryptPassword(roomDto.getRawPassword(), room.getRoomId(), masterKey));
-            roomMapper.updateById(room);
         } else if (passwordMode == RoomConst.PASSWORD_MODE_TOTP) {
             room.setPasswordHash(PasswordUtils.generateTotpSecret());
-            roomMapper.updateById(room);
         }
-
-        // 创建者自动加入房间（房主角色）
-        roomMemberService.addMember(room.getRoomId(), userId, RoomConst.ROLE_OWNER);
+        roomMapper.updateById(room);
 
         // 转换为 VO 返回
         RoomVO roomVO = BeanCopyUtils.copyBean(room, RoomVO.class);
@@ -218,7 +220,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
         }
 
-        // 异步路径同样需要密码校验（防止知道房间码即可入房）
         verifyRoomPassword(room, joinRoomDto.getPassword());
 
         if (log.isDebugEnabled()) {
@@ -658,7 +659,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * 1. 查询房间并校验存在性。
      * 2. 校验操作者是否为房主。
      * 3. 更新 passwordVisible 字段。
-     * 4. 事务提交后：同步更新 Redis 缓存。
      *
      * @param roomId  房间 ID
      * @param userId  当前登录用户 ID（必须是房主）
@@ -679,16 +679,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         room.setPasswordVisible(visible);
         roomMapper.updateById(room);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    roomCacheSyncService.setPasswordMode(roomId, room.getPasswordMode());
-                } catch (Exception e) {
-                    log.warn("[房间服务] Redis 更新密码可见性失败 roomId={} 错误={}", roomId, e.getMessage());
-                }
-            }
-        });
         log.info("[房间服务] 房间{}密码可见性已更新，visible={}", roomId, visible);
     }
 

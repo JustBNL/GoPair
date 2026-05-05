@@ -34,8 +34,8 @@ public class RoomCodeUtils {
 
     /**
      * 生成房间码并检查唯一性
-     * 最多重试3次
-     * 
+     * 最多重试3次，全部失败后抛异常并记录 ERROR 日志。
+     *
      * @param checkUnique 唯一性检查函数，返回true表示唯一
      * @return 唯一的房间码
      * @throws RoomException 如果重试3次都失败

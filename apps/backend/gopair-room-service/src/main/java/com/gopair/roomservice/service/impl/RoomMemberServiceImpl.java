@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gopair.common.core.PageResult;
+import com.gopair.common.exception.BaseException;
 import com.gopair.common.util.BeanCopyUtils;
 import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.dto.UserPublicProfileDto;
@@ -13,12 +14,15 @@ import com.gopair.roomservice.domain.po.RoomMember;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.constant.RoomConst;
+import com.gopair.roomservice.exception.RoomException;
 import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;
 import com.gopair.roomservice.mapper.UserPublicMapper;
 import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.framework.logging.annotation.LogRecord;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -32,6 +36,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.gopair.common.enums.impl.CommonErrorCode.PARAM_MISSING;
+
 /**
  * 房间成员服务实现类
  *
@@ -39,6 +45,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMember> implements RoomMemberService {
 
     private final RoomMemberMapper roomMemberMapper;
@@ -46,6 +53,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     private final UserPublicMapper userPublicMapper;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate redisTemplate;
 
     /** 用户服务内部调用地址（Nacos 服务名） */
     private static final String USER_SERVICE_URL = "http://user-service/user/";
@@ -55,16 +63,6 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
 
     /** 批量解析失败或旧版无 by-ids 时，对仍缺资料的成员逐个补拉，避免整页显示「用户{id}」 */
     private static final int USER_SINGLE_FETCH_FALLBACK_MAX = 64;
-
-    public RoomMemberServiceImpl(RoomMemberMapper roomMemberMapper, RoomMapper roomMapper,
-                                  UserPublicMapper userPublicMapper,
-                                  RestTemplate restTemplate, ObjectMapper objectMapper) {
-        this.roomMemberMapper = roomMemberMapper;
-        this.roomMapper = roomMapper;
-        this.userPublicMapper = userPublicMapper;
-        this.restTemplate = restTemplate;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -181,6 +179,21 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     /**
      * 查询用户是否在指定房间中。
      *
+     * * [核心策略]
+     * - Cache-Aside 读：优先查 Redis Set，未命中时按缓存是否已初始化决定是否降级查 DB。
+     * - 缓存漂移恢复：若房间缓存已初始化但 Redis 返回 false，认为缓存可信，直接返回 false。
+     *   若缓存未初始化（metaKey 不存在），降级查 DB 以确保不因从未初始化而漏掉真实成员。
+     *
+     * * [执行链路]
+     * 1. 参数校验：roomId 或 userId 为 null 抛 PARAM_MISSING。
+     * 2. Redis 预查：SISMEMBER room:{roomId}:members userId。
+     *    - 命中（true）→ 直接返回 true。
+     *    - 未命中（false）→ 判断 metaKey 是否存在。
+     *      - metaKey 不存在：缓存未初始化，降级查 DB。
+     *      - metaKey 存在：缓存已初始化，members Set 中真的没有该用户，直接返回 false。
+     * 3. 降级查 DB：按 roomId + userId 查 room_member，命中则返回 true，否则 false。
+     * 4. Redis 宕机：SISMEMBER 抛异常时吞掉异常，降级走 DB 查（原有逻辑）。
+     *
      * @param roomId 房间 ID
      * @param userId 用户 ID
      * @return true=在房间中；false=不在或任一参数为 null
@@ -188,6 +201,25 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     @Override
     @LogRecord(operation = "查询成员是否在房间", module = "成员管理")
     public boolean isMemberInRoom(Long roomId, Long userId) {
+        if (Objects.isNull(roomId) || Objects.isNull(userId)) {
+            throw new BaseException(PARAM_MISSING);
+        }
+        try {
+            Boolean exists = redisTemplate.opsForSet()
+                    .isMember(RoomConst.membersKey(roomId), String.valueOf(userId));
+            if (Boolean.TRUE.equals(exists)) {
+                return true;
+            }
+            if (Boolean.FALSE.equals(exists)) {
+                Boolean hasMeta = redisTemplate.hasKey(RoomConst.metaKey(roomId));
+                if (Boolean.TRUE.equals(hasMeta)) {
+                    return false;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[房间成员] Redis 查询成员失败，降级查 DB roomId={} userId={} 错误={}",
+                    roomId, userId, e.getMessage());
+        }
         LambdaQueryWrapper<RoomMember> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoomMember::getRoomId, roomId)
                    .eq(RoomMember::getUserId, userId);
@@ -471,7 +503,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         }
         if (query.getPageSize() == null || query.getPageSize() < 1) {
             query.setPageSize(10);
-        } 
+        }
         Integer status = resolveStatus(query);
         long total = roomMapper.countUserRoomsWithRelationship(userId, status);
 

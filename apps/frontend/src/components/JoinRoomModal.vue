@@ -265,8 +265,8 @@ async function handleSubmit(_values: JoinRoomFormData) {
       password: formData.password?.trim() || undefined
     })
     if (!token) return
-    // 退避轮询（最多6次，约1.2s）
-    for (let i = 0; i < 6; i++) {
+    // 退避轮询（最多30次，约6~7s）
+    for (let i = 0; i < 30; i++) {
       const status = await roomStore.prefetchAfterJoin(token, currentRoomCode)
       if (status === 'JOINED') {
         // queryJoinResult 内部已调用 fetchUserRooms，从刷新后列表找房间

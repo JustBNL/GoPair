@@ -25,7 +25,7 @@
           <span v-if="showPasswordArea" class="password-area">
             <LockOutlined class="meta-icon password-icon" />
             <span v-if="!passwordHidden" class="password-value">
-              {{ currentPasswordDisplay }}
+              {{ currentPassword }}
                 <span v-if="!passwordHidden && props.room.passwordMode === 2 && remainingSeconds > 0" class="totp-timer">({{ remainingSeconds }}s)</span>
             </span>
             <span v-else class="password-value hidden">••••••</span>
@@ -106,6 +106,7 @@ import type { RoomInfo } from '@/types/room'
 import { ROOM_STATUS } from '@/types/room'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
+import { useRoomPassword } from '@/composables/useRoomPassword'
 
 dayjs.extend(relativeTime)
 
@@ -123,14 +124,9 @@ const emit = defineEmits<Emits>()
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
 
-const passwordHidden = ref(true)
-const currentPasswordDisplay = ref('')
-const remainingSeconds = ref(0)
 const passwordModalVisible = ref(false)
 const passwordSaving = ref(false)
 const passwordForm = reactive({ mode: 0, rawPassword: '', visible: 1 })
-let totpTimeout: ReturnType<typeof setTimeout> | null = null
-let totpInitialized = false
 
 const isOwner = computed(() => props.room.ownerId === authStore.user?.userId)
 
@@ -140,53 +136,31 @@ const showPasswordArea = computed(() => {
   return props.room.passwordVisible === 1
 })
 
-async function loadCurrentPassword() {
-  if (!showPasswordArea.value) return
-  try {
-    const data = await roomStore.getRoomCurrentPassword(props.room.roomId)
-    if (data) {
-      currentPasswordDisplay.value = data.currentPassword || ''
-      remainingSeconds.value = data.remainingSeconds ?? 0
-    }
-  } catch {
-    // API 失败时保留已有的 remainingSeconds，避免定时器继续空转
-  }
-}
-
-function scheduleNextRefresh() {
-  if (!showPasswordArea.value || props.room.passwordMode !== 2) return
-  totpTimeout = setTimeout(async () => {
-    await loadCurrentPassword()
-    scheduleNextRefresh()
-  }, (remainingSeconds.value > 0 ? remainingSeconds.value : 300) * 1000)
-}
-
-function startTotpTimer() {
-  if (totpInitialized) return
-  totpInitialized = true
-  stopTotpTimeout()
-  loadCurrentPassword()
-  scheduleNextRefresh()
-}
-
-function stopTotpTimeout() {
-  if (totpTimeout) { clearTimeout(totpTimeout); totpTimeout = null }
-}
+const {
+  passwordHidden,
+  currentPassword,
+  remainingSeconds,
+  initPasswordState,
+  resetPasswordState,
+  togglePasswordVisibility,
+  loadCurrentPassword,
+} = useRoomPassword({
+  roomId: () => props.room.roomId,
+  passwordMode: () => props.room.passwordMode,
+  passwordVisible: () => props.room.passwordVisible,
+  isOwner: () => isOwner.value,
+  showPasswordArea: () => showPasswordArea.value,
+  loadPasswordApi: (roomId: number) =>
+    roomStore.getRoomCurrentPassword(roomId).then(r => r ?? null),
+})
 
 onMounted(() => {
-  if (props.room.passwordMode === 2) startTotpTimer()
-  else if (props.room.passwordMode === 1) loadCurrentPassword()
+  initPasswordState()
 })
 
 onUnmounted(() => {
-  stopTotpTimeout()
-  totpInitialized = false
+  resetPasswordState()
 })
-
-function togglePasswordVisibility() {
-  passwordHidden.value = !passwordHidden.value
-  if (!passwordHidden.value && !currentPasswordDisplay.value) loadCurrentPassword()
-}
 
 function showPasswordModal() {
   passwordForm.mode = props.room.passwordMode || 0
@@ -216,11 +190,9 @@ async function savePassword() {
     })
     message.success('密码设置成功')
     resetPasswordForm()
-    currentPasswordDisplay.value = ''
-    stopTotpTimeout()
+    resetPasswordState()
     if (passwordForm.mode === 2) {
-      totpInitialized = false
-      startTotpTimer()
+      initPasswordState()
     } else if (passwordForm.mode === 1) {
       loadCurrentPassword()
     }
