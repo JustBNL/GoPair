@@ -202,7 +202,10 @@ public class FileServiceImpl implements FileService {
         log.info("[file-service] start op:generateAvatarDownloadUrl userId:{}", userId);
         String originalKey = AVATAR_PATH_PREFIX + userId + "/original.jpg";
         try {
-            minioClient.statObject(minioProperties.getBucketName(), originalKey);
+            minioClient.statObject(StatObjectArgs.builder()
+                    .bucket(minioProperties.getBucketName())
+                    .object(originalKey)
+                    .build());
         } catch (Exception e) {
             log.warn("[file-service] avatar not found userId:{} key:{}", userId, originalKey);
             throw new FileException(FileErrorCode.FILE_NOT_FOUND, "该用户尚未上传头像");

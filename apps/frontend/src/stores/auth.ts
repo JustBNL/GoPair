@@ -232,32 +232,6 @@ export const useAuthStore = defineStore('auth', () => {
     message.success('资料更新成功')
   }
 
-  /**
-   * 刷新用户信息
-   */
-  async function refreshUser(): Promise<void> {
-    if (user.value?.userId) {
-      try {
-        const response = await AuthAPI.getCurrentUser(user.value.userId)
-        // 将完整的UserInfo转换为CurrentUser，保留当前token
-        const updatedUser: CurrentUser = {
-          userId: response.data.userId,
-          nickname: response.data.nickname,
-          token: user.value.token,
-          email: response.data.email,
-          avatar: response.data.avatar,
-          avatarOriginalUrl: response.data.avatarOriginalUrl
-        }
-        user.value = updatedUser
-        Storage.setUser(updatedUser)
-      } catch (error) {
-        console.error('刷新用户信息失败:', error)
-        // 如果刷新失败，可能是token过期，执行登出
-        logout()
-      }
-    }
-  }
-
   // ==================== 返回 ====================
 
   return {
@@ -281,7 +255,6 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     switchMode,
     initAuth,
-    refreshUser,
     updateProfile,
     cancelAccount
   }

@@ -86,20 +86,4 @@ public class UserManageService {
         log.info("[UserManage] 启用用户: userId={}", userId);
     }
 
-    @AdminAudit(operation = "USER_EMAIL_MIGRATE", targetType = "USER")
-    public void migrateEmail(Long userId, String newEmail) {
-        User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new IllegalArgumentException("用户不存在");
-        }
-        LambdaQueryWrapper<User> emailCheck = new LambdaQueryWrapper<>();
-        emailCheck.eq(User::getEmail, newEmail).eq(User::getStatus, '0');
-        User existingUser = userMapper.selectOne(emailCheck);
-        if (existingUser != null) {
-            throw new IllegalArgumentException("邮箱已被其他用户使用");
-        }
-        user.setEmail(newEmail);
-        userMapper.updateById(user);
-        log.info("[UserManage] 迁移用户邮箱: userId={}, oldEmail={}, newEmail={}", userId, user.getEmail(), newEmail);
-    }
 }

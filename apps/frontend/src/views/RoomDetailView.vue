@@ -557,7 +557,8 @@ const fileListRefresh = ref(false)
 const passwordHidden = ref(true)
 const currentPasswordDisplay = ref('')
 const remainingSeconds = ref(0)
-let totpTimer: ReturnType<typeof setInterval> | null = null
+let totpTimeout: ReturnType<typeof setTimeout> | null = null
+let totpInitialized = false
 
 // 密码区域是否显示
 const showPasswordArea = computed(() => {
@@ -577,36 +578,39 @@ const loadCurrentPassword = async () => {
     const data = await getRoomCurrentPassword(currentRoom.value.roomId)
     if (data?.data) {
       currentPasswordDisplay.value = data.data.currentPassword || ''
-      remainingSeconds.value = data.data.remainingSeconds || 0
+      remainingSeconds.value = data.data.remainingSeconds ?? 0
     }
-  } catch (e) {
+  } catch {
+    // API 失败时保留已有的 remainingSeconds，避免定时器继续空转
   }
 }
 
-/**
- * 启动 TOTP 倒计时（仅 mode=2 时）
- */
-const startTotpTimer = () => {
-  stopTotpTimer()
+function scheduleNextRefresh() {
   if (!showPasswordArea.value || currentRoom.value?.passwordMode !== 2) return
-  loadCurrentPassword()
-  totpTimer = setInterval(() => {
-    if (remainingSeconds.value > 0) {
-      remainingSeconds.value--
-    }
-    if (remainingSeconds.value <= 0) {
-      loadCurrentPassword()
-    }
-  }, 1000)
+  totpTimeout = setTimeout(async () => {
+    await loadCurrentPassword()
+    scheduleNextRefresh()
+  }, (remainingSeconds.value > 0 ? remainingSeconds.value : 300) * 1000)
 }
 
 /**
- * 停止 TOTP 倒计时
+ * 启动 TOTP 预约刷新（仅 mode=2 时）
  */
-const stopTotpTimer = () => {
-  if (totpTimer) {
-    clearInterval(totpTimer)
-    totpTimer = null
+const startTotpTimer = () => {
+  if (totpInitialized) return
+  totpInitialized = true
+  stopTotpTimeout()
+  loadCurrentPassword()
+  scheduleNextRefresh()
+}
+
+/**
+ * 停止 TOTP 预约
+ */
+const stopTotpTimeout = () => {
+  if (totpTimeout) {
+    clearTimeout(totpTimeout)
+    totpTimeout = null
   }
 }
 
@@ -1256,7 +1260,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  stopTotpTimer()
+  stopTotpTimeout()
+  totpInitialized = false
 })
 </script>
 

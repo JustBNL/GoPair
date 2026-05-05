@@ -129,7 +129,8 @@ const remainingSeconds = ref(0)
 const passwordModalVisible = ref(false)
 const passwordSaving = ref(false)
 const passwordForm = reactive({ mode: 0, rawPassword: '', visible: 1 })
-let totpTimer: ReturnType<typeof setInterval> | null = null
+let totpTimeout: ReturnType<typeof setTimeout> | null = null
+let totpInitialized = false
 
 const isOwner = computed(() => props.room.ownerId === authStore.user?.userId)
 
@@ -141,25 +142,35 @@ const showPasswordArea = computed(() => {
 
 async function loadCurrentPassword() {
   if (!showPasswordArea.value) return
-  const data = await roomStore.getRoomCurrentPassword(props.room.roomId)
-  if (data) {
-    currentPasswordDisplay.value = data.currentPassword || ''
-    remainingSeconds.value = data.remainingSeconds || 0
+  try {
+    const data = await roomStore.getRoomCurrentPassword(props.room.roomId)
+    if (data) {
+      currentPasswordDisplay.value = data.currentPassword || ''
+      remainingSeconds.value = data.remainingSeconds ?? 0
+    }
+  } catch {
+    // API 失败时保留已有的 remainingSeconds，避免定时器继续空转
   }
 }
 
-function startTotpTimer() {
-  if (totpTimer) clearInterval(totpTimer)
+function scheduleNextRefresh() {
   if (!showPasswordArea.value || props.room.passwordMode !== 2) return
-  loadCurrentPassword()
-  totpTimer = setInterval(() => {
-    if (remainingSeconds.value > 0) remainingSeconds.value--
-    if (remainingSeconds.value <= 0) loadCurrentPassword()
-  }, 1000)
+  totpTimeout = setTimeout(async () => {
+    await loadCurrentPassword()
+    scheduleNextRefresh()
+  }, (remainingSeconds.value > 0 ? remainingSeconds.value : 300) * 1000)
 }
 
-function stopTotpTimer() {
-  if (totpTimer) { clearInterval(totpTimer); totpTimer = null }
+function startTotpTimer() {
+  if (totpInitialized) return
+  totpInitialized = true
+  stopTotpTimeout()
+  loadCurrentPassword()
+  scheduleNextRefresh()
+}
+
+function stopTotpTimeout() {
+  if (totpTimeout) { clearTimeout(totpTimeout); totpTimeout = null }
 }
 
 onMounted(() => {
@@ -167,7 +178,10 @@ onMounted(() => {
   else if (props.room.passwordMode === 1) loadCurrentPassword()
 })
 
-onUnmounted(() => stopTotpTimer())
+onUnmounted(() => {
+  stopTotpTimeout()
+  totpInitialized = false
+})
 
 function togglePasswordVisibility() {
   passwordHidden.value = !passwordHidden.value
@@ -203,9 +217,13 @@ async function savePassword() {
     message.success('密码设置成功')
     resetPasswordForm()
     currentPasswordDisplay.value = ''
-    stopTotpTimer()
-    if (passwordForm.mode === 2) startTotpTimer()
-    else if (passwordForm.mode === 1) loadCurrentPassword()
+    stopTotpTimeout()
+    if (passwordForm.mode === 2) {
+      totpInitialized = false
+      startTotpTimer()
+    } else if (passwordForm.mode === 1) {
+      loadCurrentPassword()
+    }
   } catch (e: any) {
     message.error(e?.message || '设置失败，请重试')
   } finally {

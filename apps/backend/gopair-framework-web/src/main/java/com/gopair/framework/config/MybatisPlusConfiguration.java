@@ -3,6 +3,8 @@ package com.gopair.framework.config;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.OptimisticLockerInnerInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
+import com.baomidou.mybatisplus.annotation.DbType;
 import com.gopair.framework.mybatis.AutoFillMetaObjectHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -28,18 +30,22 @@ public class MybatisPlusConfiguration {
      * 配置MyBatis-Plus拦截器
      * 
      * 注册各种内部拦截器，目前包括：
+     * - 分页拦截器：执行 COUNT 查询和 LIMIT/OFFSET 自动重写，必须在其他修改数据的拦截器之前
      * - 乐观锁拦截器：支持@Version注解的乐观锁机制
-     * 
+     *
      * @return MyBatis-Plus拦截器实例
      */
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        
-        // 添加乐观锁拦截器
+
+        // 分页拦截器（必须在其他修改数据的拦截器之前）
+        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+
+        // 乐观锁拦截器
         // 当实体类字段标注@Version注解时，自动启用乐观锁机制
         interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
-        
+
         return interceptor;
     }
 

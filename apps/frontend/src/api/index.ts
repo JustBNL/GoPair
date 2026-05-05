@@ -22,7 +22,6 @@ export const API_ENDPOINTS = {
   
   // 房间管理
   ROOM_CREATE: '/room',
-  ROOM_JOIN: '/room/join',
   ROOM_JOIN_ASYNC: '/room/join/async',
   ROOM_JOIN_RESULT: '/room/join/result',
   ROOM_LIST: '/room/my',

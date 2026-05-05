@@ -82,28 +82,6 @@ export const useRoomStore = defineStore('room', () => {
     }
   }
 
-  async function joinRoom(joinData: JoinRoomRequest): Promise<RoomInfo | null> {
-    joinLoading.value = true
-    try {
-      const response = await RoomAPI.joinRoom(joinData)
-      const room = response.data
-      const existingIndex = roomList.value.findIndex(r => r.roomId === room.roomId)
-      if (existingIndex === -1) {
-        roomList.value.unshift(room)
-      } else {
-        roomList.value[existingIndex] = room
-      }
-      currentRoom.value = room
-      message.success('成功加入房间')
-      return room
-    } catch (error) {
-      console.error('加入房间失败:', error)
-      throw error
-    } finally {
-      joinLoading.value = false
-    }
-  }
-
   async function requestJoinRoomAsync(joinData: JoinRoomRequest): Promise<string | null> {
     joinLoading.value = true
     try {
@@ -213,19 +191,6 @@ export const useRoomStore = defineStore('room', () => {
     }
   }
 
-  async function refreshRoom(roomId: number): Promise<void> {
-    try {
-      const index = roomList.value.findIndex(r => r.roomId === roomId)
-      if (index !== -1) {
-        const response = await RoomAPI.getRoomByCode(roomList.value[index].roomCode)
-        roomList.value[index] = response.data
-        if (currentRoom.value?.roomId === roomId) currentRoom.value = response.data
-      }
-    } catch (error) {
-      console.error('刷新房间信息失败:', error)
-    }
-  }
-
   function setCurrentRoom(room: RoomInfo | null): void {
     currentRoom.value = room
     if (room) {
@@ -282,7 +247,6 @@ export const useRoomStore = defineStore('room', () => {
     // 方法
     fetchUserRooms,
     createRoom,
-    joinRoom,
     requestJoinRoomAsync,
     queryJoinResult,
     prefetchAfterJoin,
@@ -290,7 +254,6 @@ export const useRoomStore = defineStore('room', () => {
     fetchRoomMembers,
     leaveRoom,
     closeRoom,
-    refreshRoom,
     setCurrentRoom,
     clearRoomData,
     updateRoomPassword,

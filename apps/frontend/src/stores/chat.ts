@@ -24,9 +24,6 @@ export const useChatStore = defineStore('chat', () => {
     () => incomingRequests.value.filter(r => r.status === 'pending').length
   )
 
-  // 发出的申请
-  const outgoingRequests = ref<FriendRequestVO[]>([])
-
   // ==================== 用户搜索状态 ====================
   const searchResults = ref<UserSearchResultVO[]>([])
   const searchLoading = ref(false)
@@ -66,11 +63,6 @@ export const useChatStore = defineStore('chat', () => {
     incomingRequests.value = res.data || []
   }
 
-  async function fetchOutgoingRequests() {
-    const res = await ChatAPI.getOutgoingRequests()
-    outgoingRequests.value = res.data || []
-  }
-
   async function fetchConversations() {
     conversationsLoading.value = true
     try {
@@ -95,7 +87,6 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendRequest(toUserId: number, message?: string) {
     await ChatAPI.sendFriendRequest({ toUserId, message })
-    await fetchOutgoingRequests()
   }
 
   async function acceptRequest(requestId: number) {
@@ -217,7 +208,6 @@ export const useChatStore = defineStore('chat', () => {
     await Promise.all([
       fetchFriends(),
       fetchIncomingRequests(),
-      fetchOutgoingRequests(),
       fetchConversations()
     ])
   }
@@ -225,7 +215,7 @@ export const useChatStore = defineStore('chat', () => {
   return {
     // State
     friends, friendsLoading,
-    incomingRequests, incomingCount, outgoingRequests,
+    incomingRequests, incomingCount,
     searchResults, searchLoading, searchTotal, searchError,
     friendSearchResults, friendSearchLoading,
     conversations, conversationsLoading,
@@ -233,7 +223,7 @@ export const useChatStore = defineStore('chat', () => {
     currentMessages, messagesLoading,
 
     // Friend actions
-    fetchFriends, fetchIncomingRequests, fetchOutgoingRequests,
+    fetchFriends, fetchIncomingRequests,
     sendRequest, acceptRequest, rejectRequest, removeFriend, checkFriendStatus,
     fetchSearchResults, clearSearchResults,
     fetchFriendSearchResults, clearFriendSearchResults,

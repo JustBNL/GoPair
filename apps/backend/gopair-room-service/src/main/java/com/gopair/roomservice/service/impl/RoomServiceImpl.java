@@ -124,7 +124,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         room.setRoomCode(roomCode);
 
         // 预设密码模式与可见性（insert 前先写入，insert 后再补充 passwordHash）
-        // passwordMode 由 DTO 层 @NotNull/@Min/@Max 保证合法性
         int passwordMode = roomDto.getPasswordMode();
         room.setPasswordMode(passwordMode);
         // passwordVisible 可选，为空时默认为 1（显示）

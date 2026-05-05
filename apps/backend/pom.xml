@@ -33,7 +33,7 @@
 	<properties>
 		<java.version>23</java.version>
 		<gopair.version>0.0.1-SNAPSHOT</gopair.version>
-		<mybatis-plus.version>3.5.12</mybatis-plus.version>
+		<mybatis-plus.version>3.5.7</mybatis-plus.version>
 		<pagehelper.version>2.1.1</pagehelper.version>
 		<knife4j.version>4.4.0</knife4j.version>
 		<jjwt.version>0.11.5</jjwt.version>
