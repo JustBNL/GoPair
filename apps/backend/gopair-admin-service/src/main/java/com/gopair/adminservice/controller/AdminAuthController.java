@@ -28,11 +28,6 @@ public class AdminAuthController {
     public R<AdminAuthService.LoginResult> login(
             @RequestParam @NotBlank String username,
             @RequestParam @NotBlank String password) {
-        try {
-            AdminAuthService.LoginResult result = adminAuthService.login(username, password);
-            return R.ok(result);
-        } catch (IllegalArgumentException e) {
-            return R.fail(401, e.getMessage());
-        }
+        return R.ok(adminAuthService.login(username, password));
     }
 }

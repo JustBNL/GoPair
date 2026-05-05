@@ -6,6 +6,8 @@ import com.gopair.adminservice.context.AdminContextHolder;
 import com.gopair.adminservice.domain.po.AdminUser;
 import com.gopair.adminservice.filter.AdminAuthFilter;
 import com.gopair.adminservice.mapper.AdminUserMapper;
+import com.gopair.adminservice.enums.AdminErrorCode;
+import com.gopair.adminservice.exception.AdminException;
 import com.gopair.adminservice.service.AdminAuthService;
 import com.gopair.common.core.R;
 import org.junit.jupiter.api.*;
@@ -15,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import com.gopair.framework.exception.GlobalExceptionHandler;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -41,7 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(AdminAuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(AdminServiceTestConfig.class)
+@Import({AdminServiceTestConfig.class, GlobalExceptionHandler.class})
 @WithMockUser(username = "admin", roles = {"ADMIN"})
 @DisplayName("AdminAuthController 集成测试")
 class AdminAuthControllerTest {
@@ -110,47 +113,47 @@ class AdminAuthControllerTest {
         }
 
         @Test
-        @DisplayName("账号不存在返回 401")
-        void login_WithNonexistentUser_ShouldReturn401() throws Exception {
+        @DisplayName("账号不存在返回 200 和错误码 20000")
+        void login_WithNonexistentUser_ShouldReturn200WithCode20000() throws Exception {
             when(adminAuthService.login(anyString(), anyString()))
-                    .thenThrow(new IllegalArgumentException("管理员账号不存在"));
+                    .thenThrow(new AdminException(AdminErrorCode.ADMIN_NOT_FOUND));
 
             mockMvc.perform(post("/admin/auth/login")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                             .param("username", "nonexistent")
                             .param("password", "anypass"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.code").value(401))
+                    .andExpect(jsonPath("$.code").value(20000))
                     .andExpect(jsonPath("$.msg").value("管理员账号不存在"));
         }
 
         @Test
-        @DisplayName("密码错误返回 401")
-        void login_WithWrongPassword_ShouldReturn401() throws Exception {
+        @DisplayName("密码错误返回 200 和错误码 20002")
+        void login_WithWrongPassword_ShouldReturn200WithCode20002() throws Exception {
             when(adminAuthService.login(anyString(), anyString()))
-                    .thenThrow(new IllegalArgumentException("密码错误"));
+                    .thenThrow(new AdminException(AdminErrorCode.ADMIN_PASSWORD_ERROR));
 
             mockMvc.perform(post("/admin/auth/login")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                             .param("username", "admin")
                             .param("password", "wrongpassword"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.code").value(401))
+                    .andExpect(jsonPath("$.code").value(20002))
                     .andExpect(jsonPath("$.msg").value("密码错误"));
         }
 
         @Test
-        @DisplayName("账号已停用返回 401")
-        void login_WithDisabledAccount_ShouldReturn401() throws Exception {
+        @DisplayName("账号已停用返回 200 和错误码 20001")
+        void login_WithDisabledAccount_ShouldReturn200WithCode20001() throws Exception {
             when(adminAuthService.login(anyString(), anyString()))
-                    .thenThrow(new IllegalArgumentException("管理员账号已被停用"));
+                    .thenThrow(new AdminException(AdminErrorCode.ADMIN_DISABLED));
 
             mockMvc.perform(post("/admin/auth/login")
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                             .param("username", "admin")
                             .param("password", "admin123"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.code").value(401))
+                    .andExpect(jsonPath("$.code").value(20001))
                     .andExpect(jsonPath("$.msg").value("管理员账号已被停用"));
         }
 

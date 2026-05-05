@@ -10,12 +10,9 @@ const auth   = useAuthStore()
 
 const loading = ref(false)
 const form    = ref({ username: '', password: '' })
+const formRef = ref()
 
 async function handleLogin() {
-  if (!form.value.username.trim() || !form.value.password) {
-    message.warning('请输入用户名和密码')
-    return
-  }
   loading.value = true
   try {
     const { data } = await authApi.login(form.value)
@@ -58,7 +55,7 @@ async function handleLogin() {
           <p class="login-page__form-subtitle">请输入管理员账号信息</p>
         </div>
 
-        <a-form class="login-page__form" layout="vertical" @finish="handleLogin">
+        <a-form class="login-page__form" layout="vertical" :model="form" ref="formRef" @finish="handleLogin">
           <a-form-item label="用户名" name="username" :rules="[{ required: true, message: '请输入用户名' }]">
             <a-input v-model:value="form.username" placeholder="请输入用户名" size="large" autocomplete="username" />
           </a-form-item>
@@ -82,15 +79,24 @@ async function handleLogin() {
 .login-page {
   display: flex;
   min-height: 100vh;
-  background-color: var(--color-bg);
+  background-color: var(--color-bg); 
 }
 
 .login-page__visual {
   flex: 1;
   display: none;
-  background-color: var(--color-sidebar-bg);
   position: relative;
-  overflow: hidden;
+  
+  /* 1. 强制清除原有的纯色背景 */
+  background-color: transparent !important; 
+  
+  /* 2. 核心魔法：直接使用背景渐变画出超大光晕 */
+  background-image: radial-gradient(
+    circle at center,
+    oklch(65% 0.10 195 / 0.20) 0%,   /* 光晕中心点：较亮 */
+    oklch(65% 0.10 195 / 0.05) 40%,  /* 向外扩散：逐渐变暗 */
+    transparent 70%                  /* 边缘：完全透明，融入背景色 */
+  ) !important;
 }
 
 @media (min-width: 900px) {
@@ -99,17 +105,21 @@ async function handleLogin() {
 
 .login-page__visual-inner {
   position: relative;
-  z-index: 1;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
   color: var(--color-sidebar-text);
+  
+  /* 3. 强制内部容器透明，防止截图中的色块再次出现 */
+  background: transparent !important; 
 }
 
 .login-page__logo { color: var(--color-sidebar-text); opacity: 0.9; }
 
 .login-page__brand {
+  position: relative;
   font-family: var(--font-display);
   font-size: 36px;
   font-weight: 700;
@@ -118,35 +128,18 @@ async function handleLogin() {
 }
 
 .login-page__tagline {
+  position: relative;
   font-size: 15px;
   color: var(--color-sidebar-text-secondary);
   letter-spacing: 0.05em;
 }
 
-.login-page__shapes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-
-.login-page__shape {
-  position: absolute;
-  border-radius: 50%;
-  background: linear-gradient(135deg, oklch(60% 0.12 195 / 0.3), transparent);
+/* 4. 彻底隐藏掉 HTML 里原来的那几个 shape 节点，不需要它们了 */
+.login-page__shapes { 
+  display: none !important; 
 }
 
-.login-page__shape--1 {
-  width: 300px; height: 300px;
-  top: -80px; left: -60px;
-  background: radial-gradient(circle, oklch(60% 0.14 195 / 0.2), transparent 70%);
-}
-.login-page__shape--2 {
-  width: 200px; height: 200px;
-  bottom: 60px; right: -40px;
-  background: radial-gradient(circle, oklch(60% 0.10 195 / 0.15), transparent 70%);
-}
-.login-page__shape--3 {
-  width: 160px; height: 160px;
-  bottom: 180px; left: 40px;
-  background: radial-gradient(circle, oklch(55% 0.10 195 / 0.12), transparent 70%);
-}
-
+/* ========== 下方为右侧表单样式，保持原样 ========== */
 .login-page__form-area {
   width: 100%;
   display: flex;

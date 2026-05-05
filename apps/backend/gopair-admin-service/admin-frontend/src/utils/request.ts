@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
 
 /* 基础 URL 指向后端 admin 服务 */
-const BASE_URL = 'http://localhost:8088/admin'
+const BASE_URL = '/admin'
 
 const request: AxiosInstance = axios.create({
   baseURL: BASE_URL,

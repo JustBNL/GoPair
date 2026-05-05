@@ -2,6 +2,8 @@ package com.gopair.adminservice.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gopair.adminservice.domain.po.AdminUser;
+import com.gopair.adminservice.enums.AdminErrorCode;
+import com.gopair.adminservice.exception.AdminException;
 import com.gopair.adminservice.mapper.AdminUserMapper;
 import com.gopair.adminservice.util.AdminJwtUtils;
 import lombok.RequiredArgsConstructor;
@@ -34,13 +36,13 @@ public class AdminAuthService {
                 new LambdaQueryWrapper<AdminUser>().eq(AdminUser::getUsername, username)
         );
         if (admin == null) {
-            throw new IllegalArgumentException("管理员账号不存在");
+            throw new AdminException(AdminErrorCode.ADMIN_NOT_FOUND);
         }
         if (admin.getStatus() == 1) {
-            throw new IllegalArgumentException("管理员账号已被停用");
+            throw new AdminException(AdminErrorCode.ADMIN_DISABLED);
         }
         if (!passwordEncoder.matches(password, admin.getPassword())) {
-            throw new IllegalArgumentException("密码错误");
+            throw new AdminException(AdminErrorCode.ADMIN_PASSWORD_ERROR);
         }
         String token = AdminJwtUtils.generateToken(username, admin.getId(), jwtSecret, jwtExpiration);
         log.info("[AdminAuth] 管理员登录成功: username={}", username);
