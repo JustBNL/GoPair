@@ -70,8 +70,8 @@
           AND current_members <![CDATA[ > ]]> 0
     </update>
 
-    <!-- 查询用户参与的房间列表（带用户角色、加入时间） -->
-    <select id="selectUserRoomsWithRelationship" resultType="com.gopair.roomservice.domain.vo.RoomVO">
+    <!-- 查询用户参与的房间列表（带用户角色、加入时间），支持分页 -->
+    <select id="selectUserRoomsPage" resultType="com.gopair.roomservice.domain.vo.RoomVO">
         SELECT r.room_id           AS roomId,
                r.room_code         AS roomCode,
                r.room_name         AS roomName,
@@ -89,11 +89,13 @@
                rm.join_time        AS joinTime
         FROM room r
         INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId}
-        WHERE r.room_id IN
-        <foreach collection="roomIds" item="id" open="(" separator="," close=")">
-            #{id}
-        </foreach>
+        <where>
+            <if test="status != null">
+                r.status = #{status}
+            </if>
+        </where>
         ORDER BY r.create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <!-- 统计用户参与的房间数量（支持状态过滤） -->
@@ -106,19 +108,6 @@
                 r.status = #{status}
             </if>
         </where>
-    </select>
-
-    <!-- 查询用户参与的所有房间 ID（按 createTime 降序） -->
-    <select id="selectAllRoomIdsOrderedByUserId" resultType="java.lang.Long">
-        SELECT r.room_id
-        FROM room r
-        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId}
-        <where>
-            <if test="status != null">
-                r.status = #{status}
-            </if>
-        </where>
-        ORDER BY r.create_time DESC
     </select>
 
 </mapper> 

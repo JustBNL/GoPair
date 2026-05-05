@@ -446,17 +446,17 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
      * 查询指定用户参与的房间列表（分页），支持按状态过滤。
      *
      * * [核心策略]
-     * - 两段式分页：状态过滤在 room 表而非 room_member 表，先过滤再分页。
-     * - 单次 JOIN 填充：userRole 和 joinTime 通过 JOIN 查询一次性获取，避免二次 DB 往返。
+     * - 两段式分页：COUNT 查询获取过滤后总数，数据查询直接用 LIMIT/OFFSET 在数据库层完成。
+     * - 单次 JOIN 填充：userRole 和 joinTime 通过 JOIN 查询一次性获取。
      * - relationshipType 由 ownerId 在内存中推导，无需额外查询。
      *
      * * [执行链路]
-     * 1. 获取全量 roomId：从 room_member 查出用户参与的所有 roomId（去重）；无记录则直接返回空。
-     * 2. 计数：调用 countUserRoomsWithRelationship 获取过滤后房间总数。
-     * 3. 预排序：调用 selectAllRoomIdsOrderedByUserId 获取全量 ID 列表（已按 createTime DESC 排序）。
-     * 4. 内存分页：截取当页 roomId 列表。
-     * 5. JOIN 查询：调用 selectUserRoomsWithRelationship 一次性获取 Room 基础字段 + userRole + joinTime。
-     * 6. 推导关系类型：ownerId == userId → "created"；否则 → "joined"。
+     * 1. 防御修正：确保 pageNum/pageSize 合法。
+     * 2. 解析状态：调用 resolveStatus 从查询条件获取 room.status 过滤值。
+     * 3. 计数查询：调用 countUserRoomsWithRelationship 获取过滤后房间总数。
+     * 4. 分页查询：调用 selectUserRoomsPage 带 LIMIT/OFFSET 查询当前页。
+     *    - 若当前页为空且非第1页，自动回退到第1页重查（最多1次）。
+     * 5. 推导关系类型：ownerId == userId → "created"；否则 → "joined"。
      *
      * @param userId 用户 ID
      * @param query  查询条件（含分页参数 pageNum/pageSize、status、includeHistory）
@@ -465,44 +465,38 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     @Override
     @LogRecord(operation = "查询用户参与的房间", module = "成员管理")
     public PageResult<RoomVO> getUserRooms(Long userId, RoomQueryDto query) {
-        LambdaQueryWrapper<RoomMember> allMemberQuery = new LambdaQueryWrapper<>();
-        allMemberQuery.eq(RoomMember::getUserId, userId)
-                .select(RoomMember::getRoomId);
-        List<Long> allRoomIds = roomMemberMapper.selectList(allMemberQuery).stream()
-                .map(RoomMember::getRoomId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        if (allRoomIds.isEmpty()) {
-            return new PageResult<>(List.of(), 0L, (long) query.getPageNum(), (long) query.getPageSize());
+        // 防御性修正：确保分页参数合法
+        if (query.getPageNum() == null || query.getPageNum() < 1) {
+            query.setPageNum(1);
         }
-
+        if (query.getPageSize() == null || query.getPageSize() < 1) {
+            query.setPageSize(10);
+        } 
         Integer status = resolveStatus(query);
-        long realTotal = roomMapper.countUserRoomsWithRelationship(userId, status);
+        long total = roomMapper.countUserRoomsWithRelationship(userId, status);
 
-        if (realTotal == 0) {
-            return new PageResult<>(List.of(), 0L, (long) query.getPageNum(), (long) query.getPageSize());
-        }
-
-        List<Long> filteredRoomIds = roomMapper.selectAllRoomIdsOrderedByUserId(userId, status);
-
-        int pageNum = query.getPageNum();
+        int currentPage = query.getPageNum();
         int pageSize = query.getPageSize();
-        int fromIndex = (pageNum - 1) * pageSize;
-        int toIndex = Math.min(fromIndex + pageSize, filteredRoomIds.size());
+        List<RoomVO> rooms;
 
-        if (fromIndex >= realTotal) {
-            return new PageResult<>(List.of(), realTotal, (long) pageNum, (long) pageSize);
+        // 空页时自动回退到第1页（最多重试1次）
+        int retryCount = 0;
+        while (true) {
+            int offset = (currentPage - 1) * pageSize;
+            rooms = roomMapper.selectUserRoomsPage(userId, status, offset, pageSize);
+            if (rooms.isEmpty() && currentPage > 1 && retryCount == 0) {
+                currentPage = 1;
+                retryCount++;
+            } else {
+                break;
+            }
         }
-        List<Long> pageRoomIds = filteredRoomIds.subList(fromIndex, toIndex);
 
-        List<RoomVO> roomVOList = roomMapper.selectUserRoomsWithRelationship(pageRoomIds, userId);
-
-        for (RoomVO room : roomVOList) {
+        for (RoomVO room : rooms) {
             room.setRelationshipType(userId.equals(room.getOwnerId()) ? "created" : "joined");
         }
 
-        return new PageResult<>(roomVOList, realTotal, (long) pageNum, (long) pageSize);
+        return new PageResult<>(rooms, total, (long) currentPage, (long) pageSize);
     }
 
     /**

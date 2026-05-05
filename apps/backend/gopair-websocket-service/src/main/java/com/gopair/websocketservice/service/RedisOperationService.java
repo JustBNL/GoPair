@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.gopair.websocketservice.constants.WebSocketConstants;
+import com.gopair.websocketservice.domain.SubscriptionData;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -30,7 +31,7 @@ public class RedisOperationService implements SessionStore, SubscriptionStore, R
     private static final String RATE_LIMIT_PREFIX = "ws:rate:limit:";
     private static final String GLOBAL_STATS_KEY = "ws:global:stats";
     
-    public void saveUserSubscription(Long userId, String channel, Map<String, Object> subscriptionData) {
+    public void saveUserSubscription(Long userId, String channel, SubscriptionData subscriptionData) {
         try {
             String redisKey = WebSocketConstants.USER_SUBSCRIPTIONS_PREFIX + userId;
             redisTemplate.opsForHash().put(redisKey, channel, subscriptionData);
@@ -51,20 +52,29 @@ public class RedisOperationService implements SessionStore, SubscriptionStore, R
         }
     }
     
-    public Map<Object, Object> getUserSubscriptions(Long userId) {
+    public Map<String, SubscriptionData> getUserSubscriptions(Long userId) {
         try {
             String redisKey = WebSocketConstants.USER_SUBSCRIPTIONS_PREFIX + userId;
-            return redisTemplate.opsForHash().entries(redisKey);
+            Map<Object, Object> entries = redisTemplate.opsForHash().entries(redisKey);
+            Map<String, SubscriptionData> result = new HashMap<>();
+            for (Map.Entry<Object, Object> entry : entries.entrySet()) {
+                String channel = (String) entry.getKey();
+                Object value = entry.getValue();
+                if (value instanceof SubscriptionData) {
+                    result.put(channel, (SubscriptionData) value);
+                }
+            }
+            return result;
         } catch (Exception e) {
             log.error("[Redis操作] 获取用户订阅失败: userId={}", userId, e);
             return new HashMap<>();
         }
     }
     
-    public void batchSaveUserSubscriptions(Long userId, Map<String, Object> subscriptions) {
+    public void batchSaveUserSubscriptions(Long userId, Map<String, SubscriptionData> subscriptions) {
         try {
             if (subscriptions.isEmpty()) return;
-            
+
             String redisKey = WebSocketConstants.USER_SUBSCRIPTIONS_PREFIX + userId;
             redisTemplate.opsForHash().putAll(redisKey, subscriptions);
             redisTemplate.expire(redisKey, WebSocketConstants.SUBSCRIPTION_EXPIRE_HOURS, TimeUnit.HOURS);

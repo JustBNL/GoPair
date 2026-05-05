@@ -80,7 +80,7 @@
             cancel-text="取消"
             @confirm="handleDeleteFriend"
           >
-            <a-button danger :loading="actionLoading">
+            <a-button class="logout-btn" :loading="actionLoading">
               删除好友
             </a-button>
           </a-popconfirm>
@@ -333,5 +333,15 @@ function handleClose() {
 
 .friend-message-section {
   margin-top: 12px;
+}
+
+.logout-btn {
+  color: var(--color-error) !important;
+  border: 1px solid var(--color-error) !important;
+}
+
+.logout-btn:hover {
+  background: var(--color-error) !important;
+  color: var(--text-on-primary) !important;
 }
 </style>

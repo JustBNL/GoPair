@@ -1,5 +1,7 @@
 package com.gopair.websocketservice.service;
 
+import com.gopair.websocketservice.domain.SubscriptionData;
+
 import java.util.Map;
 import java.util.Optional;
 
@@ -11,13 +13,13 @@ import java.util.Optional;
  */
 public interface SubscriptionStore {
 
-    void saveUserSubscription(Long userId, String channel, Map<String, Object> subscriptionData);
+    void saveUserSubscription(Long userId, String channel, SubscriptionData subscriptionData);
 
     void removeUserSubscription(Long userId, String channel);
 
-    Map<Object, Object> getUserSubscriptions(Long userId);
+    Map<String, SubscriptionData> getUserSubscriptions(Long userId);
 
-    void batchSaveUserSubscriptions(Long userId, Map<String, Object> subscriptions);
+    void batchSaveUserSubscriptions(Long userId, Map<String, SubscriptionData> subscriptions);
 
     void cacheUserPermission(Long userId, String resource, boolean hasPermission);
 

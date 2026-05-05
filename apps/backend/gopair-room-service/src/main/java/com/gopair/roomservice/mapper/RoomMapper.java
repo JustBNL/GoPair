@@ -58,14 +58,18 @@ public interface RoomMapper extends BaseMapper<Room> {
     int decrementMembersIfPositive(@Param("roomId") Long roomId);
 
     /**
-     * 查询用户参与的房间列表（带用户角色、加入时间、关系类型），单次 JOIN 覆盖所有字段。
+     * 查询用户参与的房间列表（带用户角色、加入时间），支持分页。
      *
-     * @param roomIds 当前页的 roomId 列表（已按 createTime DESC 排序）
      * @param userId  当前用户 ID
-     * @return 房间 VO 列表，userRole/joinTime/relationshipType 已填充
+     * @param status  房间状态（null 表示不限制状态）
+     * @param offset  偏移量
+     * @param limit   每页大小
+     * @return 房间 VO 列表，userRole/joinTime 已填充
      */
-    List<RoomVO> selectUserRoomsWithRelationship(@Param("roomIds") List<Long> roomIds,
-                                                 @Param("userId") Long userId);
+    List<RoomVO> selectUserRoomsPage(@Param("userId") Long userId,
+                                     @Param("status") Integer status,
+                                     @Param("offset") int offset,
+                                     @Param("limit") int limit);
 
     /**
      * 统计用户参与的房间数量（支持状态过滤），用于分页计数。
@@ -75,15 +79,5 @@ public interface RoomMapper extends BaseMapper<Room> {
      * @return 符合条件的房间数量
      */
     Long countUserRoomsWithRelationship(@Param("userId") Long userId,
-                                        @Param("status") Integer status);
-
-    /**
-     * 查询用户参与的所有房间 ID（带状态过滤、按 createTime 降序），用于内存分页前的全量排序。
-     *
-     * @param userId 用户 ID
-     * @param status 房间状态（null 表示不限制状态）
-     * @return 按 createTime DESC 排序的房间 ID 列表
-     */
-    List<Long> selectAllRoomIdsOrderedByUserId(@Param("userId") Long userId,
-                                               @Param("status") Integer status);
+                                       @Param("status") Integer status);
 } 

@@ -54,21 +54,30 @@
       <div class="rooms-list-section">
         <div class="list-header">
           <h2>我的房间</h2>
-          <a-button 
-            type="text" 
-            @click="refreshRooms"
-            :loading="roomStore.loading"
-            class="refresh-btn"
-          >
-            <ReloadOutlined />
-            刷新
-          </a-button>
+          <div class="list-header-right">
+            <a-radio-group
+              v-model:value="roomFilter"
+              option-type="button"
+              button-style="solid"
+              :options="filterOptions"
+              @change="handleFilterChange"
+            />
+            <a-button
+              type="text"
+              @click="refreshRooms"
+              :loading="roomStore.loading"
+              class="refresh-btn"
+            >
+              <ReloadOutlined />
+              刷新
+            </a-button>
+          </div>
         </div>
 
         <!-- 房间列表 -->
-        <div class="rooms-list" v-if="roomStore.hasRooms">
+        <div class="rooms-list" v-if="filteredRoomList.length > 0">
           <RoomCard
-            v-for="room in roomStore.roomList"
+            v-for="room in filteredRoomList"
             :key="room.roomId"
             :room="room"
             @enter="handleEnterRoom"
@@ -89,11 +98,11 @@
         </div>
 
         <!-- 空状态：v-show 避免渲染时序导致房间卡片和空状态短暂同时显示 -->
-        <div class="empty-state" v-show="!roomStore.hasRooms && !roomStore.loading">
-          <div class="empty-icon">🏠</div>
-          <h3>暂无房间</h3>
-          <p>创建一个新房间或加入已有房间开始协作吧！</p>
-          <div class="empty-actions">
+        <div class="empty-state" v-show="filteredRoomList.length === 0 && !roomStore.loading">
+          <div class="empty-icon">{{ emptyIcon }}</div>
+          <h3>{{ emptyTitle }}</h3>
+          <p>{{ emptyDescription }}</p>
+          <div class="empty-actions" v-if="roomFilter === 'all'">
             <a-button type="primary" @click="showCreateModal">
               <PlusOutlined />
               创建第一个房间
@@ -175,9 +184,46 @@ const profileVisible = ref(false)
 const privateChatVisible = ref(false)
 const privateChatFriendId = ref<number | null>(null)
 
+// 房间筛选状态：'all' | 'created' | 'joined'
+const roomFilter = ref<'all' | 'created' | 'joined'>('all')
+
+// 筛选选项配置
+const filterOptions = [
+  { label: '全部', value: 'all' },
+  { label: '我创建的', value: 'created' },
+  { label: '我加入的', value: 'joined' }
+]
+
 const nicknameInitial = computed(() => {
   const name = authStore.currentNickname
   return name.charAt(0).toUpperCase()
+})
+
+// 根据筛选条件过滤房间列表
+const filteredRoomList = computed(() => {
+  if (roomFilter.value === 'all') return roomStore.roomList
+  return roomStore.roomList.filter(r => r.relationshipType === roomFilter.value)
+})
+
+// 空状态图标
+const emptyIcon = computed(() => {
+  if (roomFilter.value === 'created') return '🏗️'
+  if (roomFilter.value === 'joined') return '🚪'
+  return '🏠'
+})
+
+// 空状态标题
+const emptyTitle = computed(() => {
+  if (roomFilter.value === 'created') return '暂无创建的房间'
+  if (roomFilter.value === 'joined') return '暂无加入的房间'
+  return '暂无房间'
+})
+
+// 空状态描述
+const emptyDescription = computed(() => {
+  if (roomFilter.value === 'created') return '创建一个新房间开始协作吧！'
+  if (roomFilter.value === 'joined') return '加入一个已有房间开始协作吧！'
+  return '创建一个新房间或加入已有房间开始协作吧！'
 })
 
 // ==================== 事件处理 ====================
@@ -271,7 +317,7 @@ function handleRefreshFriends() {
 }
 
 /**
- * 刷新房间列表（保留当前页）
+ * 刷新房间列表（保留当前页和筛选条件）
  */
 async function refreshRooms() {
   try {
@@ -285,8 +331,34 @@ async function refreshRooms() {
 }
 
 /**
+ * 筛选条件变化：重置到第1页并重新加载
+ */
+async function handleFilterChange() {
+  roomStore.pagination.current = 1
+  try {
+    await roomStore.fetchUserRooms({
+      pageNum: 1,
+      pageSize: roomStore.pagination.pageSize
+    })
+  } catch (error) {
+    message.error('加载失败，请重试')
+  }
+}
+
+/**
  * 翻页
  */
+async function handlePageChange(page: number) {
+  roomStore.pagination.current = page
+  try {
+    await roomStore.fetchUserRooms({
+      pageNum: page,
+      pageSize: roomStore.pagination.pageSize
+    })
+  } catch (error) {
+    message.error('加载失败，请重试')
+  }
+}
 
 // ==================== 生命周期 ====================
 
@@ -467,12 +539,21 @@ onMounted(async () => {
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border-light);
+  gap: 16px;
 }
 
 .list-header h2 {
   margin: 0;
   font-size: 20px;
   color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.list-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .refresh-btn {

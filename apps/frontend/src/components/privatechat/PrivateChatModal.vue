@@ -16,7 +16,7 @@
     <div class="chat-layout">
       <!-- 左侧：好友信息 -->
       <div class="chat-sidebar">
-        <div class="sidebar-header" style="cursor: pointer" @click="openProfile">
+        <div class="sidebar-header" @click="openProfile">
           <div class="avatar-wrapper clickable">
             <a-image
               v-if="friendAvatar"
@@ -24,31 +24,38 @@
               :preview="{
                 src: friendAvatarOriginalUrl || friendAvatar
               }"
+              :preview-mask="false"
               :width="56"
               :height="56"
-              :preview-mask="false"
               class="profile-avatar-image"
+              @click.stop
             />
-            <a-avatar v-else :size="56">{{ nicknameInitial }}</a-avatar>
+            <a-avatar v-else :size="56" @click.stop>{{ nicknameInitial }}</a-avatar>
           </div>
           <div class="sidebar-user-info">
             <h4 class="sidebar-nickname">{{ friendNickname || '加载中...' }}</h4>
             <p class="sidebar-email">{{ friendEmail || '暂无邮箱' }}</p>
             <p class="sidebar-added-time">{{ formatAddedTime(friendCreatedAt) }}</p>
+            <a-button
+              v-if="friendAvatar"
+              type="link"
+              size="small"
+              class="download-avatar-btn"
+              @click.stop="handleDownloadAvatar"
+            >
+              <DownloadOutlined /> 下载头像
+            </a-button>
           </div>
         </div>
         <a-divider style="margin: 8px 0" />
         <div class="sidebar-actions">
-          <a-button type="text" size="small" class="download-avatar-btn" @click.stop="handleDownloadAvatar">
-            <DownloadOutlined /> 下载头像
-          </a-button>
           <a-popconfirm
             title="确定删除该好友？"
             ok-text="确定"
             cancel-text="取消"
             @confirm="handleDeleteFriend"
           >
-            <a-button type="text" danger size="small">
+            <a-button class="logout-btn">
               删除好友
             </a-button>
           </a-popconfirm>
@@ -235,33 +242,36 @@ const previewImageUrl = ref('')
 
 const profileVisible = ref(false)
 
-const friendInfo = computed((): FriendVO | ConversationVO | undefined =>
-  chatStore.friends.find(f => f.friendId === props.friendId) ||
+const friendFromFriends = computed((): FriendVO | undefined =>
+  chatStore.friends.find(f => f.friendId === props.friendId)
+)
+
+const friendFromConversations = computed((): ConversationVO | undefined =>
   chatStore.conversations.find(c => c.friendId === props.friendId)
 )
 
 const friendNickname = computed(() => {
-  const info = friendInfo.value
-  if (!info) return ''
-  return (info as FriendVO).nickname || (info as ConversationVO).friendNickname || ''
+  return friendFromFriends.value?.nickname
+    || friendFromConversations.value?.friendNickname
+    || ''
 })
 
 const friendAvatar = computed(() => {
-  const info = friendInfo.value
-  if (!info) return ''
-  return (info as FriendVO).avatar || (info as ConversationVO).friendAvatar || ''
+  return friendFromFriends.value?.avatar
+    || friendFromConversations.value?.friendAvatar
+    || ''
 })
 
 const friendEmail = computed(() => {
-  return (friendInfo.value as FriendVO)?.email || ''
+  return friendFromFriends.value?.email || ''
 })
 
 const friendAvatarOriginalUrl = computed(() => {
-  return (friendInfo.value as FriendVO)?.avatarOriginalUrl || ''
+  return friendFromFriends.value?.avatarOriginalUrl || ''
 })
 
 const friendCreatedAt = computed(() => {
-  return (friendInfo.value as FriendVO)?.createdAt || ''
+  return friendFromFriends.value?.createdAt || ''
 })
 
 const nicknameInitial = computed(() => {
@@ -429,6 +439,10 @@ function formatFileSize(bytes?: number): string {
   right: 12px;
 }
 
+.private-chat-modal :deep(.ant-divider) {
+  border-color: var(--border-default, #E2E8F0);
+}
+
 .chat-layout {
   display: flex;
   height: 100%;
@@ -456,6 +470,10 @@ function formatFileSize(bytes?: number): string {
 
 .sidebar-user-info {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .sidebar-nickname {
@@ -468,13 +486,15 @@ function formatFileSize(bytes?: number): string {
 
 .sidebar-email {
   font-size: 11px;
+  line-height: 1.6;
   color: var(--text-muted, #999);
-  margin: 0;
+  margin-bottom: 2px;
   word-break: break-all;
 }
 
 .sidebar-added-time {
   font-size: 11px;
+  line-height: 1.6;
   color: var(--text-muted, #999);
   margin: 0;
   white-space: nowrap;
@@ -484,15 +504,19 @@ function formatFileSize(bytes?: number): string {
 
 .sidebar-actions {
   margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  justify-content: center;
 }
 
 .avatar-wrapper.clickable {
   cursor: pointer;
 }
 
-.avatar-wrapper.clickable :deep(.ant-image),
+.avatar-wrapper.clickable :deep(.ant-image) img,
 .avatar-wrapper.clickable :deep(.ant-avatar) {
   border-radius: 50%;
+  border: 3px solid var(--brand-primary, #5B87BD);
 }
 
 .download-avatar-btn {
@@ -500,12 +524,21 @@ function formatFileSize(bytes?: number): string {
   padding: 2px 4px;
   height: auto;
   color: var(--text-muted, #999);
-  width: 100%;
-  justify-content: flex-start;
 }
 
 .download-avatar-btn:hover {
   color: var(--brand-primary, #5B87BD);
+}
+
+.logout-btn {
+  color: var(--color-error) !important;
+  border: 1px solid var(--color-error) !important;
+  width: 100%;
+}
+
+.logout-btn:hover {
+  background: var(--color-error) !important;
+  color: var(--text-on-primary) !important;
 }
 
 /* 右侧聊天区 */
@@ -567,16 +600,16 @@ function formatFileSize(bytes?: number): string {
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.5;
-  background: var(--surface-bg, #f0f0f0);
-  color: var(--text-primary, #1a1a1a);
+  background: var(--bubble-other-bg, #EFF2F7);
+  color: var(--bubble-other-text, #1E2432);
   word-break: break-word;
   max-width: 100%;
   overflow-wrap: break-word;
 }
 
 .message-item.own .message-bubble {
-  background: var(--brand-primary, #5B87BD);
-  color: #fff;
+  background: var(--bubble-own-bg, #5B87BD);
+  color: var(--bubble-own-text, #FFFFFF);
 }
 
 .message-time {

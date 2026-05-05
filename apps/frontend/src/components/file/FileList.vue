@@ -601,7 +601,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .file-list {
-  flex: 1;
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;

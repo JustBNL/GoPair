@@ -26,7 +26,7 @@
             <LockOutlined class="meta-icon password-icon" />
             <span v-if="!passwordHidden" class="password-value">
               {{ currentPasswordDisplay }}
-              <span v-if="props.room.passwordMode === 2 && remainingSeconds > 0" class="totp-timer">({{ remainingSeconds }}s)</span>
+                <span v-if="!passwordHidden && props.room.passwordMode === 2 && remainingSeconds > 0" class="totp-timer">({{ remainingSeconds }}s)</span>
             </span>
             <span v-else class="password-value hidden">••••••</span>
             <span v-if="isOwner" class="password-toggle" @click.stop="togglePasswordVisibility" :aria-label="passwordHidden ? '显示密码' : '隐藏密码'">
@@ -140,7 +140,7 @@ const showPasswordArea = computed(() => {
 })
 
 async function loadCurrentPassword() {
-  if (!isOwner.value || !props.room.passwordMode || props.room.passwordMode === 0) return
+  if (!showPasswordArea.value) return
   const data = await roomStore.getRoomCurrentPassword(props.room.roomId)
   if (data) {
     currentPasswordDisplay.value = data.currentPassword || ''
@@ -150,7 +150,7 @@ async function loadCurrentPassword() {
 
 function startTotpTimer() {
   if (totpTimer) clearInterval(totpTimer)
-  if (!isOwner.value || props.room.passwordMode !== 2) return
+  if (!showPasswordArea.value || props.room.passwordMode !== 2) return
   loadCurrentPassword()
   totpTimer = setInterval(() => {
     if (remainingSeconds.value > 0) remainingSeconds.value--
@@ -163,8 +163,8 @@ function stopTotpTimer() {
 }
 
 onMounted(() => {
-  if (isOwner.value && props.room.passwordMode === 2) startTotpTimer()
-  else if (isOwner.value && props.room.passwordMode === 1) loadCurrentPassword()
+  if (props.room.passwordMode === 2) startTotpTimer()
+  else if (props.room.passwordMode === 1) loadCurrentPassword()
 })
 
 onUnmounted(() => stopTotpTimer())

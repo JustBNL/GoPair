@@ -572,7 +572,7 @@ const showPasswordArea = computed(() => {
  * 加载当前密码（房主或 passwordVisible=1 的成员可调用）
  */
 const loadCurrentPassword = async () => {
-  if (!currentRoom.value) return
+  if (!currentRoom.value || !showPasswordArea.value) return
   try {
     const data = await getRoomCurrentPassword(currentRoom.value.roomId)
     if (data?.data) {
@@ -588,7 +588,7 @@ const loadCurrentPassword = async () => {
  */
 const startTotpTimer = () => {
   stopTotpTimer()
-  if (!isOwner.value || currentRoom.value?.passwordMode !== 2) return
+  if (!showPasswordArea.value || currentRoom.value?.passwordMode !== 2) return
   loadCurrentPassword()
   totpTimer = setInterval(() => {
     if (remainingSeconds.value > 0) {
@@ -643,15 +643,10 @@ const initPasswordState = () => {
   if (!currentRoom.value) return
   const mode = currentRoom.value.passwordMode
   if (!mode || mode === 0) return
-  if (isOwner.value) {
-    if (mode === 2) {
-      startTotpTimer()
-    } else if (mode === 1) {
-      loadCurrentPassword()
-    }
-  } else if (currentRoom.value.passwordVisible === 1) {
-    // 非房主：使用列表接口已返回的 currentPassword（若有）
-    currentPasswordDisplay.value = currentRoom.value.currentPassword || ''
+  if (mode === 2) {
+    startTotpTimer()
+  } else if (mode === 1) {
+    loadCurrentPassword()
   }
 }
 

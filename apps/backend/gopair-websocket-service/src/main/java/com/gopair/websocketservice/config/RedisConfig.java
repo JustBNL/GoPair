@@ -2,6 +2,7 @@ package com.gopair.websocketservice.config;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,9 +57,13 @@ public class RedisConfig {
         // 忽略空值
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         
-        // 为Redis序列化激活多态类型处理
+        // 为Redis序列化激活多态类型处理，类型信息嵌入为 @class 属性而非 WRAPPER_ARRAY
         mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        mapper.activateDefaultTyping(mapper.getPolymorphicTypeValidator(), ObjectMapper.DefaultTyping.NON_FINAL);
+        mapper.activateDefaultTyping(
+                mapper.getPolymorphicTypeValidator(),
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
         
         log.info("[WebSocket服务] Redis专用ObjectMapper配置完成 - 已激活类型包装器");
         

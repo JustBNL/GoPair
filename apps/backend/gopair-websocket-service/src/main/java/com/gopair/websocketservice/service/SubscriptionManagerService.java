@@ -2,6 +2,7 @@ package com.gopair.websocketservice.service;
 
 import com.gopair.websocketservice.constants.WebSocketConstants;
 import com.gopair.websocketservice.domain.ChannelSubscription;
+import com.gopair.websocketservice.domain.SubscriptionData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -52,13 +53,12 @@ public class SubscriptionManagerService {
             sessionSubscriptions.computeIfAbsent(sessionId, k -> ConcurrentHashMap.newKeySet()).add(channel);
             sessionUserMap.put(sessionId, userId);
 
-            Map<String, Object> subscriptionData = Map.of(
-                    "channel", channel,
-                    "eventTypes", eventTypes,
-                    "source", source,
-                    "subscribeTime", subscription.getSubscribeTime().toString(),
-                    "priority", subscription.getPriority()
-            );
+            SubscriptionData subscriptionData = SubscriptionData.builder()
+                    .eventTypes(eventTypes)
+                    .source(source)
+                    .subscribeTime(subscription.getSubscribeTime())
+                    .priority(subscription.getPriority())
+                    .build();
             subscriptionStore.saveUserSubscription(userId, channel, subscriptionData);
 
             log.info("[订阅管理] 用户订阅频道成功: userId={}, channel={}, eventTypes={}, source={}", 
@@ -306,7 +306,7 @@ public class SubscriptionManagerService {
      */
     public int restoreUserSubscriptionState(Long userId, String sessionId) {
         try {
-            Map<Object, Object> persistedData = subscriptionStore.getUserSubscriptions(userId);
+            Map<String, SubscriptionData> persistedData = subscriptionStore.getUserSubscriptions(userId);
 
             if (persistedData.isEmpty()) {
                 log.debug("[订阅管理] 用户无持久化订阅数据: userId={}", userId);
@@ -314,18 +314,17 @@ public class SubscriptionManagerService {
             }
 
             Set<ChannelSubscription> restoredSubs = new HashSet<>();
-            for (Map.Entry<Object, Object> entry : persistedData.entrySet()) {
+            for (Map.Entry<String, SubscriptionData> entry : persistedData.entrySet()) {
                 try {
-                    String channel = (String) entry.getKey();
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> subData = (Map<String, Object>) entry.getValue();
+                    String channel = entry.getKey();
+                    SubscriptionData subData = entry.getValue();
 
                     ChannelSubscription subscription = ChannelSubscription.builder()
                             .channel(channel)
-                            .eventTypes((Set<String>) subData.get("eventTypes"))
-                            .subscribeTime(LocalDateTime.parse((String) subData.get("subscribeTime")))
-                            .priority((Integer) subData.get("priority"))
-                            .autoSubscribed("auto".equals(subData.get("source")))
+                            .eventTypes(subData.getEventTypes())
+                            .subscribeTime(subData.getSubscribeTime())
+                            .priority(subData.getPriority())
+                            .autoSubscribed("auto".equals(subData.getSource()))
                             .build();
 
                     restoredSubs.add(subscription);
@@ -366,15 +365,14 @@ public class SubscriptionManagerService {
                     Long userId = entry.getKey();
                     Set<ChannelSubscription> subscriptions = entry.getValue();
                     
-                    Map<String, Object> subscriptionData = new HashMap<>();
+                    Map<String, SubscriptionData> subscriptionData = new HashMap<>();
                     for (ChannelSubscription subscription : subscriptions) {
-                        subscriptionData.put(subscription.getChannel(), Map.of(
-                                "channel", subscription.getChannel(),
-                                "eventTypes", subscription.getEventTypes(),
-                                "source", Boolean.TRUE.equals(subscription.getAutoSubscribed()) ? "auto" : "manual",
-                                "subscribeTime", subscription.getSubscribeTime().toString(),
-                                "priority", subscription.getPriority()
-                        ));
+                        subscriptionData.put(subscription.getChannel(), SubscriptionData.builder()
+                                .eventTypes(subscription.getEventTypes())
+                                .source(Boolean.TRUE.equals(subscription.getAutoSubscribed()) ? "auto" : "manual")
+                                .subscribeTime(subscription.getSubscribeTime())
+                                .priority(subscription.getPriority())
+                                .build());
                     }
                     subscriptionStore.batchSaveUserSubscriptions(userId, subscriptionData);
                 }
