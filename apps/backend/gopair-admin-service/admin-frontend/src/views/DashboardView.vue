@@ -12,8 +12,8 @@ const loading = ref(false)
 onMounted(async () => {
   loading.value = true
   try {
-    const { data } = await dashboardApi.getStats()
-    stats.value = data
+    const { data: resp } = await dashboardApi.getStats()
+    stats.value = resp.data
   } finally {
     loading.value = false
   }

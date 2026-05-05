@@ -10,19 +10,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
 /**
- * 管理员认证过滤器，拦截所有 /admin/** 请求并验证 JWT Token
+ * 管理员认证过滤器，拦截所有 /admin/** 请求并验证 JWT Token。
+ *
+ * 此 Filter 通过 SecurityConfig.addFilterBefore() 注册到 Spring Security 内部 Filter 链中，
+ * 在 AuthorizationFilter 之前执行，设置 Authentication 到 SecurityContextHolder。
+ *
+ * 注意：无需 @Order 注解，其在 Spring Security Filter 链中的位置由 addFilterBefore() 决定。
  */
 @Slf4j
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class AdminAuthFilter extends OncePerRequestFilter {
 
     @Value("${gopair.admin.jwt.secret}")
@@ -43,6 +48,13 @@ public class AdminAuthFilter extends OncePerRequestFilter {
                 String adminId = AdminJwtUtils.getAdminIdFromToken(token, jwtSecret);
                 AdminContext context = new AdminContext(Long.parseLong(adminId), username);
                 AdminContextHolder.set(context);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                username,
+                                null,
+                                java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        );
+                SecurityContextHolder.getContext().setAuthentication(authentication);
                 filterChain.doFilter(request, response);
             } else {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

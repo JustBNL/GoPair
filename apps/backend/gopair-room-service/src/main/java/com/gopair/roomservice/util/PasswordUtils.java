@@ -50,22 +50,22 @@ public final class PasswordUtils {
         try {
             byte[] keyBytes = deriveAesKey(roomId, masterKey);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-            
+
             // 生成随机 IV（12字节，GCM 推荐长度）
             byte[] iv = new byte[12];
             new SecureRandom().nextBytes(iv);
-            
+
             GCMParameterSpec spec = new GCMParameterSpec(128, iv);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
-            
+
             byte[] encrypted = cipher.doFinal(rawPassword.getBytes(StandardCharsets.UTF_8));
-            
+
             // 密文格式：IV(12字节) + 密文+Tag
             ByteBuffer buffer = ByteBuffer.allocate(iv.length + encrypted.length);
             buffer.put(iv);
             buffer.put(encrypted);
-            
+
             return Base64.getEncoder().encodeToString(buffer.array());
         } catch (Exception e) {
             throw new IllegalStateException("密码加密失败", e);
@@ -84,22 +84,22 @@ public final class PasswordUtils {
         try {
             byte[] keyBytes = deriveAesKey(roomId, masterKey);
             SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-            
+
             byte[] decodedCipherText = Base64.getDecoder().decode(cipherText);
-            
+
             // 提取 IV（前12字节）
             ByteBuffer buffer = ByteBuffer.wrap(decodedCipherText);
             byte[] iv = new byte[12];
             buffer.get(iv);
-            
+
             // 剩余部分是密文+Tag
             byte[] encrypted = new byte[buffer.remaining()];
             buffer.get(encrypted);
-            
+
             GCMParameterSpec spec = new GCMParameterSpec(128, iv);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
-            
+
             byte[] decrypted = cipher.doFinal(encrypted);
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (Exception e) {
@@ -131,6 +131,7 @@ public final class PasswordUtils {
      */
     private static byte[] deriveAesKey(Long roomId, String masterKey)
             throws NoSuchAlgorithmException, InvalidKeyException {
+        //Message Authentication Code
         Mac mac = Mac.getInstance("HmacSHA256");
         SecretKeySpec keySpec = new SecretKeySpec(
                 masterKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256");

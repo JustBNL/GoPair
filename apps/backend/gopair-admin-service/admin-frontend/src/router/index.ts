@@ -39,16 +39,16 @@ const router = createRouter({
 })
 
 /* 路由守卫 */
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const requiresAuth = to.matched.some(r => r.meta.requiresAuth !== false)
   if (requiresAuth && !auth.isLoggedIn) {
-    next('/login')
-  } else if (to.name === 'login' && auth.isLoggedIn) {
-    next('/dashboard')
-  } else {
-    next()
+    return '/login'
   }
+  if (to.name === 'login' && auth.isLoggedIn) {
+    return '/dashboard'
+  }
+  return true
 })
 
 export default router
