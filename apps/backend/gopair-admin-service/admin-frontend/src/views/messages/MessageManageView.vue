@@ -20,9 +20,9 @@ async function loadMessages() {
       pageSize: pagination.pageSize,
       keyword: searchKw.value || undefined,
     }
-    const { data } = await messageApi.getPage(params)
-    msgList.value    = data.records as Message[]
-    pagination.total = data.total
+    const res = await messageApi.getPage(params)
+    msgList.value    = res.records as Message[]
+    pagination.total = res.total
   } finally {
     loading.value = false
   }

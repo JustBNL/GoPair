@@ -32,9 +32,9 @@ async function loadRooms() {
       status: statusFilter.value,
       keyword: searchKw.value || undefined,
     }
-    const { data } = await roomApi.getPage(params)
-    roomList.value   = data.records as Room[]
-    pagination.total = data.total
+    const res = await roomApi.getPage(params)
+    roomList.value   = res.records as Room[]
+    pagination.total = res.total
   } finally {
     loading.value = false
   }
@@ -55,8 +55,8 @@ async function handleView(roomId: number) {
   drawerLoading.value  = true
   roomDetail.value     = null
   try {
-    const { data } = await roomApi.getDetail(roomId)
-    roomDetail.value = data
+    const res = await roomApi.getDetail(roomId)
+    roomDetail.value = res
   } catch {
     message.error('获取房间详情失败')
   } finally {

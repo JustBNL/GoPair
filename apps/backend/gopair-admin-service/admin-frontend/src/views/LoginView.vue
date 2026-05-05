@@ -15,11 +15,10 @@ const formRef = ref()
 async function handleLogin() {
   loading.value = true
   try {
-    const { data: resp } = await authApi.login(form.value)
-    const { data } = resp
-    auth.setAuth(data)
+    const resp = await authApi.login(form.value)
+    auth.setAuth(resp)
     await router.push('/dashboard')
-    message.success(`欢迎，${data.nickname}`)
+    message.success(`欢迎，${resp.nickname}`)
   } catch (err: unknown) {
     const e = err as { message?: string }
     message.error(e?.message || '登录失败')

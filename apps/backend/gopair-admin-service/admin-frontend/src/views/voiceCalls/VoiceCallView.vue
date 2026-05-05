@@ -26,9 +26,9 @@ async function loadCalls() {
       pageSize: pagination.pageSize,
       status: statusFilter.value,
     }
-    const { data } = await voiceCallApi.getPage(params)
-    callList.value   = data.records as VoiceCall[]
-    pagination.total = data.total
+    const res = await voiceCallApi.getPage(params)
+    callList.value   = res.records as VoiceCall[]
+    pagination.total = res.total
   } finally {
     loading.value = false
   }
@@ -54,8 +54,8 @@ async function handleView(callId: number) {
       voiceCallApi.getDetail(callId),
       voiceCallApi.getParticipants(callId),
     ])
-    callDetail.value   = detailRes.data
-    participants.value = partRes.data
+    callDetail.value   = detailRes
+    participants.value = partRes
   } catch {
     message.error('获取通话详情失败')
   } finally {

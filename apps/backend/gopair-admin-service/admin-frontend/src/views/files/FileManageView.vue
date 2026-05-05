@@ -30,9 +30,9 @@ async function loadFiles() {
       pageSize: pagination.pageSize,
       keyword: searchKw.value || undefined,
     }
-    const { data } = await fileApi.getPage(params)
-    fileList.value   = data.records as RoomFile[]
-    pagination.total = data.total
+    const res = await fileApi.getPage(params)
+    fileList.value   = res.records as RoomFile[]
+    pagination.total = res.total
   } finally {
     loading.value = false
   }
@@ -57,8 +57,8 @@ async function handleView(fileId: number) {
   drawerLoading.value  = true
   fileDetail.value     = null
   try {
-    const { data } = await fileApi.getDetail(fileId)
-    fileDetail.value = data
+    const res = await fileApi.getDetail(fileId)
+    fileDetail.value = res
   } catch {
     message.error('获取文件详情失败')
   } finally {

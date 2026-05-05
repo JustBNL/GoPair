@@ -31,9 +31,9 @@ async function loadUsers() {
       pageSize: pagination.pageSize,
       keyword: searchKw.value || undefined,
     }
-    const { data } = await userApi.getPage(params)
-    userList.value   = data.records as User[]
-    pagination.total = data.total
+    const res = await userApi.getPage(params)
+    userList.value   = res.records as User[]
+    pagination.total = res.total
   } finally {
     loading.value = false
   }
@@ -53,8 +53,8 @@ async function handleView(userId: number) {
   drawerLoading.value  = true
   userDetail.value     = null
   try {
-    const { data } = await userApi.getDetail(userId)
-    userDetail.value = data
+    const res = await userApi.getDetail(userId)
+    userDetail.value = res
   } catch {
     message.error('获取用户详情失败')
   } finally {

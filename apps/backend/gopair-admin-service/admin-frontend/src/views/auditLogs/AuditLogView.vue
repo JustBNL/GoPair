@@ -35,9 +35,9 @@ async function loadLogs() {
       operation:  filterOperation.value,
       targetType: filterTargetType.value,
     }
-    const { data } = await auditLogApi.getPage(params)
-    logList.value    = data.records as AuditLog[]
-    pagination.total = data.total
+    const res = await auditLogApi.getPage(params)
+    logList.value    = res.records as AuditLog[]
+    pagination.total = res.total
   } finally {
     loading.value = false
   }

@@ -24,20 +24,21 @@ request.interceptors.request.use(
   (error: AxiosError) => Promise.reject(error),
 )
 
-/* 响应拦截器：统一处理错误 */
+/* 响应拦截器：统一处理错误，提取业务数据 */
 request.interceptors.response.use(
   (response) => {
-    const data = response.data as { code: number; msg: string }
-    if (data.code === 401) {
+    const body = response.data as { code: number; msg: string }
+    if (body.code === 401) {
       const auth = useAuthStore()
       auth.logout()
       router.push('/login')
-      return Promise.reject(new Error(data.msg))
+      return Promise.reject(new Error(body.msg))
     }
-    if (data.code !== 200) {
-      return Promise.reject(new Error(data.msg))
+    if (body.code !== 200) {
+      return Promise.reject(new Error(body.msg))
     }
-    return response
+    // 剥掉统一响应包装 { code, msg, data }，返回业务数据 { records, total, ... }
+    return body.data
   },
   (error: AxiosError) => {
     if (error.response) {
