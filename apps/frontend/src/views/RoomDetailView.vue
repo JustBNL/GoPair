@@ -96,6 +96,9 @@
           <div class="card-header">
             <LockOutlined class="card-icon" />
             <h3>房间密码</h3>
+            <a-tooltip v-if="isOwner" title="修改密码设置">
+              <EditOutlined class="edit-password-btn" @click.stop="passwordDrawerVisible = true" />
+            </a-tooltip>
           </div>
           <div class="card-content password-card-content">
             <div class="password-display">
@@ -401,6 +404,17 @@
       @open-chat="handleOpenPrivateChat"
       @refresh-friends="handleRefreshFriends"
     />
+
+    <!-- 房间密码设置抽屉（仅房主可见，由卡片内按钮触发） -->
+    <RoomPasswordDrawer
+      v-if="currentRoom"
+      v-model:visible="passwordDrawerVisible"
+      :room-id="currentRoom.roomId"
+      :room-name="currentRoom.roomName"
+      :current-password-mode="currentRoom.passwordMode ?? 0"
+      :current-password-visible="currentRoom.passwordVisible ?? 0"
+      @success="handlePasswordUpdateSuccess"
+    />
   </div>
 </template>
 
@@ -423,7 +437,8 @@ import {
   LockOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
-  TeamOutlined
+  TeamOutlined,
+  EditOutlined
 } from '@ant-design/icons-vue'
 
 // API和工具导入
@@ -455,6 +470,7 @@ import PrivateChatModal from '@/components/privatechat/PrivateChatModal.vue'
 import MemberProfileModal from '@/components/MemberProfileModal.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import RoomPasswordDrawer from '@/components/RoomPasswordDrawer.vue'
 import { useVoiceCall } from '@/composables/useVoiceCall'
 import { useRoomPassword } from '@/composables/useRoomPassword'
 
@@ -574,7 +590,7 @@ const {
   roomId: () => currentRoom.value!.roomId,
   passwordMode: () => currentRoom.value?.passwordMode,
   passwordVisible: () => currentRoom.value?.passwordVisible,
-  isOwner: () => isOwner.value,
+  isOwner: () => !!isOwner.value,
   showPasswordArea: () => showPasswordArea.value,
   loadPasswordApi: (roomId: number) =>
     getRoomCurrentPassword(roomId).then(r => r?.data ?? null),
@@ -592,6 +608,18 @@ const togglePasswordVisible = async () => {
     antMessage.success(newVisible === 1 ? '已允许成员查看密码' : '已禁止成员查看密码')
   } catch (e: any) {
     antMessage.error(e?.response?.data?.msg || '操作失败')
+  }
+}
+
+/** 密码设置抽屉状态 */
+const passwordDrawerVisible = ref(false)
+
+/** 密码设置抽屉成功回调：刷新房间信息 */
+async function handlePasswordUpdateSuccess() {
+  await loadRoomInfo()
+  resetPasswordState()
+  if (currentRoom.value) {
+    initPasswordState()
   }
 }
 
@@ -1452,6 +1480,21 @@ onUnmounted(() => {
               .member-visibility-toggle {
                 padding-left: 8px;
                 border-left: 1px solid var(--border-light);
+              }
+
+              .edit-password-btn {
+                margin-left: auto;
+                cursor: pointer;
+                font-size: 14px;
+                color: var(--text-muted);
+                transition: color 0.2s;
+                padding: 2px 6px;
+                border-radius: 4px;
+
+                &:hover {
+                  color: var(--brand-primary);
+                  background: var(--brand-primary-10);
+                }
               }
             }
           }

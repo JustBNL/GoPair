@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -71,6 +72,8 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     private final StringRedisTemplate stringRedisTemplate;
     private final WebSocketMessageProducer wsProducer;
     private final RoomConfig roomConfig;
+    private final RestTemplate restTemplate;
+    private static final String FILE_SERVICE_URL = "http://file-service/file/room/";
 
     /**
      * 创建新房间，并将创建者自动加入作为房主。
@@ -528,6 +531,13 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                         } catch (Exception e) {
                             // 缓存清理失败不影响主业务，仅记录 warn
                             log.warn("[房间服务] 清除房间{}的 Redis 缓存失败，但不影响房间删除", roomId, e);
+                        }
+                        // 通知 file-service 清理房间文件及配额键
+                        try {
+                            restTemplate.postForObject(FILE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
+                            log.info("[房间服务] 已通知 file-service 清理房间{}的文件", roomId);
+                        } catch (Exception e) {
+                            log.error("[房间服务] 通知 file-service 清理房间{}文件失败，file:quota:{} 可能残留", roomId, roomId, e);
                         }
                     }
                 });
