@@ -271,6 +271,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             Long uid = member.getUserId();
             UserProfileBrief p = uid != null ? profiles.get(uid) : null;
             String nickname = p != null && StringUtils.hasText(p.nickname()) ? p.nickname() : null;
+            // 如果还是没有名称就使用用户+id兜底
             if (!StringUtils.hasText(nickname) && uid != null) {
                 nickname = "用户" + uid;
             }

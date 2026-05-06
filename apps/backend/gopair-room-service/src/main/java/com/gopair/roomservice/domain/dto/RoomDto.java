@@ -4,7 +4,6 @@ import com.gopair.common.entity.BaseQuery;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.hibernate.validator.constraints.ScriptAssert;
 
 /**
  * 房间DTO
@@ -13,8 +12,6 @@ import org.hibernate.validator.constraints.ScriptAssert;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@ScriptAssert(lang = "javascript", script = "_.passwordMode == null || _.passwordMode != 1 || (_.rawPassword != null && _.rawPassword.trim().length() > 0)",
-        message = "固定密码模式必须设置密码")
 public class RoomDto extends BaseQuery {
 
     /**

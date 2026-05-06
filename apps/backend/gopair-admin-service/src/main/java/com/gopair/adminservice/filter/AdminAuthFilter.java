@@ -32,11 +32,18 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     private static final String ADMIN_TOKEN_COOKIE = "admin_token";
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String PUBLIC_PATH_LOGIN = "/admin/auth/login";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        String path = request.getRequestURI();
+        if (isPublicPath(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String token = extractToken(request);
         if (token == null || !AdminJwtUtils.validateToken(token, jwtSecret)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -65,6 +72,10 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return false;
+    }
+
+    private boolean isPublicPath(String path) {
+        return PUBLIC_PATH_LOGIN.equals(path);
     }
 
     private String extractToken(HttpServletRequest request) {
