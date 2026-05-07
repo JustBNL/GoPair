@@ -317,6 +317,14 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int cleanupRoomMessages(Long roomId) {
+        int deleted = messageMapper.deleteByRoomId(roomId);
+        log.info("[消息服务] 清理房间{}的消息 {} 条", roomId, deleted);
+        return deleted;
+    }
+
+    @Override
     @LogRecord(operation = "检查消息操作权限", module = "消息管理", includeResult = true)
     public Boolean checkMessagePermission(Long messageId, Long userId) {
         log.info("检查消息权限, 消息ID: {}, 用户ID: {}", messageId, userId);

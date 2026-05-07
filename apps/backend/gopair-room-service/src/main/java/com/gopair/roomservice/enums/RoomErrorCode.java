@@ -90,7 +90,17 @@ public enum RoomErrorCode implements ErrorCode {
     /**
      * 权限不足，仅房主可执行此操作
      */
-    NO_PERMISSION(20215, "权限不足，仅房主可执行此操作");
+    NO_PERMISSION(20215, "权限不足，仅房主可执行此操作"),
+
+    /**
+     * 房间已关闭，无需重复操作
+     */
+    ROOM_ALREADY_CLOSED(20216, "房间已关闭，无需重复操作"),
+
+    /**
+     * 参数无效
+     */
+    PARAM_INVALID(20217, "参数无效");
 
     private final int code;
     private final String message;

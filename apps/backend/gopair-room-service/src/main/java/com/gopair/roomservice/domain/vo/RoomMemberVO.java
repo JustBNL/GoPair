@@ -58,6 +58,21 @@ public class RoomMemberVO {
     private LocalDateTime lastActiveTime;
 
     /**
+     * 离开时间
+     */
+    private LocalDateTime leaveTime;
+
+    /**
+     * 离开类型：1=主动离开 2=被踢出 3=房间关闭被动离开
+     */
+    private Integer leaveType;
+
+    /**
+     * 是否仍在房间（leaveTime 为空则为 true）
+     */
+    private Boolean isActive;
+
+    /**
      * 用户头像地址
      */
     private String avatar;

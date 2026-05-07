@@ -136,4 +136,16 @@ public class MessageController {
     public R<String> health() {
         return R.ok("消息服务运行正常");
     }
+
+    /**
+     * 清理房间的所有消息
+     */
+    @Operation(summary = "清理房间消息", description = "删除指定房间的所有消息")
+    @PostMapping("/room/{roomId}/cleanup")
+    public R<Integer> cleanupRoomMessages(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId) {
+        int count = messageService.cleanupRoomMessages(roomId);
+        return R.ok(count);
+    }
 } 

@@ -19,14 +19,26 @@
         AND status = 0
     </select>
 
-    <!-- 查询过期房间列表 -->
+    <!-- 查询过期房间列表（定时任务废弃，仅保留兼容） -->
     <select id="selectExpiredRooms" resultType="com.gopair.roomservice.domain.po.Room">
-        SELECT 
+        SELECT
             <include refid="Base_Column_List" />
-        FROM room 
+        FROM room
         WHERE expire_time <![CDATA[ < ]]> #{currentTime}
         AND status = 0
         ORDER BY expire_time ASC
+        LIMIT 100
+    </select>
+
+    <!-- 查询需要清理的房间：已关闭超过指定阈值时间 -->
+    <select id="selectRoomsToClean" resultType="com.gopair.roomservice.domain.po.Room">
+        SELECT
+            <include refid="Base_Column_List" />
+        FROM room
+        WHERE status = 1
+          AND closed_time IS NOT NULL
+          AND closed_time < #{thresholdTime}
+        ORDER BY closed_time ASC
         LIMIT 100
     </select>
 

@@ -72,17 +72,34 @@ public interface RoomService {
     List<RoomMemberVO> getRoomMembers(Long roomId);
 
     /**
-     * 查找过期房间
+     * 查找过期房间（已被定时任务弃用，现改为查询已关闭超过24小时待清理的房间）。
      *
      * @return 过期房间列表
      */
     List<Room> findExpiredRooms();
 
     /**
+     * 查询需要清理的房间：已关闭超过24小时。
+     * 用于定时任务分批查询待清理的房间，不包含 room_member 清理。
+     *
+     * @return 待清理房间列表
+     */
+    List<Room> findRoomsToClean();
+
+    /**
+     * 清理房间资源（消息、文件、语音通话）。
+     * room 和 room_member 永久保留，不在此方法中删除。
+     * 由定时任务统一调用，作为清理流程的入口。
+     *
+     * @param roomId 房间ID
+     * @return 实际清理的记录总数（仅供参考）
+     */
+    int cleanupRoomResources(Long roomId);
+
+    /**
      * 完全删除房间（包括成员）
-     * <p>注意：此方法仅供内部定时任务调用，用于清理过期房间。
-     * 由于定时任务在无用户上下文的场景下执行，此方法不进行权限检查。
-     * 如需对外暴露，请添加房主权限验证。
+     * <p>注意：此方法已不再被定时任务调用（room_member 永久保留）。
+     * 此方法仅保留用于极端清理场景（如 GDPR 合规数据删除）。
      *
      * @param roomId 房间ID
      * @return 是否成功

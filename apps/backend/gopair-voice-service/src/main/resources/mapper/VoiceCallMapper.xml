@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gopair.voiceservice.mapper.VoiceCallMapper">
+
+    <delete id="deleteByRoomId">
+        DELETE FROM voice_call WHERE room_id = #{roomId}
+    </delete>
+
+    <select id="selectByRoomId" resultType="com.gopair.voiceservice.domain.po.VoiceCall">
+        SELECT * FROM voice_call WHERE room_id = #{roomId}
+    </select>
+
+</mapper>

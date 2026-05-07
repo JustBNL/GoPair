@@ -74,6 +74,8 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     private final RoomConfig roomConfig;
     private final RestTemplate restTemplate;
     private static final String FILE_SERVICE_URL = "http://file-service/file/room/";
+    private static final String MESSAGE_SERVICE_URL = "http://message-service/message/room/";
+    private static final String VOICE_SERVICE_URL = "http://voice-service/voice-call/room/";
 
     /**
      * 创建新房间，并将创建者自动加入作为房主。
@@ -291,11 +293,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.NOT_IN_ROOM);
         }
 
-        // DB 删除和计数递减必须在事务主流程内完成，与房间状态原子一致
-        LambdaQueryWrapper<RoomMember> q = new LambdaQueryWrapper<>();
-        q.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
-        int deleted = roomMemberMapper.delete(q);
-        if (deleted > 0) {
+        // 软删除：标记成员离开（leave_type=1 主动离开）
+        boolean removed = roomMemberService.markAsLeft(roomId, userId, 1);
+        if (removed) {
             int dec = roomMapper.decrementMembersIfPositive(roomId);
             if (dec == 1) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -322,12 +322,21 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                         // MQ 发送失败时的降级：Redis 清理（DB 已由主流程处理完）
                         try {
                             roomCacheSyncService.removeMemberFromCache(roomId, userId);
-                            Room room = roomMapper.selectById(roomId);
-                            if (room != null && room.getCurrentMembers() != null && room.getCurrentMembers() == 0
-                                    && (room.getStatus() == null || room.getStatus() == RoomConst.STATUS_ACTIVE)) {
-                                room.setStatus(RoomConst.STATUS_CLOSED);
-                                roomMapper.updateById(room);
+                            Room currentRoom = roomMapper.selectById(roomId);
+                            // 如果房间没人自动关闭
+                            if (currentRoom != null
+                                    && Integer.valueOf(0).equals(currentRoom.getCurrentMembers())
+                                    && (currentRoom.getStatus() == null || currentRoom.getStatus() == RoomConst.STATUS_ACTIVE)) {
+                                currentRoom.setStatus(RoomConst.STATUS_CLOSED);
+                                currentRoom.setClosedTime(LocalDateTime.now());
+                                roomMapper.updateById(currentRoom);
                                 roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_CLOSED);
+                                // 标记所有成员被动离开
+                                try {
+                                    roomMemberService.markAllAsLeft(roomId, 3);
+                                } catch (Exception e) {
+                                    log.warn("[房间服务] 自动关闭房间时标记成员离开失败 roomId={} 错误={}", roomId, e.getMessage());
+                                }
                             }
                         } catch (Exception e) {
                             log.warn("[房间服务] 离开房间降级处理失败 roomId={} userId={} 错误={}", roomId, userId, e.getMessage());
@@ -422,13 +431,19 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
         }
 
+        // 防止重复关闭
+        if (room.getStatus() != null && room.getStatus() == RoomConst.STATUS_CLOSED) {
+            throw new RoomException(RoomErrorCode.ROOM_ALREADY_CLOSED);
+        }
+
         // 只有房主可以关闭房间
         if (!room.getOwnerId().equals(userId)) {
             throw new RoomException(RoomErrorCode.NO_PERMISSION);
         }
 
-        // 软关闭：仅更新状态
+        // 软关闭：更新状态并记录关闭时间
         room.setStatus(RoomConst.STATUS_CLOSED);
+        room.setClosedTime(LocalDateTime.now());
         int updateRows = roomMapper.updateById(room);
 
         if (updateRows > 0) {
@@ -436,6 +451,12 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
+                    // 标记所有仍在房间的成员为被动离开（leave_type=3）
+                    try {
+                        roomMemberService.markAllAsLeft(roomId, 3);
+                    } catch (Exception e) {
+                        log.warn("[房间服务] 标记房间成员离开失败 roomId={} 错误={}", roomId, e.getMessage());
+                    }
                     // 更新 Redis 缓存中的房间状态
                     try {
                         roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_CLOSED);
@@ -474,7 +495,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     @LogRecord(operation = "查询房间成员", module = "房间管理")
     public List<RoomMemberVO> getRoomMembers(Long roomId) {
         if (roomId == null) {
-            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+            throw new RoomException(RoomErrorCode.PARAM_INVALID);
         }
 
         return roomMemberService.getRoomMembers(roomId);
@@ -492,16 +513,73 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     }
 
     /**
-     * 完全删除房间（房间生命周期结束时的物理删除）。
+     * 查询需要清理的房间：已关闭超过24小时。
      *
-     * * [核心策略]
-     * - 先删成员再删房间：遵守外键约束（若有），且避免删除房间后残留孤立成员记录。
-     * - 事务后置：Redis 缓存清理必须在事务提交后执行，避免缓存清了但 DB 回滚的问题。
+     * @return 待清理房间列表（按关闭时间升序，防止并发清理冲突）
+     */
+    @Override
+    @LogRecord(operation = "查询待清理房间", module = "房间管理")
+    public List<Room> findRoomsToClean() {
+        return roomMapper.selectRoomsToClean(LocalDateTime.now().minusHours(24));
+    }
+
+    /**
+     * 清理房间资源（消息、文件、语音通话）。
+     * room 和 room_member 永久保留，不在此方法中删除。
      *
      * * [执行链路]
-     * 1. 删除 room_member 中所有该房间的成员记录。
-     * 2. 删除 room 表中该房间记录。
-     * 3. 事务提交后回调：清除 Redis 中的三套缓存（meta、members、pending），防止内存泄漏。
+     * 1. 清理消息：HTTP 调用 message-service /message/room/{roomId}/cleanup
+     * 2. 清理文件：HTTP 调用 file-service /file/room/{roomId}/cleanup（已实现）
+     * 3. 清理语音通话：HTTP 调用 voice-service /voice-call/room/{roomId}/cleanup
+     *
+     * @param roomId 房间ID
+     * @return 实际清理的记录总数
+     */
+    @Override
+    @LogRecord(operation = "清理房间资源", module = "定时任务", includeResult = true)
+    public int cleanupRoomResources(Long roomId) {
+        int total = 0;
+
+        // 1. 清理消息
+        try {
+            Integer count = restTemplate.postForObject(MESSAGE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
+            if (count != null) {
+                total += count;
+            }
+            log.info("[房间服务] 消息清理完成 roomId={} count={}", roomId, count);
+        } catch (Exception e) {
+            log.warn("[房间服务] 清理房间{}消息失败: {}", roomId, e.getMessage());
+        }
+
+        // 2. 清理文件
+        try {
+            Integer count = restTemplate.postForObject(FILE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
+            if (count != null) {
+                total += count;
+            }
+            log.info("[房间服务] 文件清理完成 roomId={} count={}", roomId, count);
+        } catch (Exception e) {
+            log.warn("[房间服务] 清理房间{}文件失败: {}", roomId, e.getMessage());
+        }
+
+        // 3. 清理语音通话
+        try {
+            Integer count = restTemplate.postForObject(VOICE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
+            if (count != null) {
+                total += count;
+            }
+            log.info("[房间服务] 语音通话清理完成 roomId={} count={}", roomId, count);
+        } catch (Exception e) {
+            log.warn("[房间服务] 清理房间{}语音通话失败: {}", roomId, e.getMessage());
+        }
+
+        return total;
+    }
+
+    /**
+     * 完全删除房间。
+     * 注意：此方法已不再被定时任务调用（room_member 永久保留）。
+     * 仅保留用于极端清理场景（如 GDPR 合规数据删除）。
      *
      * @param roomId 房间 ID
      * @return true 表示删除成功
@@ -511,33 +589,21 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteRoomCompletely(Long roomId) {
         try {
-            // 删除房间成员（先删子表，避免外键问题）
-            roomMemberService.deleteByRoomId(roomId);
-
+            // 不再删除 room_member（永久保留以供审计追踪）
             // 删除房间记录
             int deleteRows = roomMapper.deleteById(roomId);
 
-            // 仅在删除成功时清理 Redis（避免删除失败但缓存已清）
             if (deleteRows > 0) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        // 清除三套 Redis 缓存：房间元数据、成员列表、待确认成员
                         try {
                             stringRedisTemplate.delete(RoomConst.metaKey(roomId));
                             stringRedisTemplate.delete(RoomConst.membersKey(roomId));
                             stringRedisTemplate.delete(RoomConst.pendingKey(roomId));
                             log.info("[房间服务] 房间{}的 Redis 缓存已清除", roomId);
                         } catch (Exception e) {
-                            // 缓存清理失败不影响主业务，仅记录 warn
-                            log.warn("[房间服务] 清除房间{}的 Redis 缓存失败，但不影响房间删除", roomId, e);
-                        }
-                        // 通知 file-service 清理房间文件及配额键
-                        try {
-                            restTemplate.postForObject(FILE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
-                            log.info("[房间服务] 已通知 file-service 清理房间{}的文件", roomId);
-                        } catch (Exception e) {
-                            log.error("[房间服务] 通知 file-service 清理房间{}文件失败，file:quota:{} 可能残留", roomId, roomId, e);
+                            log.warn("[房间服务] 清除房间{}的 Redis 缓存失败", roomId, e);
                         }
                     }
                 });
@@ -777,8 +843,8 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.NOT_IN_ROOM);
         }
 
-        // 删除成员记录 + 原子减人数
-        roomMemberService.removeMember(roomId, targetUserId);
+        // 软删除：标记成员离开（leave_type=2 被踢出） + 原子减人数
+        roomMemberService.markAsLeft(roomId, targetUserId, 2);
         int dec = roomMapper.decrementMembersIfPositive(roomId);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

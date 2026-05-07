@@ -25,11 +25,19 @@ public interface RoomMapper extends BaseMapper<Room> {
 
     /**
      * 查询过期房间列表
-     * 
+     *
      * @param currentTime 当前时间
      * @return 过期房间列表
      */
     List<Room> selectExpiredRooms(@Param("currentTime") LocalDateTime currentTime);
+
+    /**
+     * 查询需要清理的房间：已关闭超过阈值时间
+     *
+     * @param thresholdTime 阈值时间（当前时间 - 24小时）
+     * @return 待清理房间列表
+     */
+    List<Room> selectRoomsToClean(@Param("thresholdTime") LocalDateTime thresholdTime);
 
     /**
      * 根据用户ID查询用户创建的房间列表

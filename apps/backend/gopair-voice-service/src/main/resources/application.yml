@@ -20,6 +20,7 @@ server:
 # MyBatis-Plus 服务专属配置（通用配置由 gopair-shared.yml 提供）
 mybatis-plus:
   type-aliases-package: com.gopair.voiceservice.domain.po
+  mapper-locations: classpath*:mapper/**/*.xml
 
 # 业务配置（voice-service 专属）
 gopair:

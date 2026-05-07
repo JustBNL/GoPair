@@ -1,11 +1,9 @@
 package com.gopair.roomservice.messaging;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gopair.common.constants.SystemConstants;
 import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.domain.event.LeaveRoomRequestedEvent;
 import com.gopair.roomservice.domain.po.Room;
-import com.gopair.roomservice.domain.po.RoomMember;
 import com.gopair.roomservice.mapper.RoomMapper;
 import com.gopair.roomservice.mapper.RoomMemberMapper;
 import com.gopair.framework.logging.annotation.LogRecord;
@@ -15,6 +13,8 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Slf4j
 @Component
@@ -29,13 +29,13 @@ public class LeaveRoomConsumer {
      * 处理用户离开房间的 MQ 消费逻辑。
      *
      * * [核心策略]
-     * - 幂等：仅在真实删除成员后才递减人数，重复消费不重复扣减。
+     * - 幂等：仅在真实标记成员离开后才递减人数，重复消费不重复扣减。
      *
      * * [执行链路]
-     * 1. 幂等删除成员：DB 中存在才删除。
-     * 2. 递减人数：仅在真实删除后才执行。
+     * 1. 幂等标记离开：调用 markAsLeft，仅 leave_time IS NULL 时才更新。
+     * 2. 递减人数：仅在真实更新后才执行。
      * 3. Redis 清理：members 集合移除、confirmed--。
-     * 4. 自动关房：若房间人数为 0 且仍为活跃状态，标记为关闭。
+     * 4. 自动关房：若房间人数为 0 且仍为活跃状态，标记为关闭并记录 closed_time。
      *
      * @param event 离开房间事件
      */
@@ -46,17 +46,12 @@ public class LeaveRoomConsumer {
         Long roomId = event.getRoomId();
         Long userId = event.getUserId();
         try {
-            // 幂等删除成员
-            LambdaQueryWrapper<RoomMember> query = new LambdaQueryWrapper<>();
-            query.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
-            RoomMember existing = roomMemberMapper.selectOne(query);
-            boolean removed = false;
-            if (existing != null) {
-                removed = roomMemberMapper.delete(query) > 0;
-            }
+            // 幂等标记成员离开（leave_type=1 主动离开）
+            LocalDateTime now = LocalDateTime.now();
+            int updated = roomMemberMapper.markAsLeft(roomId, userId, now, 1);
 
-            // 仅在真实删除成员后递减人数，避免重复消费导致人数错误递减
-            if (removed) {
+            // 仅在真实更新成员后才递减人数，避免重复消费导致人数错误递减
+            if (updated > 0) {
                 int dec = roomMapper.decrementMembersIfPositive(roomId);
                 if (dec == 1) {
                     try {
@@ -79,6 +74,7 @@ public class LeaveRoomConsumer {
             if (room != null && room.getCurrentMembers() != null && room.getCurrentMembers() == 0
                     && (room.getStatus() == null || room.getStatus() == RoomConst.STATUS_ACTIVE)) {
                 room.setStatus(RoomConst.STATUS_CLOSED);
+                room.setClosedTime(now);
                 roomMapper.updateById(room);
                 try {
                     stringRedisTemplate.opsForHash().put(RoomConst.metaKey(roomId), RoomConst.FIELD_STATUS,

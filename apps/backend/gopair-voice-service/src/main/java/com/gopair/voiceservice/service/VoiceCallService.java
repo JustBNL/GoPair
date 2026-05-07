@@ -50,4 +50,7 @@ public interface VoiceCallService {
 
     /** 转发 WebRTC 信令给目标用户 */
     void forwardSignaling(SignalingDto dto, Long fromUserId);
+
+    /** 清理房间的所有语音通话记录（删除通话及参与者） */
+    int cleanupRoomVoiceCalls(Long roomId);
 }

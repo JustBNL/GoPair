@@ -67,4 +67,12 @@ public interface MessageMapper extends BaseMapper<Message> {
         @Param("roomId") Long roomId,
         @Param("messageType") Integer messageType
     );
+
+    /**
+     * 根据房间ID删除所有消息
+     * 
+     * @param roomId 房间ID
+     * @return 删除的消息数量
+     */
+    int deleteByRoomId(@Param("roomId") Long roomId);
 } 

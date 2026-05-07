@@ -100,6 +100,12 @@ function onSearch(value: string) {
   }, 350)
 }
 
+function leaveTypeLabel(type: number | null | undefined): string {
+  if (!type) return '-'
+  const map: Record<number, string> = { 1: '主动离开', 2: '被踢出', 3: '房间关闭' }
+  return map[type] || '-'
+}
+
 loadRooms()
 </script>
 
@@ -182,7 +188,10 @@ loadRooms()
             { title: '用户ID', dataIndex: 'userId', key: 'userId', width: 90 },
             { title: '昵称', key: 'nickname', ellipsis: true },
             { title: '角色', dataIndex: 'role', key: 'role', width: 90 },
+            { title: '状态', dataIndex: 'leaveTime', key: 'isActive', width: 90 },
             { title: '加入时间', dataIndex: 'joinTime', key: 'joinTime', width: 160 },
+            { title: '离开时间', dataIndex: 'leaveTime', key: 'leaveTime', width: 160 },
+            { title: '离开原因', dataIndex: 'leaveType', key: 'leaveType', width: 100 },
           ]"
           :data-source="roomDetail.members"
           :pagination="false"
@@ -196,10 +205,22 @@ loadRooms()
               {{ roomDetail.userMap[record.userId]?.nickname || '—' }}
             </template>
             <template v-else-if="column.key === 'role'">
-              {{ record.role === 0 ? '房主' : record.role === 2 ? '管理员' : '成员' }}
+              {{ record.role === 2 ? '房主' : record.role === 1 ? '管理员' : '成员' }}
+            </template>
+            <template v-else-if="column.key === 'isActive'">
+              <a-tag :color="record.leaveTime ? 'default' : 'green'">
+                {{ record.leaveTime ? '已离开' : '在房间' }}
+              </a-tag>
             </template>
             <template v-else-if="column.key === 'joinTime'">
               <span class="room-manage-view__muted">{{ formatTime(record.joinTime) }}</span>
+            </template>
+            <template v-else-if="column.key === 'leaveTime'">
+              <span v-if="record.leaveTime" class="room-manage-view__muted">{{ formatTime(record.leaveTime) }}</span>
+              <span v-else class="room-manage-view__muted">—</span>
+            </template>
+            <template v-else-if="column.key === 'leaveType'">
+              <span>{{ leaveTypeLabel(record.leaveType) }}</span>
             </template>
           </template>
         </a-table>

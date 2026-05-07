@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,9 +58,14 @@ public class RoomManageService {
         if (room == null) {
             throw new IllegalArgumentException("房间不存在");
         }
-        List<RoomMember> members = roomMemberMapper.selectList(
-                new LambdaQueryWrapper<RoomMember>().eq(RoomMember::getRoomId, roomId)
-        );
+        LambdaQueryWrapper<RoomMember> memberQ = new LambdaQueryWrapper<RoomMember>()
+                .eq(RoomMember::getRoomId, roomId);
+        // 活跃房间只展示当前成员，已关闭房间展示全部成员（含历史离开的）
+        if (room.getStatus() == null || room.getStatus() != 1) {
+            memberQ.isNull(RoomMember::getLeaveTime);
+        }
+        memberQ.orderByDesc(RoomMember::getJoinTime);
+        List<RoomMember> members = roomMemberMapper.selectList(memberQ);
         Map<Long, User> userMap = new HashMap<>();
         if (!members.isEmpty()) {
             List<Long> userIds = members.stream().map(RoomMember::getUserId).collect(Collectors.toList());
@@ -79,6 +85,7 @@ public class RoomManageService {
             throw new IllegalArgumentException("房间不存在");
         }
         room.setStatus(1);
+        room.setClosedTime(LocalDateTime.now());
         roomMapper.updateById(room);
         log.info("[RoomManage] 强制关闭房间: roomId={}", roomId);
     }

@@ -66,6 +66,11 @@ public class Room extends BaseEntity {
     private LocalDateTime expireTime;
 
     /**
+     * 房间关闭时间，标记房间进入可清理阶段，永久保留
+     */
+    private LocalDateTime closedTime;
+
+    /**
      * 乐观锁版本（预留字段）
      * 
      * 当前未启用乐观锁机制，如需启用请添加@Version注解

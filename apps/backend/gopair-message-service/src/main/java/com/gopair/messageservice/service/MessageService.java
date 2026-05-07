@@ -94,4 +94,12 @@ public interface MessageService {
      * @return 是否撤回成功
      */
     Boolean recallMessage(Long messageId, Long userId);
+
+    /**
+     * 清理房间的所有消息
+     *
+     * @param roomId 房间ID
+     * @return 删除的消息数量
+     */
+    int cleanupRoomMessages(Long roomId);
 }

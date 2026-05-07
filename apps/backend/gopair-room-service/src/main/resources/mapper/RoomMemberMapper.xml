@@ -2,11 +2,31 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.gopair.roomservice.mapper.RoomMemberMapper">
 
-    <!-- 统计房间当前成员数量 -->
+    <!-- 统计房间当前成员数量（不含已离开成员） -->
     <select id="countMembersByRoomId" resultType="int">
         SELECT COUNT(*)
-        FROM room_member 
+        FROM room_member
         WHERE room_id = #{roomId}
+          AND leave_time IS NULL
     </select>
+
+    <!-- 标记单个成员离开（软删除），幂等保证 -->
+    <update id="markAsLeft">
+        UPDATE room_member
+        SET leave_time = #{leaveTime},
+            leave_type = #{leaveType}
+        WHERE room_id = #{roomId}
+          AND user_id = #{userId}
+          AND leave_time IS NULL
+    </update>
+
+    <!-- 批量标记房间所有成员离开（软删除） -->
+    <update id="markAllAsLeft">
+        UPDATE room_member
+        SET leave_time = #{leaveTime},
+            leave_type = #{leaveType}
+        WHERE room_id = #{roomId}
+          AND leave_time IS NULL
+    </update>
 
 </mapper> 

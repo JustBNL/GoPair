@@ -119,4 +119,9 @@
         </if>
     </select>
 
+    <!-- 根据 roomId 删除所有消息 -->
+    <delete id="deleteByRoomId">
+        DELETE FROM message WHERE room_id = #{roomId}
+    </delete>
+
 </mapper>

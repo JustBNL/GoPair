@@ -113,12 +113,13 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
      * 将用户加入指定房间。
      *
      * * [核心策略]
-     * - 防重入房：先查 room_member 判重；DB 唯一键（roomId + userId）兜底，极端并发下唯一键冲突不抛异常。
+     * - 防重复入房：先查 Redis 缓存确认，再查 DB（leave_time IS NULL）确保不在房间；
+     *   有历史记录（已离开但有记录）则复用该记录，而非新增一条。
      *
      * * [执行链路]
-     * 1. 幂等判断：查 room_member，若已在房间则直接返回 false。
-     * 2. 插入记录：写入 room_member（包含角色、加入时间、最后活跃时间）。
-     * 3. 结果判定：insert 影响行数 > 0 → true；唯一键冲突 → false。
+     * 1. 幂等判断：查 Redis，未命中则降级查 DB（leave_time IS NULL），若已在房间则返回 false。
+     * 2. 历史复用：若有 leave_time IS NOT NULL 的历史记录，复位状态后复用该记录。
+     * 3. 新增记录：无历史记录时写入新记录。
      *
      * @param roomId 房间 ID
      * @param userId 用户 ID
@@ -134,12 +135,29 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             return false;
         }
 
+        // 检查是否有历史记录（已离开但有记录），若有则复用
+        LambdaQueryWrapper<RoomMember> historyQ = new LambdaQueryWrapper<>();
+        historyQ.eq(RoomMember::getRoomId, roomId)
+                .eq(RoomMember::getUserId, userId)
+                .isNotNull(RoomMember::getLeaveTime);
+        RoomMember history = roomMemberMapper.selectOne(historyQ);
+        if (history != null) {
+            history.setLeaveTime(null);
+            history.setLeaveType(null);
+            history.setStatus(0);
+            history.setJoinTime(LocalDateTime.now());
+            history.setLastActiveTime(LocalDateTime.now());
+            roomMemberMapper.updateById(history);
+            log.info("[房间服务] 用户{}重新加入房间{}成功（复用历史记录），角色={}", userId, roomId, role);
+            return true;
+        }
+
         // 创建房间成员记录
         RoomMember roomMember = new RoomMember();
         roomMember.setRoomId(roomId);
         roomMember.setUserId(userId);
         roomMember.setRole(role != null ? role : 0);
-        roomMember.setStatus(0); // 在线状态
+        roomMember.setStatus(0);
         roomMember.setJoinTime(LocalDateTime.now());
         roomMember.setLastActiveTime(LocalDateTime.now());
 
@@ -222,7 +240,8 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         }
         LambdaQueryWrapper<RoomMember> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoomMember::getRoomId, roomId)
-                   .eq(RoomMember::getUserId, userId);
+                   .eq(RoomMember::getUserId, userId)
+                   .isNull(RoomMember::getLeaveTime);
 
         RoomMember member = roomMemberMapper.selectOne(queryWrapper);
         return member != null;
@@ -237,7 +256,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
      *
      * * [执行链路]
      * 1. 参数校验：roomId 为 null 则抛 RoomException（ROOM_NOT_FOUND）。
-     * 2. 查库：按 roomId 查 room_member，按加入时间倒序。
+     * 2. 查库：按 roomId 查 room_member（仅 leave_time IS NULL 的当前成员），按加入时间倒序。
      * 3. 收集 userId：提取所有成员 userId 去重，截取至多 200 个。
      * 4. 获取用户资料：走三层降级链路填充 nickname/avatar；仍未命中则兜底为「用户{userId}」。
      * 5. 组装 VO：BeanCopyUtils 拷贝字段；以资料填 nickname/avatar；以 role 是否等于房主判定 isOwner。
@@ -248,14 +267,30 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     @Override
     @LogRecord(operation = "查询房间成员列表", module = "成员管理")
     public List<RoomMemberVO> getRoomMembers(Long roomId) {
+        return getRoomMembers(roomId, true);
+    }
+
+    /**
+     * 查询房间成员列表（可选择仅返回当前成员或包含历史成员）。
+     *
+     * @param roomId     房间 ID
+     * @param activeOnly true=仅返回仍在房间的成员（leave_time IS NULL）；false=返回全部成员（含已离开的）
+     * @return 成员 VO 列表
+     */
+    @Override
+    @LogRecord(operation = "查询房间成员列表", module = "成员管理")
+    public List<RoomMemberVO> getRoomMembers(Long roomId, boolean activeOnly) {
         if (roomId == null) {
             throw new com.gopair.roomservice.exception.RoomException(
                 com.gopair.roomservice.enums.RoomErrorCode.ROOM_NOT_FOUND);
         }
 
         LambdaQueryWrapper<RoomMember> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(RoomMember::getRoomId, roomId)
-                   .orderByDesc(RoomMember::getJoinTime);
+        queryWrapper.eq(RoomMember::getRoomId, roomId);
+        if (activeOnly) {
+            queryWrapper.isNull(RoomMember::getLeaveTime);
+        }
+        queryWrapper.orderByDesc(RoomMember::getJoinTime);
 
         List<RoomMember> members = roomMemberMapper.selectList(queryWrapper);
 
@@ -278,6 +313,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             memberVO.setNickname(nickname);
             memberVO.setAvatar(p != null && StringUtils.hasText(p.avatar()) ? p.avatar() : null);
             memberVO.setIsOwner(member.getRole() != null && member.getRole() == RoomConst.ROLE_OWNER);
+            memberVO.setIsActive(member.getLeaveTime() == null);
             return memberVO;
         }).collect(Collectors.toList());
     }
@@ -549,10 +585,11 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     }
 
     /**
-     * 删除指定房间的所有成员记录（通常在房间永久销毁时调用）。
+     * 删除指定房间的所有成员记录。
      *
      * * [核心策略]
-     * - 无并发防护：按 roomId 批量删除，天然幂等（重复调用效果相同）。
+     * - 注意：定时任务不再调用此方法。room_member 永久保留以供审计追踪。
+     *   此方法仅在极端清理场景（如 GDPR 合规数据删除）下使用。
      *
      * * [执行链路]
      * 1. 批量删除：按 roomId 从 room_member 表删除所有该房间成员记录。
@@ -581,11 +618,11 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
      * 更新用户在指定房间的最后活跃时间。
      *
      * * [核心策略]
-     * - 无特殊约束：按 roomId + userId 条件更新，成员不存在时返回 false。
+     * - 只更新仍在房间的成员：WHERE leave_time IS NULL，避免修改历史离开记录。
      *
      * * [执行链路]
-     * 1. 条件更新：按 roomId + userId 更新 room_member 的 last_active_time 为当前时间。
-     * 2. 结果判定：影响行数 > 0 → true；成员不存在 → false。
+     * 1. 条件更新：按 roomId + userId + leave_time IS NULL 更新 last_active_time。
+     * 2. 结果判定：影响行数 > 0 → true；成员不在或已离开 → false。
      *
      * @param roomId 房间 ID
      * @param userId 用户 ID
@@ -597,7 +634,8 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     public boolean updateLastActiveTime(Long roomId, Long userId) {
         LambdaQueryWrapper<RoomMember> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(RoomMember::getRoomId, roomId)
-                   .eq(RoomMember::getUserId, userId);
+                   .eq(RoomMember::getUserId, userId)
+                   .isNull(RoomMember::getLeaveTime);
 
         RoomMember member = new RoomMember();
         member.setLastActiveTime(LocalDateTime.now());
@@ -639,5 +677,53 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             log.info("[房间服务] 用户{}在{}个房间的在线状态已更新为离线", userId, updated);
         }
         return updated;
+    }
+
+    /**
+     * 标记单个成员离开（软删除）。
+     *
+     * * [核心策略]
+     * - 幂等：WHERE leave_time IS NULL 保证多次调用不重复更新 leave_time。
+     * - 原子条件更新：仅在成员仍在房间时（leave_time IS NULL）才执行更新。
+     *
+     * * [执行链路]
+     * 1. 调用 Mapper 执行 UPDATE。
+     * 2. 结果判定：影响行数 > 0 → true；成员不在或已离开 → false。
+     *
+     * @param roomId    房间ID
+     * @param userId   用户ID
+     * @param leaveType 离开类型（1=主动离开 2=被踢出 3=房间关闭被动离开）
+     * @return true=标记成功（成员仍在房间）；false=成员不在房间或已离开
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "标记成员离开", module = "成员管理")
+    public boolean markAsLeft(Long roomId, Long userId, Integer leaveType) {
+        int rows = roomMemberMapper.markAsLeft(roomId, userId, LocalDateTime.now(), leaveType);
+        if (rows > 0) {
+            log.info("[房间服务] 标记用户{}离开房间{}，类型={}", userId, roomId, leaveType);
+        }
+        return rows > 0;
+    }
+
+    /**
+     * 批量标记房间所有成员离开（软删除）。
+     *
+     * * [核心策略]
+     * - 无并发防护：按 roomId + leave_time IS NULL 批量更新，天然幂等。
+     *
+     * * [执行链路]
+     * 1. 调用 Mapper 批量更新所有仍在房间的成员。
+     * 2. 记录日志：记录实际更新的行数。
+     *
+     * @param roomId    房间ID
+     * @param leaveType 离开类型（统一为 3=房间关闭被动离开）
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "批量标记成员离开", module = "成员管理")
+    public void markAllAsLeft(Long roomId, Integer leaveType) {
+        int rows = roomMemberMapper.markAllAsLeft(roomId, LocalDateTime.now(), leaveType);
+        log.info("[房间服务] 房间{}关闭，标记{}个成员被动离开（类型={}）", roomId, rows, leaveType);
     }
 }

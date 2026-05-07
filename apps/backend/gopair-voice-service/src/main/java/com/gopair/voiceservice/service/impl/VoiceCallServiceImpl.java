@@ -305,6 +305,22 @@ public class VoiceCallServiceImpl implements VoiceCallService {
                 dto.getType(), dto.getCallId(), fromUserId, dto.getTargetUserId());
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int cleanupRoomVoiceCalls(Long roomId) {
+        List<VoiceCall> calls = voiceCallMapper.selectByRoomId(roomId);
+        if (calls.isEmpty()) {
+            return 0;
+        }
+        List<Long> callIds = calls.stream().map(VoiceCall::getCallId).toList();
+        if (!callIds.isEmpty()) {
+            participantMapper.deleteByCallIds(callIds);
+        }
+        voiceCallMapper.deleteByRoomId(roomId);
+        log.info("[语音服务] 清理房间{}的语音通话 {} 条", roomId, calls.size());
+        return calls.size();
+    }
+
     // -------------------------------------------------------------------------
     // 私有工具方法
     // -------------------------------------------------------------------------

@@ -57,4 +57,14 @@ public class RoomMember extends BaseEntity {
      * 最后活跃时间
      */
     private LocalDateTime lastActiveTime;
+
+    /**
+     * 离开时间，为空表示仍在房间
+     */
+    private LocalDateTime leaveTime;
+
+    /**
+     * 离开类型：1=主动离开 2=被踢出 3=房间关闭被动离开
+     */
+    private Integer leaveType;
 } 

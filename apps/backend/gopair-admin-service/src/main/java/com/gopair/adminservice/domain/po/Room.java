@@ -36,6 +36,11 @@ public class Room extends BaseEntity {
 
     private LocalDateTime expireTime;
 
+    /**
+     * 房间关闭时间，标记房间进入可清理阶段，永久保留
+     */
+    private LocalDateTime closedTime;
+
     private Integer version;
 
     private Integer passwordMode;

@@ -128,4 +128,14 @@ public class VoiceController {
         voiceCallService.forwardSignaling(dto, userId);
         return R.ok(true);
     }
+
+    /**
+     * 清理房间的所有语音通话记录（删除通话及参与者）
+     */
+    @Operation(summary = "清理房间语音通话记录")
+    @PostMapping("/room/{roomId}/cleanup")
+    public R<Integer> cleanupRoomVoiceCalls(
+            @Parameter(description = "房间ID") @PathVariable Long roomId) {
+        return R.ok(voiceCallService.cleanupRoomVoiceCalls(roomId));
+    }
 }
