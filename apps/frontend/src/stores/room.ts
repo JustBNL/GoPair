@@ -228,6 +228,18 @@ export const useRoomStore = defineStore('room', () => {
     }
   }
 
+  async function renewRoom(roomId: number, extendHours: number): Promise<void> {
+    const response = await RoomAPI.renewRoom(roomId, extendHours)
+    const updatedRoom = response.data
+    const idx = roomList.value.findIndex(r => r.roomId === roomId)
+    if (idx !== -1) {
+      roomList.value[idx] = updatedRoom
+    }
+    if (currentRoom.value?.roomId === roomId) {
+      currentRoom.value = updatedRoom
+    }
+  }
+
   // ==================== 返回 ====================
 
   return {
@@ -257,6 +269,7 @@ export const useRoomStore = defineStore('room', () => {
     setCurrentRoom,
     clearRoomData,
     updateRoomPassword,
-    getRoomCurrentPassword
+    getRoomCurrentPassword,
+    renewRoom
   }
 })

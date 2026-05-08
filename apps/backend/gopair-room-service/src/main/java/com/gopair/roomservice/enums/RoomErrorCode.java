@@ -125,7 +125,17 @@ public enum RoomErrorCode implements ErrorCode {
     /**
      * 已过期房间无法直接关闭，请先续期
      */
-    EXPIRED_CANNOT_CLOSE(20222, "已过期房间无法直接关闭，请先续期");
+    EXPIRED_CANNOT_CLOSE(20222, "已过期房间无法直接关闭，请先续期"),
+
+    /**
+     * 房间已归档，无法续期
+     */
+    ARCHIVED_CANNOT_RENEW(20223, "房间已归档，无法续期"),
+
+    /**
+     * 房间已关闭，无法续期
+     */
+    CLOSED_CANNOT_RENEW(20224, "房间已关闭，无法续期");
 
     private final int code;
     private final String message;

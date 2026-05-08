@@ -73,6 +73,7 @@ declare module 'vue' {
     MessageBubble: typeof import('./components/chat/MessageBubble.vue')['default']
     MessageInput: typeof import('./components/chat/MessageInput.vue')['default']
     PrivateChatModal: typeof import('./components/privatechat/PrivateChatModal.vue')['default']
+    RenewRoomModal: typeof import('./components/RenewRoomModal.vue')['default']
     RoomCard: typeof import('./components/RoomCard.vue')['default']
     RoomPasswordDrawer: typeof import('./components/RoomPasswordDrawer.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

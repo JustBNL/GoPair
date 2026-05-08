@@ -45,6 +45,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -496,6 +497,89 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                 log.warn("[房间服务][schedule] 房间{}系统关闭事件发送失败", roomId, e);
             }
         }
+    }
+
+    /**
+     * 续期房间：将 ACTIVE 或 EXPIRED 房间的过期时间延长，并将状态恢复为 ACTIVE。
+     *
+     * * [核心策略]
+     * - 幂等：重复续期无副作用，每次都将 expire_time 更新为更晚的时间戳。
+     * - 乐观条件：WHERE status IN (0,2) 防止幽灵更新。
+     *
+     * * [执行链路]
+     * 1. 参数校验：userId 非空；extendHours 在 [1, 168] 范围内。
+     * 2. 查询房间：确认存在。
+     * 3. 状态校验：仅允许 ACTIVE(0) 或 EXPIRED(2)；CLOSED/ARCHIVED 抛对应异常。
+     * 4. 权限校验：仅房主可操作。
+     * 5. 计算新过期时间：LocalDateTime.now().plusHours(extendHours)。
+     * 6. 更新数据库：UPDATE expire_time + status=0（WHERE status IN (0,2)）。
+     * 7. 事务提交后：同步 Redis status=0 + expireAt；广播 room_renewed 事件。
+     *
+     * @param roomId      房间ID
+     * @param userId      操作用户ID（必须是房主）
+     * @param extendHours 续期时长（小时）
+     * @return 续期后的房间信息
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "续期房间", module = "房间管理", includeResult = true)
+    public RoomVO renewRoom(Long roomId, Long userId, Integer extendHours) {
+        if (userId == null) {
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
+        }
+        if (extendHours == null || extendHours < 1 || extendHours > 168) {
+            throw new RoomException(RoomErrorCode.PARAM_INVALID);
+        }
+
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+
+        Integer status = room.getStatus();
+        if (status == null || status == RoomConst.STATUS_CLOSED) {
+            throw new RoomException(RoomErrorCode.CLOSED_CANNOT_RENEW);
+        }
+        if (status == RoomConst.STATUS_ARCHIVED) {
+            throw new RoomException(RoomErrorCode.ARCHIVED_CANNOT_RENEW);
+        }
+
+        if (!room.getOwnerId().equals(userId)) {
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
+        }
+
+        LocalDateTime newExpireTime = LocalDateTime.now().plusHours(extendHours);
+
+        int updated = roomMapper.updateExpireTimeAndStatus(roomId, newExpireTime, RoomConst.STATUS_ACTIVE);
+        if (updated == 0) {
+            throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                long newExpireAtMs = newExpireTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                try {
+                    roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_ACTIVE);
+                    roomCacheSyncService.setExpireAt(roomId, newExpireAtMs);
+                } catch (Exception e) {
+                    log.warn("[房间服务] Redis 同步续期状态失败 roomId={} 错误={}", roomId, e.getMessage());
+                }
+                try {
+                    wsProducer.sendEventToRoom(roomId, "room_renewed", Map.of(
+                        "roomId", roomId,
+                        "expireTime", newExpireTime.toString(),
+                        "status", RoomConst.STATUS_ACTIVE,
+                        "operatorId", userId
+                    ));
+                } catch (Exception e) {
+                    log.warn("[房间服务] 发送 room_renewed 事件失败 roomId={} 错误={}", roomId, e.getMessage());
+                }
+            }
+        });
+
+        Room renewed = roomMapper.selectById(roomId);
+        return BeanCopyUtils.copyBean(renewed, RoomVO.class);
     }
 
     /**

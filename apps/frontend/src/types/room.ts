@@ -124,6 +124,18 @@ export interface JoinRoomFormData {
 }
 
 /**
+ * 续期时长档位（小时）
+ */
+export const RENEW_HOURS_OPTIONS = [
+  { value: 1, label: '1小时' },
+  { value: 24, label: '1天' },
+  { value: 72, label: '3天' },
+  { value: 168, label: '7天' }
+] as const
+
+export type RenewHoursOption = typeof RENEW_HOURS_OPTIONS[number]['value']
+
+/**
  * 房间Store状态接口
  */
 export interface RoomState {

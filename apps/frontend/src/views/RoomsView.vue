@@ -83,6 +83,7 @@
             @enter="handleEnterRoom"
             @leave="handleLeaveRoom"
             @close="handleCloseRoom"
+            @renew="handleRenewRoom"
           />
         </div>
 
@@ -125,9 +126,16 @@
     />
     
     <!-- 加入房间模态框 -->
-    <JoinRoomModal 
-      v-model:visible="joinModalVisible" 
-      @success="handleJoinSuccess" 
+    <JoinRoomModal
+      v-model:visible="joinModalVisible"
+      @success="handleJoinSuccess"
+    />
+
+    <!-- 续期房间模态框 -->
+    <RenewRoomModal
+      v-model:visible="renewModalVisible"
+      :room="renewTargetRoom"
+      @success="handleRenewSuccess"
     />
 
     <!-- 个人资料模态框 -->
@@ -161,6 +169,7 @@ import { usePrivateChatWebSocket } from '@/composables/usePrivateChatWebSocket'
 import type { RoomInfo } from '@/types/room'
 import CreateRoomModal from '@/components/CreateRoomModal.vue'
 import JoinRoomModal from '@/components/JoinRoomModal.vue'
+import RenewRoomModal from '@/components/RenewRoomModal.vue'
 import RoomCard from '@/components/RoomCard.vue'
 import UserProfileModal from '@/components/UserProfileModal.vue'
 import FriendsDropdown from '@/components/privatechat/FriendsDropdown.vue'
@@ -183,6 +192,8 @@ const joinModalVisible = ref(false)
 const profileVisible = ref(false)
 const privateChatVisible = ref(false)
 const privateChatFriendId = ref<number | null>(null)
+const renewModalVisible = ref(false)
+const renewTargetRoom = ref<RoomInfo | null>(null)
 
 // 房间筛选状态：'all' | 'created' | 'joined'
 const roomFilter = ref<'all' | 'created' | 'joined'>('all')
@@ -303,6 +314,23 @@ async function handleCloseRoom(room: RoomInfo) {
       }
     }
   })
+}
+
+/**
+ * 续期房间（仅房主）
+ */
+function handleRenewRoom(room: RoomInfo) {
+  renewTargetRoom.value = room
+  renewModalVisible.value = true
+}
+
+/**
+ * 续期成功
+ */
+function handleRenewSuccess(room: RoomInfo) {
+  renewModalVisible.value = false
+  renewTargetRoom.value = null
+  message.success(`房间 "${room.roomName}" 续期成功！`)
 }
 
 function handleOpenPrivateChat(friendId: number) {

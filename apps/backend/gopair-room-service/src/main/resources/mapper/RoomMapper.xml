@@ -175,4 +175,16 @@
         WHERE room_id = #{roomId}
     </update>
 
+    <!-- 更新房间过期时间和状态（用于续期），乐观条件防止幽灵更新 -->
+    <!-- WHERE status IN (0,2) 确保仅 ACTIVE/EXPIRED 可续期 -->
+    <update id="updateExpireTimeAndStatus">
+        UPDATE room
+        SET expire_time = #{expireTime},
+            status = #{status},
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+          AND status IN (0, 2)
+    </update>
+
 </mapper> 

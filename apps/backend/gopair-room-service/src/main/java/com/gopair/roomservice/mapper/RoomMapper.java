@@ -131,4 +131,17 @@ public interface RoomMapper extends BaseMapper<Room> {
      * @return 更新行数
      */
     int updateStatus(@Param("roomId") Long roomId, @Param("status") Integer status);
+
+    /**
+     * 更新房间过期时间和状态（用于续期）。
+     * WHERE status IN (0,2) 确保仅 ACTIVE/EXPIRED 可续期。
+     *
+     * @param roomId     房间ID
+     * @param expireTime 新的过期时间
+     * @param status     目标状态（续期后固定为 ACTIVE，即0）
+     * @return 更新行数（0 表示房间不存在或状态不符合条件）
+     */
+    int updateExpireTimeAndStatus(@Param("roomId") Long roomId,
+                                  @Param("expireTime") LocalDateTime expireTime,
+                                  @Param("status") Integer status);
 } 

@@ -62,6 +62,10 @@ export class RoomAPI {
   static async kickMember(roomId: number, userId: number): Promise<ApiResponse<null>> {
     return http.delete<null>(API_ENDPOINTS.ROOM_KICK_MEMBER(roomId, userId))
   }
+
+  static async renewRoom(roomId: number, extendHours: number): Promise<ApiResponse<RoomInfo>> {
+    return http.post<RoomInfo>(API_ENDPOINTS.ROOM_RENEW(roomId), { extendHours })
+  }
 }
 
 export const {
@@ -76,5 +80,6 @@ export const {
   updateRoomPassword,
   updatePasswordVisibility,
   getRoomCurrentPassword,
-  kickMember
+  kickMember,
+  renewRoom
 } = RoomAPI

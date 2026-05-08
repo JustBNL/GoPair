@@ -28,6 +28,10 @@
           <a-tag :color="statusColor" class="room-status">
             {{ statusText }}
           </a-tag>
+          <a-button v-if="isOwner && currentRoom.status === ROOM_STATUS.EXPIRED" type="primary" @click="showRenewModal = true">
+            <ReloadOutlined />
+            续期房间
+          </a-button>
           <a-button @click="copyRoomCode" aria-label="复制房间码">
             <CopyOutlined />
             复制房间码
@@ -415,6 +419,34 @@
       :current-password-visible="currentRoom.passwordVisible ?? 0"
       @success="handlePasswordUpdateSuccess"
     />
+
+    <!-- 续期房间弹窗（仅房主 + EXPIRED 状态可见） -->
+    <a-modal
+      v-model:open="showRenewModal"
+      title="续期房间"
+      :confirm-loading="renewLoading"
+      :width="400"
+      centered
+      @ok="handleRenewConfirm"
+      @cancel="showRenewModal = false"
+      ok-text="确认续期"
+      cancel-text="取消"
+    >
+      <div class="renew-modal-content" v-if="currentRoom">
+        <p class="renew-tip">续期后房间将恢复正常使用。选择续期时长：</p>
+        <div class="renew-room-name">
+          <span class="label">房间名称：</span>
+          <span class="value">{{ currentRoom.roomName }}</span>
+        </div>
+        <div class="renew-hours-selector">
+          <a-radio-group v-model:value="renewHours">
+            <a-radio-button v-for="opt in renewHoursOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </a-radio-button>
+          </a-radio-group>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -494,7 +526,16 @@ const privateChatFriendId = ref<number | null>(null)
 const memberProfileVisible = ref(false)
 const memberProfileUserId = ref<number | null>(null)
 
-// WebSocket状态 - 使用新的Composable架构
+// 续期状态
+const showRenewModal = ref(false)
+const renewHours = ref(24)
+const renewHoursOptions = [
+  { value: 1, label: '1小时' },
+  { value: 24, label: '1天' },
+  { value: 72, label: '3天' },
+  { value: 168, label: '7天' }
+]
+const renewLoading = ref(false)
 const roomId = computed(() => currentRoom.value?.roomId || 0)
 const { 
   roomState,
@@ -551,6 +592,18 @@ const {
   },
   onEmojiReceived: (emoji: string, senderNickname: string) => {
     spawnEmojiParticle(emoji, senderNickname)
+  },
+  onRoomRenewed: (data: { roomId: number; expireTime: string; status: number }) => {
+    if (currentRoom.value?.roomId === data.roomId) {
+      currentRoom.value = {
+        ...currentRoom.value,
+        status: data.status,
+        expireTime: data.expireTime
+      }
+      if (data.status === ROOM_STATUS.ACTIVE) {
+        antMessage.success('房间已续期')
+      }
+    }
   }
 })
 
@@ -1109,6 +1162,21 @@ const copyRoomCode = async () => {
     antMessage.success('房间码已复制到剪贴板')
   } catch (error) {
     antMessage.error('复制失败')
+  }
+}
+
+async function handleRenewConfirm() {
+  if (!currentRoom.value) return
+  renewLoading.value = true
+  try {
+    await roomStore.renewRoom(currentRoom.value.roomId, renewHours.value)
+    currentRoom.value = { ...currentRoom.value, status: ROOM_STATUS.ACTIVE }
+    showRenewModal.value = false
+    antMessage.success('续期成功，房间已恢复正常')
+  } catch (e: any) {
+    antMessage.error(e?.response?.data?.msg || e?.message || '续期失败，请重试')
+  } finally {
+    renewLoading.value = false
   }
 }
 
@@ -1938,5 +2006,49 @@ onUnmounted(() => {
       animation: none;
     }
   }
+}
+
+/* 续期弹窗样式 */
+.renew-modal-content {
+  padding: 8px 0;
+}
+
+.renew-tip {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.renew-room-name {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--surface-bg);
+  border-radius: 6px;
+}
+
+.renew-room-name .label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.renew-room-name .value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.renew-hours-selector {
+  margin-top: 8px;
+}
+
+.renew-hours-selector :deep(.ant-radio-group) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.renew-hours-selector :deep(.ant-radio-button-wrapper) {
+  flex: 1;
+  text-align: center;
+  min-width: 70px;
 }
 </style>

@@ -174,4 +174,14 @@ public interface RoomService {
      * @param roomId 房间ID
      */
     void systemCloseRoom(Long roomId);
+
+    /**
+     * 续期房间：将 ACTIVE 或 EXPIRED 房间的过期时间延长，并将状态恢复为 ACTIVE。
+     *
+     * @param roomId      房间ID
+     * @param userId      操作用户ID（必须是房主）
+     * @param extendHours 续期时长（小时）
+     * @return 续期后的房间信息
+     */
+    RoomVO renewRoom(Long roomId, Long userId, Integer extendHours);
 }

@@ -65,7 +65,10 @@ export enum WsEventType {
   PARTICIPANT_JOIN = 'participant_join',
   PARTICIPANT_LEAVE = 'participant_leave',
   SIGNALING = 'signaling',
-  VOICE_ROSTER_UPDATE = 'voice_roster_update'
+  VOICE_ROSTER_UPDATE = 'voice_roster_update',
+
+  // 房间状态事件
+  ROOM_RENEWED = 'room_renewed'
 }
 
 /**

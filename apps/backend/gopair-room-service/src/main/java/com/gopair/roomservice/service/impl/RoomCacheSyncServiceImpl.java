@@ -121,4 +121,14 @@ public class RoomCacheSyncServiceImpl implements RoomCacheSyncService {
             log.warn("[房间服务] Redis 更新密码模式失败 roomId={} passwordMode={} 错误={}", roomId, passwordMode, e.getMessage());
         }
     }
+
+    @Override
+    @LogRecord(operation = "更新缓存过期时间", module = "缓存同步")
+    public void setExpireAt(Long roomId, long expireAtMs) {
+        try {
+            redis.opsForHash().put(RoomConst.metaKey(roomId), RoomConst.FIELD_EXPIRE_AT, String.valueOf(expireAtMs));
+        } catch (Exception e) {
+            log.warn("[房间服务] Redis 更新过期时间失败 roomId={} expireAtMs={} 错误={}", roomId, expireAtMs, e.getMessage());
+        }
+    }
 }

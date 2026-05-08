@@ -9,4 +9,5 @@ public interface RoomCacheSyncService {
     void incrementConfirmed(Long roomId, int delta);
     void setStatus(Long roomId, int status);
     void setPasswordMode(Long roomId, int passwordMode);
+    void setExpireAt(Long roomId, long expireAtMs);
 } 

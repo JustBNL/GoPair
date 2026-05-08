@@ -97,6 +97,21 @@ public final class RoomConst {
     public static final int EXPIRED_TO_CLOSED_DAYS = 30;
 
     // ====================================================================
+    // 续期时长选项（小时）
+    // ====================================================================
+
+    /** 续期可选时长 — 1小时 */
+    public static final int RENEW_HOURS_1   = 1;
+    /** 续期可选时长 — 24小时 */
+    public static final int RENEW_HOURS_24 = 24;
+    /** 续期可选时长 — 72小时 */
+    public static final int RENEW_HOURS_72 = 72;
+    /** 续期可选时长 — 168小时（7天） */
+    public static final int RENEW_HOURS_168 = 168;
+    /** 续期默认时长（小时） */
+    public static final int DEFAULT_RENEW_HOURS = 24;
+
+    // ====================================================================
     // 密码模式（room.password_mode）
     // ====================================================================
 

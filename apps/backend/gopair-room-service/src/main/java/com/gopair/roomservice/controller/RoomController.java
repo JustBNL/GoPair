@@ -4,6 +4,7 @@ import com.gopair.framework.context.UserContextHolder;
 import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
 import com.gopair.roomservice.domain.dto.JoinRoomDto;
+import com.gopair.roomservice.domain.dto.RenewRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
 import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.dto.UpdateRoomPasswordDto;
@@ -120,6 +121,19 @@ public class RoomController {
             @PathVariable Long roomId) {
         Long userId = UserContextHolder.getCurrentUserId();
         boolean result = roomService.closeRoom(roomId, userId);
+        return R.ok(result);
+    }
+
+    /** 续期房间（仅房主） */
+    @Operation(summary = "续期房间", description = "房主将房间续期，ACTIVE 或 EXPIRED 状态均可续期，恢复为 ACTIVE")
+    @PostMapping("/{roomId}/renew")
+    public R<RoomVO> renewRoom(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId,
+            @Parameter(description = "续期请求", required = true)
+            @RequestBody @Validated RenewRoomDto dto) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        RoomVO result = roomService.renewRoom(roomId, userId, dto.getExtendHours());
         return R.ok(result);
     }
 
