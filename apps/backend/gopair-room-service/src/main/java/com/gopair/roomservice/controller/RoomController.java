@@ -5,6 +5,7 @@ import com.gopair.common.core.PageResult;
 import com.gopair.common.core.R;
 import com.gopair.roomservice.domain.dto.JoinRoomDto;
 import com.gopair.roomservice.domain.dto.RenewRoomDto;
+import com.gopair.roomservice.domain.dto.ReopenRoomDto;
 import com.gopair.roomservice.domain.dto.RoomDto;
 import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.dto.UpdateRoomPasswordDto;
@@ -134,6 +135,19 @@ public class RoomController {
             @RequestBody @Validated RenewRoomDto dto) {
         Long userId = UserContextHolder.getCurrentUserId();
         RoomVO result = roomService.renewRoom(roomId, userId, dto.getExtendHours());
+        return R.ok(result);
+    }
+
+    /** 重新开启房间（仅房主） */
+    @Operation(summary = "重新开启房间", description = "房主将已关闭的房间重新开启，仅限手动关闭的房间")
+    @PostMapping("/{roomId}/reopen")
+    public R<RoomVO> reopenRoom(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId,
+            @Parameter(description = "重新开启请求", required = true)
+            @RequestBody @Validated ReopenRoomDto dto) {
+        Long userId = UserContextHolder.getCurrentUserId();
+        RoomVO result = roomService.reopenRoom(roomId, userId, dto.getExpireHours());
         return R.ok(result);
     }
 

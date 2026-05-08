@@ -583,6 +583,96 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     }
 
     /**
+     * 重新开启房间：将已关闭（手动关闭）房间恢复为 ACTIVE。
+     *
+     * * [核心策略]
+     * - 关闭来源判断：closed_time == null 表示手动关闭（可重新开启），closed_time != null 表示定时任务关闭（不允许）。
+     * - 权限控制：仅房主可操作。
+     *
+     * * [执行链路]
+     * 1. 身份确权：userId 非空校验。
+     * 2. 房间存在性校验：查 Room，不存在抛 ROOM_NOT_FOUND。
+     * 3. 状态前置校验链：ARCHIVED → 抛 ARCHIVED_CANNOT_REOPEN；EXPIRED → 抛 EXPIRED_CANNOT_REOPEN；非 CLOSED → 抛 ROOM_STATE_CHANGED。
+     * 4. 关闭来源校验：closed_time != null → 抛 SYSTEM_CLOSED_CANNOT_REOPEN。
+     * 5. 权限校验：ownerId != userId → 抛 NO_PERMISSION。
+     * 6. 更新状态：expire_time = now + expireHours，status → ACTIVE，closed_time 保持 null。
+     * 7. Redis 同步：setStatus + setExpireAt。
+     * 8. WS 广播：room_reopened 事件。
+     *
+     * @param roomId      房间ID
+     * @param userId      操作用户ID（必须是房主）
+     * @param expireHours 重新开启后的过期时长（小时）
+     * @return 重新开启后的房间信息
+     */
+    @Override
+    @LogRecord(operation = "重新开启房间", module = "房间管理")
+    public RoomVO reopenRoom(Long roomId, Long userId, Integer expireHours) {
+        if (userId == null) {
+            throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
+        }
+        if (expireHours == null || expireHours < 1 || expireHours > 168) {
+            throw new RoomException(RoomErrorCode.PARAM_INVALID);
+        }
+
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+
+        Integer status = room.getStatus();
+        if (status != null && status == RoomConst.STATUS_ARCHIVED) {
+            throw new RoomException(RoomErrorCode.ARCHIVED_CANNOT_REOPEN);
+        }
+        if (status != null && status == RoomConst.STATUS_EXPIRED) {
+            throw new RoomException(RoomErrorCode.EXPIRED_CANNOT_REOPEN);
+        }
+        if (status != null && status != RoomConst.STATUS_CLOSED) {
+            throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
+        }
+
+        if (room.getClosedTime() != null) {
+            throw new RoomException(RoomErrorCode.SYSTEM_CLOSED_CANNOT_REOPEN);
+        }
+
+        if (!room.getOwnerId().equals(userId)) {
+            throw new RoomException(RoomErrorCode.NO_PERMISSION);
+        }
+
+        LocalDateTime newExpireTime = LocalDateTime.now().plusHours(expireHours);
+
+        int updated = roomMapper.updateExpireTimeAndStatus(roomId, newExpireTime, RoomConst.STATUS_ACTIVE);
+        if (updated == 0) {
+            throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                long newExpireAtMs = newExpireTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                try {
+                    roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_ACTIVE);
+                    roomCacheSyncService.setExpireAt(roomId, newExpireAtMs);
+                } catch (Exception e) {
+                    log.warn("[房间服务] Redis 同步重新开启状态失败 roomId={} 错误={}", roomId, e.getMessage());
+                }
+                try {
+                    wsProducer.sendEventToRoom(roomId, "room_reopened", Map.of(
+                        "roomId", roomId,
+                        "expireTime", newExpireTime.toString(),
+                        "status", RoomConst.STATUS_ACTIVE,
+                        "operatorId", userId
+                    ));
+                } catch (Exception e) {
+                    log.warn("[房间服务] 发送 room_reopened 事件失败 roomId={} 错误={}", roomId, e.getMessage());
+                }
+            }
+        });
+
+        Room reopened = roomMapper.selectById(roomId);
+        return BeanCopyUtils.copyBean(reopened, RoomVO.class);
+    }
+
+    /**
      * 获取指定房间的所有成员列表（进入房间详情页时调用）。
      *
      * @param roomId 房间 ID

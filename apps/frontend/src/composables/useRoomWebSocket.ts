@@ -32,6 +32,7 @@ interface RoomEventHandlers {
   onVoiceRosterUpdate?: (callId: number) => void
   onEmojiReceived?: (emoji: string, senderNickname: string) => void
   onRoomRenewed?: (data: { roomId: number; expireTime: string; status: number }) => void
+  onRoomReopened?: (data: { roomId: number; expireTime: string; status: number }) => void
 }
 
 /**
@@ -119,7 +120,8 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         WsEventType.CALL_START,
         WsEventType.CALL_END,
         WsEventType.VOICE_ROSTER_UPDATE,
-        WsEventType.ROOM_RENEWED
+        WsEventType.ROOM_RENEWED,
+        WsEventType.ROOM_REOPENED
       ],
       currentUser.userId
     )
@@ -280,6 +282,11 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
 
       case WsEventType.ROOM_RENEWED: {
         handlers.onRoomRenewed?.(data)
+        break
+      }
+
+      case WsEventType.ROOM_REOPENED: {
+        handlers.onRoomReopened?.(data)
         break
       }
 

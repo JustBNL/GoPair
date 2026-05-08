@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
   ROOM_CURRENT_PASSWORD: (roomId: number) => `/room/${roomId}/password/current`,
   ROOM_KICK_MEMBER: (roomId: number, userId: number) => `/room/${roomId}/members/${userId}`,
   ROOM_RENEW: (roomId: number) => `/room/${roomId}/renew`,
+  ROOM_REOPEN: (roomId: number) => `/room/${roomId}/reopen`,
   
   // 消息管理
   MESSAGE_SEND: '/message/send',

@@ -90,11 +90,11 @@ public final class RoomConst {
     public static final int STATUS_ARCHIVED = 3;
 
     // ====================================================================
-    // 过期与归档阈值
+    // 定时清理阈值（小时）
     // ====================================================================
 
-    /** 过期房间转为已关闭的前置阈值（天），expire_time < now - N 天后触发系统关闭 */
-    public static final int EXPIRED_TO_CLOSED_DAYS = 30;
+    /** 过期房间转为已关闭的前置阈值（小时），expire_time < now - N 小时后触发系统关闭 */
+    public static final int EXPIRED_TO_CLOSED_HOURS = 24;
 
     // ====================================================================
     // 续期时长选项（小时）
@@ -110,6 +110,9 @@ public final class RoomConst {
     public static final int RENEW_HOURS_168 = 168;
     /** 续期默认时长（小时） */
     public static final int DEFAULT_RENEW_HOURS = 24;
+
+    /** 重新开启默认过期时长（小时），与续期共用同一组选项 */
+    public static final int DEFAULT_REOPEN_HOURS = 24;
 
     // ====================================================================
     // 密码模式（room.password_mode）

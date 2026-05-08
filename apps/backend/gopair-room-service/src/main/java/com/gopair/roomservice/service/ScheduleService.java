@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +38,9 @@ public class ScheduleService {
 
     @Value("${gopair.schedule.room-archive-threshold-hours:24}")
     private int archiveThresholdHours;
+
+    @Value("${gopair.schedule.room-expired-to-closed-hours:24}")
+    private int expiredToClosedHours;
 
     @PostConstruct
     public void init() {
@@ -108,10 +110,10 @@ public class ScheduleService {
      * 房间状态检查和维护：过期检测 + 超时过期房间系统关闭。
      * 每5分钟执行一次（由 gopair.schedule.room-cleanup-interval 配置）。
      *
-     * <ol>
-     *   <li>检测 ACTIVE 房间是否已过期：expire_time < now → status 改为 2</li>
-     *   <li>检测 EXPIRED 房间是否超时归档前置期：expire_time < now - 30天 → status 改为 1（系统关闭）</li>
-     * </ol>
+     * * [执行链路]
+     * 1. ACTIVE → EXPIRED：检测 expire_time < now 的房间，将 status 改为 2，closed_time 置 null。
+     * 2. EXPIRED → CLOSED：检测 expire_time < now - expiredToClosedHours 的房间，执行系统关闭（status → 1，closed_time = now）。
+     * 3. CLOSED → ARCHIVED：检测 closed_time < now - archiveThresholdHours 的房间，清理资源后归档（status → 3）。
      */
     @Scheduled(fixedRateString = "${gopair.schedule.room-cleanup-interval:300000}")
     @LogRecord(operation = "维护房间状态", module = "定时任务")
@@ -160,14 +162,14 @@ public class ScheduleService {
     }
 
     /**
-     * 将所有 status=2 且 expire_time < now - EXPIRED_TO_CLOSED_DAYS 天 的房间改为 CLOSED（status=1）。
+     * 将所有 status=2 且 expire_time < now - expiredToClosedHours 小时的房间改为 CLOSED（status=1）。
      */
     private int processExpiredToClosed() {
         int total = 0;
         int batchSize = RoomConst.CLEANUP_BATCH_SIZE;
 
         while (true) {
-            LocalDateTime threshold = LocalDateTime.now().minusDays(RoomConst.EXPIRED_TO_CLOSED_DAYS);
+            LocalDateTime threshold = LocalDateTime.now().minusHours(expiredToClosedHours);
             List<Room> toClose = roomMapper.selectExpiredRoomsToClose(threshold);
             if (toClose.isEmpty()) {
                 break;

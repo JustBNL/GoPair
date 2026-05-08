@@ -106,4 +106,9 @@ public class RoomVO {
      * 房主昵称
      */
     private String ownerNickname;
+
+    /**
+     * 关闭时间，null 表示手动关闭（可重新开启），非 null 表示系统关闭（不可重新开启）
+     */
+    private LocalDateTime closedTime;
 } 

@@ -58,6 +58,7 @@
             <a-menu-divider v-if="isOwner" />
             <a-menu-item key="password" @click="showPasswordModal" v-if="isOwner"><LockOutlined /> 设置密码</a-menu-item>
             <a-menu-item key="renew" @click="handleRenew" v-if="isOwner && props.room.status === ROOM_STATUS.EXPIRED" class="renew-item"><ReloadOutlined /> 续期房间</a-menu-item>
+            <a-menu-item key="reopen" @click="handleReopen" v-if="isOwner && props.room.status === ROOM_STATUS.CLOSED && !props.room.closedTime" class="reopen-item"><ReloadOutlined /> 重新开启</a-menu-item>
             <a-menu-item key="close" @click="handleClose" v-if="isOwner" class="danger-item"><CloseOutlined /> 关闭房间</a-menu-item>
             <a-menu-item key="leave" @click="handleLeave" v-if="!isOwner" class="danger-item"><LogoutOutlined /> 离开房间</a-menu-item>
           </a-menu>
@@ -120,6 +121,7 @@ interface Emits {
   close: [room: RoomInfo]
   refresh: [room: RoomInfo]
   renew: [room: RoomInfo]
+  reopen: [room: RoomInfo]
 }
 const emit = defineEmits<Emits>()
 
@@ -233,15 +235,19 @@ const expireText = computed(() => {
 })
 
 function handleEnter() {
-  if (props.room.status === ROOM_STATUS.CLOSED) { message.warning('房间已关闭，无法进入'); return }
   if (props.room.status === ROOM_STATUS.ARCHIVED) { message.warning('房间已归档，无法进入'); return }
-  // EXPIRED 状态允许进入（只读模式）
+  // CLOSED 状态：非房主禁止进入，房主允许进入（可重新开启）
+  if (props.room.status === ROOM_STATUS.CLOSED && !isOwner.value) {
+    message.warning('房间已关闭，无法进入')
+    return
+  }
   emit('enter', props.room)
 }
 function handleLeave() { emit('leave', props.room) }
 function handleClose() { emit('close', props.room) }
 function handleRefresh() { emit('refresh', props.room) }
 function handleRenew() { emit('renew', props.room) }
+function handleReopen() { emit('reopen', props.room) }
 
 async function copyRoomCode() {
   try {

@@ -84,6 +84,7 @@
             @leave="handleLeaveRoom"
             @close="handleCloseRoom"
             @renew="handleRenewRoom"
+            @reopen="handleReopenRoom"
           />
         </div>
 
@@ -138,6 +139,12 @@
       @success="handleRenewSuccess"
     />
 
+    <ReopenRoomModal
+      v-model:visible="reopenModalVisible"
+      :room="reopenTargetRoom"
+      @success="handleReopenSuccess"
+    />
+
     <!-- 个人资料模态框 -->
     <UserProfileModal v-model:visible="profileVisible" />
 
@@ -170,6 +177,7 @@ import type { RoomInfo } from '@/types/room'
 import CreateRoomModal from '@/components/CreateRoomModal.vue'
 import JoinRoomModal from '@/components/JoinRoomModal.vue'
 import RenewRoomModal from '@/components/RenewRoomModal.vue'
+import ReopenRoomModal from '@/components/ReopenRoomModal.vue'
 import RoomCard from '@/components/RoomCard.vue'
 import UserProfileModal from '@/components/UserProfileModal.vue'
 import FriendsDropdown from '@/components/privatechat/FriendsDropdown.vue'
@@ -194,6 +202,9 @@ const privateChatVisible = ref(false)
 const privateChatFriendId = ref<number | null>(null)
 const renewModalVisible = ref(false)
 const renewTargetRoom = ref<RoomInfo | null>(null)
+
+const reopenModalVisible = ref(false)
+const reopenTargetRoom = ref<RoomInfo | null>(null)
 
 // 房间筛选状态：'all' | 'created' | 'joined'
 const roomFilter = ref<'all' | 'created' | 'joined'>('all')
@@ -331,6 +342,23 @@ function handleRenewSuccess(room: RoomInfo) {
   renewModalVisible.value = false
   renewTargetRoom.value = null
   message.success(`房间 "${room.roomName}" 续期成功！`)
+}
+
+/**
+ * 打开重新开启弹窗
+ */
+function handleReopenRoom(room: RoomInfo) {
+  reopenTargetRoom.value = room
+  reopenModalVisible.value = true
+}
+
+/**
+ * 重新开启成功
+ */
+function handleReopenSuccess(room: RoomInfo) {
+  reopenModalVisible.value = false
+  reopenTargetRoom.value = null
+  message.success(`房间 "${room.roomName}" 已重新开启！`)
 }
 
 function handleOpenPrivateChat(friendId: number) {

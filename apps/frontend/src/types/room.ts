@@ -25,6 +25,7 @@ export interface RoomInfo {
   passwordVisible?: number // 密码是否可见 0-隐藏 1-显示
   currentPassword?: string // 当前密码/令牌（仅房主可见）
   remainingSeconds?: number // 动态令牌剩余秒数
+  closedTime?: string // 关闭时间，null表示手动关闭（可重新开启），非null表示系统关闭（不可重新开启）
 }
 
 /**
@@ -145,4 +146,11 @@ export interface RoomState {
   loading: boolean
   createLoading: boolean
   joinLoading: boolean
+}
+
+/**
+ * 重新开启房间请求
+ */
+export interface ReopenRoomRequest {
+  expireHours: number
 }

@@ -46,6 +46,8 @@ gopair:
     room-cleanup-interval: 300000
     # 已关闭房间归档阈值（小时），closed_time < now - N 小时后执行归档
     room-archive-threshold-hours: 24
+    # 过期房间自动关闭阈值（小时），expire_time < now - N 小时后执行系统关闭
+    room-expired-to-closed-hours: 24
 
   # RabbitMQ 队列参数配置（TTL 单位：毫秒）
   mq:

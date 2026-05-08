@@ -32,6 +32,10 @@
             <ReloadOutlined />
             续期房间
           </a-button>
+          <a-button v-if="isOwner && currentRoom.status === ROOM_STATUS.CLOSED && !currentRoom.closedTime" type="primary" @click="showReopenModal = true">
+            <ReloadOutlined />
+            重新开启
+          </a-button>
           <a-button @click="copyRoomCode" aria-label="复制房间码">
             <CopyOutlined />
             复制房间码
@@ -447,6 +451,34 @@
         </div>
       </div>
     </a-modal>
+
+    <!-- 重新开启房间弹窗（仅房主 + CLOSED 状态 + closedTime=null 可见） -->
+    <a-modal
+      v-model:open="showReopenModal"
+      title="重新开启房间"
+      :confirm-loading="reopenLoading"
+      :width="400"
+      centered
+      @ok="handleReopenConfirm"
+      @cancel="showReopenModal = false"
+      ok-text="确认开启"
+      cancel-text="取消"
+    >
+      <div class="renew-modal-content" v-if="currentRoom">
+        <p class="renew-tip">重新开启后房间将恢复正常使用。选择过期时长：</p>
+        <div class="renew-room-name">
+          <span class="label">房间名称：</span>
+          <span class="value">{{ currentRoom.roomName }}</span>
+        </div>
+        <div class="renew-hours-selector">
+          <a-radio-group v-model:value="reopenHours">
+            <a-radio-button v-for="opt in renewHoursOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </a-radio-button>
+          </a-radio-group>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -536,6 +568,11 @@ const renewHoursOptions = [
   { value: 168, label: '7天' }
 ]
 const renewLoading = ref(false)
+
+// 重新开启状态
+const showReopenModal = ref(false)
+const reopenHours = ref(24)
+const reopenLoading = ref(false)
 const roomId = computed(() => currentRoom.value?.roomId || 0)
 const { 
   roomState,
@@ -602,6 +639,18 @@ const {
       }
       if (data.status === ROOM_STATUS.ACTIVE) {
         antMessage.success('房间已续期')
+      }
+    }
+  },
+  onRoomReopened: (data: { roomId: number; expireTime: string; status: number }) => {
+    if (currentRoom.value?.roomId === data.roomId) {
+      currentRoom.value = {
+        ...currentRoom.value,
+        status: data.status,
+        expireTime: data.expireTime
+      }
+      if (data.status === ROOM_STATUS.ACTIVE) {
+        antMessage.success('房间已重新开启')
       }
     }
   }
@@ -1177,6 +1226,21 @@ async function handleRenewConfirm() {
     antMessage.error(e?.response?.data?.msg || e?.message || '续期失败，请重试')
   } finally {
     renewLoading.value = false
+  }
+}
+
+async function handleReopenConfirm() {
+  if (!currentRoom.value) return
+  reopenLoading.value = true
+  try {
+    await roomStore.reopenRoom(currentRoom.value.roomId, reopenHours.value)
+    currentRoom.value = { ...currentRoom.value, status: ROOM_STATUS.ACTIVE }
+    showReopenModal.value = false
+    antMessage.success('房间已重新开启')
+  } catch (e: any) {
+    antMessage.error(e?.response?.data?.msg || e?.message || '重新开启失败，请重试')
+  } finally {
+    reopenLoading.value = false
   }
 }
 

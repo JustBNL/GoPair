@@ -184,4 +184,15 @@ public interface RoomService {
      * @return 续期后的房间信息
      */
     RoomVO renewRoom(Long roomId, Long userId, Integer extendHours);
+
+    /**
+     * 重新开启房间：将已关闭（手动关闭）房间恢复为 ACTIVE。
+     * 仅允许房主操作，且仅限 status=CLOSED 且 closed_time=null 的房间。
+     *
+     * @param roomId      房间ID
+     * @param userId      操作用户ID（必须是房主）
+     * @param expireHours 重新开启后的过期时长（小时）
+     * @return 重新开启后的房间信息
+     */
+    RoomVO reopenRoom(Long roomId, Long userId, Integer expireHours);
 }
