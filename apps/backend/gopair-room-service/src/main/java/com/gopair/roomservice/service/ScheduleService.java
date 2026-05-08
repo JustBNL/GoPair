@@ -46,12 +46,12 @@ public class ScheduleService {
 
     /**
      * 房间状态检查和维护：ACTIVE 过期检测。
-     * 每5分钟执行一次（由 gopair.schedule.room-cleanup-interval 配置）。
+     * 每1分钟执行一次（由 gopair.schedule.room-cleanup-interval 配置）。
      *
      * * [执行链路]
      * 1. ACTIVE → EXPIRED：检测 expire_time < now 的房间，将 status 改为 2，closed_time 置 null。
      */
-    @Scheduled(fixedRateString = "${gopair.schedule.room-cleanup-interval:300000}")
+    @Scheduled(fixedRateString = "${gopair.schedule.room-status-check-interval:60000}")
     @LogRecord(operation = "维护房间状态", module = "定时任务")
     public void maintainRoomStatus() {
         log.debug("[房间服务][schedule] 开始执行房间状态维护任务");

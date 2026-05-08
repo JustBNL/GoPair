@@ -105,7 +105,7 @@ export const useRoomStore = defineStore('room', () => {
     const status = resp.data.status
     if (status === 'JOINED') {
       message.success({ content: '加入成功', key: 'joinAsync' })
-      await fetchUserRooms()
+      await fetchUserRooms({ includeHistory: true })
     } else if (status === 'FAILED') {
       message.error({ content: '加入失败，请重试', key: 'joinAsync' })
     }
@@ -122,7 +122,7 @@ export const useRoomStore = defineStore('room', () => {
     if (status === 'JOINED') {
       message.success({ content: '加入成功', key: 'joinAsync' })
       // 刷新列表（串行，先拿到最新房间 ID）
-      await fetchUserRooms()
+      await fetchUserRooms({ includeHistory: true })
       // 找到刚加入的房间，并行预取成员
       const joinedRoom = roomList.value.find(r => r.roomCode === roomCode)
       if (joinedRoom) {

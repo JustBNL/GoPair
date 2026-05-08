@@ -911,7 +911,7 @@ const loadRoomInfo = async () => {
       // 我们需要先从房间列表中找到对应的房间信息
       if (roomStore.roomList.length === 0) {
         // 如果房间列表为空，先加载房间列表
-        await roomStore.fetchUserRooms()
+        await roomStore.fetchUserRooms({ includeHistory: true })
       }
       
       // 从房间列表中查找对应的房间
