@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import type { TableProps } from 'ant-design-vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import { useRoomDetailStore } from '@/stores/roomDetail'
 import { roomApi } from '@/api/rooms'
 import { formatTime } from '@/utils/format'
 import type { Room, RoomDetail, RoomQuery } from '@/types'
@@ -27,6 +28,8 @@ const disableOpen   = ref(false)
 const disableTarget = ref<Room | null>(null)
 const disableLoading = ref(false)
 const disableReason = ref('')
+
+const roomDetailStore = useRoomDetailStore()
 
 async function loadRooms() {
   loading.value = true
@@ -144,7 +147,14 @@ function leaveTypeLabel(type: number | null | undefined): string {
   return map[type] || '-'
 }
 
-loadRooms()
+onMounted(() => {
+  const pending = roomDetailStore.pendingRoomId
+  if (pending !== null) {
+    roomDetailStore.clearPendingRoomId()
+    handleView(pending)
+  }
+  loadRooms()
+})
 </script>
 
 <template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { RecentRoom } from '@/types'
+import { useRoomDetailStore } from '@/stores/roomDetail'
 
 interface Props {
   rooms: RecentRoom[]
@@ -9,6 +9,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const router = useRouter()
+const roomDetailStore = useRoomDetailStore()
 
 const statusMap: Record<number, { text: string; color: string }> = {
   0: { text: '活跃', color: '#0d9488' },
@@ -48,6 +49,7 @@ function getStatusInfo(status: number) {
 }
 
 function goToRoom(roomId: number) {
+  roomDetailStore.setPendingRoomId(roomId)
   router.push({ name: 'rooms', query: { keyword: String(roomId) } })
 }
 </script>
