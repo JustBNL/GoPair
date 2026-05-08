@@ -23,6 +23,8 @@ const badge = computed<BadgeConfig>(() => {
   if (props.type === 'room') {
     if (s === '0') return { label: '活跃', color: 'success' }
     if (s === '1') return { label: '已关闭', color: 'default' }
+    if (s === '2') return { label: '已过期', color: 'warning' }
+    if (s === '3') return { label: '已归档', color: 'default' }
   }
   if (props.type === 'call') {
     if (s === '0') return { label: '进行中', color: 'processing' }

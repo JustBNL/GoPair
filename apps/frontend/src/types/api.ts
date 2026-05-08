@@ -99,6 +99,10 @@ export interface CurrentUser {
 export interface BaseQuery {
   pageNum?: number
   pageSize?: number
+  /** 精确状态过滤：0=活跃 1=已关闭 2=已过期 */
+  status?: number
+  /** 包含历史房间（含活跃+已关闭+已过期），与 status 互斥 */
+  includeHistory?: boolean
 }
 
 /**

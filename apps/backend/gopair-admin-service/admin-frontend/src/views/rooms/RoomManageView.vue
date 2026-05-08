@@ -132,6 +132,8 @@ loadRooms()
       >
         <a-select-option :value="0">活跃</a-select-option>
         <a-select-option :value="1">已关闭</a-select-option>
+        <a-select-option :value="2">已过期</a-select-option>
+        <a-select-option :value="3">已归档</a-select-option>
       </a-select>
     </div>
 

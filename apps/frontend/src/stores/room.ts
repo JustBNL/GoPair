@@ -178,13 +178,8 @@ export const useRoomStore = defineStore('room', () => {
   async function closeRoom(roomId: number): Promise<void> {
     try {
       await RoomAPI.closeRoom(roomId)
-      const index = roomList.value.findIndex(r => r.roomId === roomId)
-      if (index !== -1) roomList.value.splice(index, 1)
-      if (currentRoom.value?.roomId === roomId) {
-        currentRoom.value = null
-        roomMembers.value = []
-      }
       message.success('房间已关闭')
+      await fetchUserRooms()
     } catch (error) {
       console.error('关闭房间失败:', error)
       throw error

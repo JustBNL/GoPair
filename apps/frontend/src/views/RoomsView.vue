@@ -62,6 +62,12 @@
               :options="filterOptions"
               @change="handleFilterChange"
             />
+            <a-select
+              v-model:value="statusFilter"
+              :options="statusOptions"
+              class="status-filter-select"
+              @change="handleStatusFilterChange"
+            />
             <a-button
               type="text"
               @click="refreshRooms"
@@ -206,14 +212,25 @@ const renewTargetRoom = ref<RoomInfo | null>(null)
 const reopenModalVisible = ref(false)
 const reopenTargetRoom = ref<RoomInfo | null>(null)
 
-// 房间筛选状态：'all' | 'created' | 'joined'
+// 房间关系筛选状态：'all' | 'created' | 'joined'
 const roomFilter = ref<'all' | 'created' | 'joined'>('all')
 
-// 筛选选项配置
+// 房间状态筛选状态：'all' | 'active' | 'closed' | 'expired'
+const statusFilter = ref<'all' | 'active' | 'closed' | 'expired'>('all')
+
+// 关系筛选选项配置
 const filterOptions = [
   { label: '全部', value: 'all' },
   { label: '我创建的', value: 'created' },
   { label: '我加入的', value: 'joined' }
+]
+
+// 状态筛选选项配置
+const statusOptions = [
+  { label: '全部', value: 'all' },
+  { label: '活跃', value: 'active' },
+  { label: '已关闭', value: 'closed' },
+  { label: '已过期', value: 'expired' }
 ]
 
 const nicknameInitial = computed(() => {
@@ -249,6 +266,18 @@ const emptyDescription = computed(() => {
 })
 
 // ==================== 事件处理 ====================
+
+/**
+ * 将前端 statusFilter 转换为后端查询参数
+ */
+function buildStatusQuery(value: string): { status?: number; includeHistory?: boolean } {
+  switch (value) {
+    case 'all':    return { includeHistory: true }
+    case 'active': return { status: 0 }
+    case 'closed': return { status: 1 }
+    case 'expired': return { status: 2 }
+  }
+}
 
 /**
  * 显示创建房间模态框
@@ -379,7 +408,8 @@ async function refreshRooms() {
   try {
     await roomStore.fetchUserRooms({
       pageNum: roomStore.pagination.current,
-      pageSize: roomStore.pagination.pageSize
+      pageSize: roomStore.pagination.pageSize,
+      ...buildStatusQuery(statusFilter.value)
     })
   } catch (error) {
     message.error('刷新失败，请重试')
@@ -394,7 +424,24 @@ async function handleFilterChange() {
   try {
     await roomStore.fetchUserRooms({
       pageNum: 1,
-      pageSize: roomStore.pagination.pageSize
+      pageSize: roomStore.pagination.pageSize,
+      ...buildStatusQuery(statusFilter.value)
+    })
+  } catch (error) {
+    message.error('加载失败，请重试')
+  }
+}
+
+/**
+ * 状态筛选变化：重置到第1页并重新加载
+ */
+async function handleStatusFilterChange() {
+  roomStore.pagination.current = 1
+  try {
+    await roomStore.fetchUserRooms({
+      pageNum: 1,
+      pageSize: roomStore.pagination.pageSize,
+      ...buildStatusQuery(statusFilter.value)
     })
   } catch (error) {
     message.error('加载失败，请重试')
@@ -409,7 +456,8 @@ async function handlePageChange(page: number) {
   try {
     await roomStore.fetchUserRooms({
       pageNum: page,
-      pageSize: roomStore.pagination.pageSize
+      pageSize: roomStore.pagination.pageSize,
+      ...buildStatusQuery(statusFilter.value)
     })
   } catch (error) {
     message.error('加载失败，请重试')
@@ -619,6 +667,11 @@ onMounted(async () => {
 .refresh-btn:hover {
   color: var(--brand-primary);
   background: var(--brand-primary-light);
+}
+
+/* 状态筛选下拉框 */
+.status-filter-select {
+  width: 120px;
 }
 
 /* ==================== 房间列表 ==================== */
