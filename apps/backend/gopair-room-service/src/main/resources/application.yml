@@ -42,8 +42,10 @@ gopair:
 
   # 定时任务配置
   schedule:
-    # 房间清理任务执行间隔（毫秒，默认 15 分钟）
-    room-cleanup-interval: 900000
+    # 房间清理/归档任务执行间隔（毫秒，默认 5 分钟）
+    room-cleanup-interval: 300000
+    # 已关闭房间归档阈值（小时），closed_time < now - N 小时后执行归档
+    room-archive-threshold-hours: 24
 
   # RabbitMQ 队列参数配置（TTL 单位：毫秒）
   mq:

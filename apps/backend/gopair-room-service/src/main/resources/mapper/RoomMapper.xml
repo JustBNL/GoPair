@@ -10,13 +10,13 @@
         create_time, update_time
     </sql>
 
-    <!-- 根据房间码查询房间 -->
+    <!-- 根据房间码查询房间（支持活跃和已过期状态，已过期允许只读进入） -->
     <select id="selectByRoomCode" resultType="com.gopair.roomservice.domain.po.Room">
-        SELECT 
+        SELECT
             <include refid="Base_Column_List" />
-        FROM room 
+        FROM room
         WHERE room_code = #{roomCode}
-        AND status = 0
+        AND status IN (0, 2)
     </select>
 
     <!-- 查询过期房间列表（定时任务废弃，仅保留兼容） -->
@@ -30,25 +30,36 @@
         LIMIT 100
     </select>
 
-    <!-- 查询需要清理的房间：已关闭超过指定阈值时间 -->
-    <select id="selectRoomsToClean" resultType="com.gopair.roomservice.domain.po.Room">
+    <!-- 查询已过期且超过归档前置天数（30天）的房间，用于系统自动关闭 -->
+    <select id="selectExpiredRoomsToClose" resultType="com.gopair.roomservice.domain.po.Room">
+        SELECT
+            <include refid="Base_Column_List" />
+        FROM room
+        WHERE status = 2
+          AND expire_time <![CDATA[ < ]]> #{thresholdTime}
+        ORDER BY expire_time ASC
+        LIMIT 100
+    </select>
+
+    <!-- 查询待归档房间：已关闭超过归档阈值时间 -->
+    <select id="selectRoomsToArchive" resultType="com.gopair.roomservice.domain.po.Room">
         SELECT
             <include refid="Base_Column_List" />
         FROM room
         WHERE status = 1
           AND closed_time IS NOT NULL
-          AND closed_time < #{thresholdTime}
+          AND closed_time <![CDATA[ < ]]> #{thresholdTime}
         ORDER BY closed_time ASC
         LIMIT 100
     </select>
 
-    <!-- 根据用户ID查询用户创建的房间列表 -->
+    <!-- 根据用户ID查询用户创建的房间列表（包含活跃和已过期） -->
     <select id="selectRoomsByOwnerId" resultType="com.gopair.roomservice.domain.po.Room">
-        SELECT 
+        SELECT
             <include refid="Base_Column_List" />
-        FROM room 
+        FROM room
         WHERE owner_id = #{ownerId}
-        AND status = 0
+        AND status IN (0, 2)
         ORDER BY create_time DESC
     </select>
 
@@ -82,7 +93,7 @@
           AND current_members <![CDATA[ > ]]> 0
     </update>
 
-    <!-- 查询用户参与的房间列表（带用户角色、加入时间），支持分页 -->
+    <!-- 查询用户参与的房间列表（带用户角色、加入时间），支持分页和历史房间过滤 -->
     <select id="selectUserRoomsPage" resultType="com.gopair.roomservice.domain.vo.RoomVO">
         SELECT r.room_id           AS roomId,
                r.room_code         AS roomCode,
@@ -100,29 +111,42 @@
                rm.role             AS userRole,
                rm.join_time        AS joinTime
         FROM room r
-        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId}
+        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId} AND rm.leave_time IS NULL
         <where>
             <if test="status != null">
-                r.status = #{status}
+                AND r.status = #{status}
+            </if>
+            <if test="status == null and includeHistory == true">
+                AND r.status IN (0, 1, 2)
+            </if>
+            <if test="status == null and (includeHistory == false or includeHistory == null)">
+                AND r.status = 0
             </if>
         </where>
         ORDER BY r.create_time DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
-    <!-- 统计用户参与的房间数量（支持状态过滤） -->
+    <!-- 统计用户参与的房间数量（支持状态过滤和历史房间过滤） -->
     <select id="countUserRoomsWithRelationship" resultType="java.lang.Long">
         SELECT COUNT(DISTINCT r.room_id)
         FROM room r
-        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId}
+        INNER JOIN room_member rm ON r.room_id = rm.room_id AND rm.user_id = #{userId} AND rm.leave_time IS NULL
         <where>
             <if test="status != null">
-                r.status = #{status}
+                AND r.status = #{status}
+            </if>
+            <if test="status == null and includeHistory == true">
+                AND r.status IN (0, 1, 2)
+            </if>
+            <if test="status == null and (includeHistory == false or includeHistory == null)">
+                AND r.status = 0
             </if>
         </where>
     </select>
 
     <!-- 仅更新房间状态和关闭时间（避免幽灵更新覆盖其他字段） -->
+    <!-- WHERE status IN (0,2) 允许从 ACTIVE 关闭，也允许从 EXPIRED 系统关闭 -->
     <update id="updateStatusAndClosedTime">
         UPDATE room
         SET status = #{status},
@@ -130,13 +154,22 @@
             version = version + 1,
             update_time = NOW()
         WHERE room_id = #{roomId}
-          AND status = 0
+          AND status IN (0, 2)
     </update>
 
     <!-- 仅更新密码可见性（避免幽灵更新覆盖其他字段） -->
     <update id="updatePasswordVisible">
         UPDATE room
         SET password_visible = #{passwordVisible},
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+    </update>
+
+    <!-- 仅更新房间状态（无条件，用于归档操作） -->
+    <update id="updateStatus">
+        UPDATE room
+        SET status = #{status},
             version = version + 1,
             update_time = NOW()
         WHERE room_id = #{roomId}

@@ -36,8 +36,9 @@ public class JoinRoomConsumer {
      *
      * <h2>完整流程</h2>
      * <ol>
-     *   <li><b>幂等判断</b>：查询 room_member，若用户已存在则跳过插入，进入预占释放分支。</li>
-     *   <li><b>插入成员</b>：向 room_member 表插入记录（唯一键兜底，可能因并发重试而抛异常）。</li>
+     *   <li><b>活跃成员判断</b>：查询 room_member，若 leave_time IS NULL 则为活跃成员，直接幂等返回。</li>
+     *   <li><b>历史记录复用</b>：若有 leave_time 非空的历史记录，复用该记录并重置状态。</li>
+     *   <li><b>插入新记录</b>：无历史记录时写入新记录（唯一键兜底，可能因并发重试而抛异常）。</li>
      *   <li><b>原子加一</b>：若房间状态为 ACTIVE，执行 UPDATE current_members + 1（乐观锁，不满才加）。</li>
      *     <ul>
      *       <li>加成功：incOk=true，Redis confirmed++</li>
@@ -47,9 +48,9 @@ public class JoinRoomConsumer {
      *     只有 pending 中仍存有该用户时才扣减 reserved 并删 pending，防止消息重试时重复扣减。</li>
      *   <li><b>结果分支</b>（在释放预占之后）：
      *     <ul>
-     *       <li>已存在 → token=J OINED，members.add，return</li>
+     *       <li>活跃成员 → token=JOINED，members.add，return</li>
      *       <li>inserted && incOk → token=JOINED，members.add</li>
-     *       <li>其余情况 → 删除 DB 记录，token=FAILED</li>
+     *       <li>其余情况 → 删除 DB 记录（仅删 leave_time IS NULL 的），token=FAILED</li>
      *     </ul>
      *   </li>
      * </ol>
@@ -71,54 +72,70 @@ public class JoinRoomConsumer {
             boolean inserted = false;
             boolean incOk = false;
 
-            // 幂等处理：若用户已存在则直接视为成功
-            LambdaQueryWrapper<RoomMember> query = new LambdaQueryWrapper<>();
-            query.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
-            RoomMember existing = roomMemberMapper.selectOne(query);
-            if (existing == null) {
-                // 插入成员（唯一键兜底）
+            // 幂等处理：分三种情况
+            // 1. 活跃成员（leave_time IS NULL）→ 幂等成功，直接返回
+            // 2. 历史记录（leave_time 非空）→ 复用该记录，更新状态后再执行原子加一
+            // 3. 无记录 → 插入新记录，执行原子加一
+            LambdaQueryWrapper<RoomMember> activeQuery = new LambdaQueryWrapper<>();
+            activeQuery.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId)
+                    .isNull(RoomMember::getLeaveTime);
+            RoomMember activeMember = roomMemberMapper.selectOne(activeQuery);
+            if (activeMember != null) {
+                // 已在房间，幂等成功
+                stringRedisTemplate.opsForSet().add(RoomConst.membersKey(roomId), String.valueOf(userId));
+                stringRedisTemplate.opsForValue().set(RoomConst.joinTokenKey(token),
+                        roomId + ":" + userId + ":" + RoomConst.JOIN_RESULT_JOINED, joinResultTtlSeconds, TimeUnit.SECONDS);
+                releasePendingReservation(roomId, userId);
+                if (log.isDebugEnabled()) {
+                    log.debug("[房间服务][join-async] 活跃成员幂等 房间={} 用户={} token={}", roomId, userId, token);
+                }
+                return;
+            }
+
+            // 非活跃成员，尝试查找历史记录
+            LambdaQueryWrapper<RoomMember> historyQuery = new LambdaQueryWrapper<>();
+            historyQuery.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId)
+                    .isNotNull(RoomMember::getLeaveTime);
+            RoomMember history = roomMemberMapper.selectOne(historyQuery);
+            if (history != null) {
+                // 复用历史记录：重置离开状态和时间
+                history.setLeaveTime(null);
+                history.setLeaveType(null);
+                history.setStatus(RoomConst.MEMBER_STATUS_ONLINE);
+                history.setJoinTime(java.time.LocalDateTime.now());
+                history.setLastActiveTime(java.time.LocalDateTime.now());
+                roomMemberMapper.updateById(history);
+                inserted = true;
+            } else {
+                // 插入新成员（唯一键兜底，可能因并发重试而抛异常）
                 RoomMember member = new RoomMember();
                 member.setRoomId(roomId);
                 member.setUserId(userId);
                 member.setRole(RoomConst.ROLE_MEMBER);
-                member.setStatus(RoomConst.STATUS_ACTIVE);
+                member.setStatus(RoomConst.MEMBER_STATUS_ONLINE);
                 member.setJoinTime(java.time.LocalDateTime.now());
                 member.setLastActiveTime(java.time.LocalDateTime.now());
                 try {
                     roomMemberMapper.insert(member);
                     inserted = true;
                 } catch (Exception dup) {
-                    inserted = false; // 唯一键冲突视为已存在
+                    inserted = false; // 唯一键冲突视为已存在，跳过原子加一
                 }
+            }
 
-                // 原子加一（仅在未满时）
-                Room room = roomMapper.selectById(roomId);
-                if (room != null && room.getStatus() != null && room.getStatus() == RoomConst.STATUS_ACTIVE) {
-                    int updated = roomMapper.incrementMembersIfNotFull(roomId);
-                    if (updated == 1) {
-                        incOk = true;
-                        try { stringRedisTemplate.opsForHash().increment(RoomConst.metaKey(roomId), RoomConst.FIELD_CONFIRMED, 1); } catch (Exception ignore) {}
-                    } else {
-                        log.warn("[房间服务][join-async] 房间{}成员计数未生效，token={}", roomId, token);
-                    }
+            // 原子加一（仅在未满时）
+            Room room = roomMapper.selectById(roomId);
+            if (room != null && room.getStatus() != null && room.getStatus() == RoomConst.STATUS_ACTIVE) {
+                int updated = roomMapper.incrementMembersIfNotFull(roomId);
+                if (updated == 1) {
+                    incOk = true;
+                    try { stringRedisTemplate.opsForHash().increment(RoomConst.metaKey(roomId), RoomConst.FIELD_CONFIRMED, 1); } catch (Exception ignore) {}
+                } else {
+                    log.warn("[房间服务][join-async] 房间{}成员计数未生效，token={}", roomId, token);
                 }
             }
 
             releasePendingReservation(roomId, userId);
-
-            if (existing != null) {
-                // 已存在：幂等成功,redis此数据追平数据库
-                stringRedisTemplate.opsForSet().add(RoomConst.membersKey(roomId), String.valueOf(userId));
-                stringRedisTemplate.opsForValue().set(RoomConst.joinTokenKey(token),
-                        roomId + ":" + userId + ":" + RoomConst.JOIN_RESULT_JOINED, joinResultTtlSeconds, TimeUnit.SECONDS);
-                if (log.isDebugEnabled()) {
-                    log.debug("[房间服务][join-async] 已存在成员 房间={} 用户={} token={} reserved={} pendingMembers={}",
-                            roomId, userId, token,
-                            stringRedisTemplate.opsForHash().get(RoomConst.metaKey(roomId), RoomConst.FIELD_RESERVED),
-                            stringRedisTemplate.opsForHash().keys(RoomConst.pendingKey(roomId)));
-                }
-                return;
-            }
 
             if (inserted && incOk) {
                 // 数据库插入成功且成员计数 +1，判定加入成功
@@ -134,10 +151,11 @@ public class JoinRoomConsumer {
                             stringRedisTemplate.opsForSet().size(RoomConst.membersKey(roomId)));
                 }
             } else {
-                // 任一步失败：删除成员记录并标记 token 失败
+                // 任一步失败：补偿删除（仅对本次消费新插入的记录生效，历史复用记录不会被删除）
                 try {
                     LambdaQueryWrapper<RoomMember> del = new LambdaQueryWrapper<>();
-                    del.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId);
+                    del.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId)
+                            .isNull(RoomMember::getLeaveTime);
                     roomMemberMapper.delete(del);
                 } catch (Exception ignore) {}
                 stringRedisTemplate.opsForValue().set(RoomConst.joinTokenKey(token),

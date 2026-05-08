@@ -131,9 +131,7 @@ const passwordForm = reactive({ mode: 0, rawPassword: '', visible: 1 })
 const isOwner = computed(() => props.room.ownerId === authStore.user?.userId)
 
 const showPasswordArea = computed(() => {
-  if (!props.room.passwordMode || props.room.passwordMode === 0) return false
-  if (isOwner.value) return true
-  return props.room.passwordVisible === 1
+  return !!props.room.passwordMode && props.room.passwordMode !== 0
 })
 
 const {
@@ -213,8 +211,20 @@ const isExpiringSoon = computed(() => {
   const e = dayjs(props.room.expireTime)
   return e.diff(dayjs(), 'hour') <= 1 && e.isAfter(dayjs())
 })
-const statusColor = computed(() => props.room.status === ROOM_STATUS.CLOSED ? 'red' : isExpiringSoon.value ? 'orange' : 'green')
-const statusText = computed(() => props.room.status === ROOM_STATUS.CLOSED ? '已关闭' : isExpiringSoon.value ? '即将过期' : '活跃')
+const statusColor = computed(() => {
+  const s = props.room.status
+  if (s === ROOM_STATUS.CLOSED) return 'red'
+  if (s === ROOM_STATUS.EXPIRED) return 'orange'
+  if (s === ROOM_STATUS.ARCHIVED) return 'default'
+  return isExpiringSoon.value ? 'orange' : 'green'
+})
+const statusText = computed(() => {
+  const s = props.room.status
+  if (s === ROOM_STATUS.CLOSED) return '已关闭'
+  if (s === ROOM_STATUS.EXPIRED) return '已过期'
+  if (s === ROOM_STATUS.ARCHIVED) return '已归档'
+  return isExpiringSoon.value ? '即将过期' : '活跃'
+})
 const expireText = computed(() => {
   const e = dayjs(props.room.expireTime)
   return e.isBefore(dayjs()) ? '已过期' : e.fromNow()
@@ -222,7 +232,8 @@ const expireText = computed(() => {
 
 function handleEnter() {
   if (props.room.status === ROOM_STATUS.CLOSED) { message.warning('房间已关闭，无法进入'); return }
-  if (dayjs(props.room.expireTime).isBefore(dayjs())) { message.warning('房间已过期，无法进入'); return }
+  if (props.room.status === ROOM_STATUS.ARCHIVED) { message.warning('房间已归档，无法进入'); return }
+  // EXPIRED 状态允许进入（只读模式）
   emit('enter', props.room)
 }
 function handleLeave() { emit('leave', props.room) }

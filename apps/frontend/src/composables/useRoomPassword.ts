@@ -130,9 +130,8 @@ export function useRoomPassword(options: UseRoomPasswordOptions) {
 
     if (mode === 2) {
       startTotpTimer()
-    } else if (mode === 1) {
-      loadCurrentPassword()
     }
+    // mode=1（固定密码）时不在此处预加载，密码仅在用户点击 eye toggle 时按需调 API 获取
 
     registerVisibilityHandler()
   }

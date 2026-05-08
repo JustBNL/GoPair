@@ -130,9 +130,10 @@ public class MemberRemovalConsumer {
             if (room == null) {
                 return;
             }
-            // 仅在人数为 0 且房间仍为活跃时尝试关闭
+            // 仅在人数为 0 且房间仍为 ACTIVE 或 EXPIRED 时尝试关闭
             if (room.getCurrentMembers() != null && room.getCurrentMembers() == 0
-                    && (room.getStatus() == null || room.getStatus() == RoomConst.STATUS_ACTIVE)) {
+                    && (room.getStatus() == null || room.getStatus() == RoomConst.STATUS_ACTIVE
+                        || room.getStatus() == RoomConst.STATUS_EXPIRED)) {
                 room.setStatus(RoomConst.STATUS_CLOSED);
                 room.setClosedTime(LocalDateTime.now());
                 int updated = roomMapper.updateById(room);

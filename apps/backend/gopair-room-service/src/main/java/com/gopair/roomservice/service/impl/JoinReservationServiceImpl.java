@@ -102,7 +102,7 @@ public class JoinReservationServiceImpl implements JoinReservationService {
             case 0: status = ReserveStatus.ACCEPTED;        break;
             case 1: status = ReserveStatus.ALREADY_JOINED;   break;
             case 2: status = ReserveStatus.FULL;             break;
-            case 3: status = ReserveStatus.CLOSED;           break;
+            case 3: status = ReserveStatus.ARCHIVED;        break;
             case 4: status = ReserveStatus.EXPIRED;         break;
             case 5: status = ReserveStatus.ALREADY_PROCESSING; break;
             default: status = ReserveStatus.SYSTEM_BUSY;

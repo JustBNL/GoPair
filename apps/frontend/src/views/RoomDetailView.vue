@@ -107,7 +107,7 @@
                 <span v-if="currentRoom.passwordMode === 2 && remainingSeconds > 0" class="totp-timer">({{ remainingSeconds }}s)</span>
               </span>
               <span v-else class="password-value hidden">••••••</span>
-              <span class="password-toggle" @click.stop="togglePasswordVisibility" :title="passwordHidden ? '查看密码' : '隐藏密码'">
+              <span v-if="isOwner || currentRoom.passwordVisible === 1" class="password-toggle" @click.stop="togglePasswordVisibility" :title="passwordHidden ? '查看密码' : '隐藏密码'">
                 <EyeOutlined v-if="passwordHidden" />
                 <EyeInvisibleOutlined v-else />
               </span>
@@ -358,7 +358,7 @@
             v-if="currentRoom"
             :room-id="currentRoom.roomId"
             :reply-message="replyMessage"
-            :disabled="serviceStates.messages.error !== null"
+          :disabled="serviceStates.messages.error !== null || !canWrite"
             @send-message="handleSendMessage"
             @cancel-reply="() => (replyMessage = null)"
             @upload-progress="handleUploadProgress"
@@ -451,6 +451,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import { useChatStore } from '@/stores/chat'
 import type { RoomInfo, RoomMember } from '@/types/room'
+import { ROOM_STATUS } from '@/types/room'
 import {
   memberNameInitial,
   memberPresence,
@@ -574,9 +575,7 @@ const fileListRefresh = ref(false)
 const showPasswordArea = computed(() => {
   if (!currentRoom.value) return false
   const mode = currentRoom.value.passwordMode
-  if (!mode || mode === 0) return false
-  if (isOwner.value) return true
-  return currentRoom.value.passwordVisible === 1
+  return !!mode && mode !== 0
 })
 
 const {
@@ -735,12 +734,21 @@ const safeServiceCall = async <T>(
  */
 const statusColor = computed(() => {
   if (!currentRoom.value) return 'default'
-  return currentRoom.value.status === 0 ? 'success' : 'default'
+  const s = currentRoom.value.status
+  if (s === ROOM_STATUS.CLOSED) return 'red'
+  if (s === ROOM_STATUS.EXPIRED) return 'orange'
+  if (s === ROOM_STATUS.ARCHIVED) return 'default'
+  return 'success'
 })
 
 const statusText = computed(() => {
   if (!currentRoom.value) return '未知'
-  return currentRoom.value.status === 0 ? '活跃' : '已关闭'
+  const s = currentRoom.value.status
+  if (s === ROOM_STATUS.ACTIVE) return '活跃'
+  if (s === ROOM_STATUS.CLOSED) return '已关闭'
+  if (s === ROOM_STATUS.EXPIRED) return '已过期（只读）'
+  if (s === ROOM_STATUS.ARCHIVED) return '已归档'
+  return '未知'
 })
 
 const expireText = computed(() => {
@@ -771,6 +779,9 @@ const callStateText = computed(() => {
   }
   return stateMap[callState.value] ?? callState.value
 })
+
+/** 非 ACTIVE 状态禁止写操作（已过期/已关闭/已归档均只读） */
+const canWrite = computed(() => currentRoom.value?.status === ROOM_STATUS.ACTIVE)
 
 /**
  * 加载房间信息
@@ -969,6 +980,10 @@ const initRoomSubscription = async () => {
  * 处理消息发送（新架构）
  */
 const handleSendMessage = async (messageData: any) => {
+  if (!canWrite.value) {
+    antMessage.warning('房间已过期或已关闭，无法发送消息')
+    return
+  }
   try {
     if (!currentRoom.value) {
       throw new Error('房间信息不存在')

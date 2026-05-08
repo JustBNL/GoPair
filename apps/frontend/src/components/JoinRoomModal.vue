@@ -182,8 +182,10 @@ const formRules = {
 
 const previewStatusColor = computed(() => {
   if (!roomPreview.value) return 'default'
-  if (roomPreview.value.status === ROOM_STATUS.CLOSED) return 'red'
-  if (isRoomExpired.value) return 'red'
+  const s = roomPreview.value.status
+  if (s === ROOM_STATUS.CLOSED) return 'red'
+  if (s === ROOM_STATUS.EXPIRED) return 'orange'
+  if (s === ROOM_STATUS.ARCHIVED) return 'default'
   if (isRoomFull.value) return 'orange'
   if (isRoomExpiringSoon.value) return 'orange'
   return 'green'
@@ -191,8 +193,10 @@ const previewStatusColor = computed(() => {
 
 const previewStatusText = computed(() => {
   if (!roomPreview.value) return ''
-  if (roomPreview.value.status === ROOM_STATUS.CLOSED) return '已关闭'
-  if (isRoomExpired.value) return '已过期'
+  const s = roomPreview.value.status
+  if (s === ROOM_STATUS.CLOSED) return '已关闭'
+  if (s === ROOM_STATUS.EXPIRED) return '已过期（只读）'
+  if (s === ROOM_STATUS.ARCHIVED) return '已归档'
   if (isRoomFull.value) return '房间已满'
   if (isRoomExpiringSoon.value) return '即将过期'
   return '可加入'
@@ -254,6 +258,15 @@ async function searchRoom() {
 
 async function handleSubmit(_values: JoinRoomFormData) {
   if (!roomPreview.value) { message.warning('请先输入有效的房间码'); return }
+
+  // EXPIRED 房间直接进入只读模式，跳过异步加入流程
+  if (roomPreview.value.status === ROOM_STATUS.EXPIRED) {
+    resetForm()
+    emit('update:visible', false)
+    emit('success', roomPreview.value)
+    return
+  }
+
   if (!isRoomJoinable.value) { message.warning('该房间当前无法加入'); return }
   // 保存预览，用于成功后 emit
   const targetRoom = roomPreview.value

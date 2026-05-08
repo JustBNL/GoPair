@@ -251,6 +251,18 @@ watch(() => props.visible, (newVal) => {
  * 提交表单
  */
 async function handleSubmit(values: CreateRoomFormData) {
+  // 固定密码模式下手动校验
+  if (values.passwordMode === 1) {
+    if (!values.rawPassword || values.rawPassword.trim().length === 0) {
+      message.warning('请输入房间密码')
+      return
+    }
+    if (values.rawPassword.length < 4 || values.rawPassword.length > 20) {
+      message.warning('密码长度为4-20个字符')
+      return
+    }
+  }
+
   try {
     const room = await roomStore.createRoom({
       roomName: values.roomName.trim(),

@@ -209,6 +209,8 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                 throw new RoomException(RoomErrorCode.ROOM_FULL);
             case CLOSED:
                 throw new RoomException(RoomErrorCode.ROOM_CLOSED);
+            case ARCHIVED:
+                throw new RoomException(RoomErrorCode.ROOM_ARCHIVED);
             case EXPIRED:
                 throw new RoomException(RoomErrorCode.ROOM_EXPIRED);
             case SYSTEM_BUSY:
@@ -248,6 +250,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * @return true（受理成功）
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "离开房间", module = "房间管理", includeResult = true)
     public boolean leaveRoom(Long roomId, Long userId) {
         if (userId == null) {
@@ -368,6 +371,10 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (room.getStatus() != null && room.getStatus() == RoomConst.STATUS_CLOSED) {
             throw new RoomException(RoomErrorCode.ROOM_ALREADY_CLOSED);
         }
+        // 已过期房间不允许直接关闭，必须先续期
+        if (room.getStatus() != null && room.getStatus() == RoomConst.STATUS_EXPIRED) {
+            throw new RoomException(RoomErrorCode.EXPIRED_CANNOT_CLOSE);
+        }
         // 只有房主可以关闭房间
         if (!room.getOwnerId().equals(userId)) {
             throw new RoomException(RoomErrorCode.NO_PERMISSION);
@@ -411,6 +418,84 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             });
         }
         return updateRows > 0;
+    }
+
+    /**
+     * 将房间标记为已过期（status=2），由定时任务触发。
+     *
+     * * [执行链路]
+     * 1. 校验房间存在且 status=0。
+     * 2. UPDATE status=2（WHERE status=0，不设 closed_time）。
+     * 3. 同步 Redis status=2。
+     * 4. 广播 room_expired WebSocket 事件。
+     *
+     * @param roomId 房间ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "房间过期", module = "定时任务")
+    public void expireRoom(Long roomId) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            log.warn("[房间服务][schedule] 房间{}不存在，跳过过期处理", roomId);
+            return;
+        }
+        if (room.getStatus() == null || room.getStatus() != RoomConst.STATUS_ACTIVE) {
+            log.debug("[房间服务][schedule] 房间{}状态非ACTIVE(status={})，跳过过期处理", roomId, room.getStatus());
+            return;
+        }
+
+        int updated = roomMapper.updateStatusAndClosedTime(roomId, RoomConst.STATUS_EXPIRED, null);
+        if (updated > 0) {
+            log.info("[房间服务][schedule] 房间{}已过期，status -> 2", roomId);
+            try {
+                roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_EXPIRED);
+                wsProducer.sendEventToRoom(roomId, "room_expired", Map.of("roomId", roomId));
+            } catch (Exception e) {
+                log.warn("[房间服务][schedule] 房间{}过期事件发送失败", roomId, e);
+            }
+        }
+    }
+
+    /**
+     * 系统关闭房间（不检查权限），由定时任务触发。
+     * 用于 EXPIRED 状态超时后的自动关闭。
+     *
+     * * [执行链路]
+     * 1. 校验房间存在且 status=2。
+     * 2. UPDATE status=1，closed_time=now（WHERE status=2）。
+     * 3. 同步 Redis status=1。
+     * 4. 广播 room_closed WebSocket 事件。
+     *
+     * @param roomId 房间ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "系统关闭房间", module = "定时任务")
+    public void systemCloseRoom(Long roomId) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            log.warn("[房间服务][schedule] 房间{}不存在，跳过系统关闭", roomId);
+            return;
+        }
+        if (room.getStatus() == null || room.getStatus() != RoomConst.STATUS_EXPIRED) {
+            log.debug("[房间服务][schedule] 房间{}状态非EXPIRED(status={})，跳过系统关闭", roomId, room.getStatus());
+            return;
+        }
+
+        int updated = roomMapper.updateStatusAndClosedTime(roomId, RoomConst.STATUS_CLOSED, LocalDateTime.now());
+        if (updated > 0) {
+            log.info("[房间服务][schedule] 房间{}已超时，status 2 -> 1", roomId);
+            try {
+                roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_CLOSED);
+                wsProducer.sendEventToRoom(roomId, "room_closed", Map.of(
+                    "roomId", roomId,
+                    "operatorId", (Object) null
+                ));
+            } catch (Exception e) {
+                log.warn("[房间服务][schedule] 房间{}系统关闭事件发送失败", roomId, e);
+            }
+        }
     }
 
     /**
@@ -625,7 +710,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         } else if (passwordMode == RoomConst.PASSWORD_MODE_TOTP) {
             room.setPasswordHash(PasswordUtils.generateTotpSecret());
         } else {
-            room.setPasswordHash(null);
+            room.setPasswordHash("");
         }
 
         roomMapper.updateById(room);

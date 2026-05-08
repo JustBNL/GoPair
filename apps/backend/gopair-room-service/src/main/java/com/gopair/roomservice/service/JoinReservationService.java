@@ -15,7 +15,8 @@ public interface JoinReservationService {
         ALREADY_PROCESSING, // 用户已在 pending 中（已有预占未完成）
         FULL,           // 房间人数已满
         CLOSED,         // 房间已关闭
-        EXPIRED,        // 房间已过期
+        ARCHIVED,       // 房间已归档
+        EXPIRED,        // 房间已过期（expireAt 边界情况，由 Java 侧定期修正）
         SYSTEM_BUSY     // 系统繁忙（Redis 超时 / MQ 发送失败），稍后重试
     }
 

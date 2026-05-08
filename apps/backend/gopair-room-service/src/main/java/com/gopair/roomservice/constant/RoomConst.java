@@ -82,8 +82,19 @@ public final class RoomConst {
 
     /** 活跃（正常使用中） */
     public static final int STATUS_ACTIVE = 0;
-    /** 已关闭 */
+    /** 已关闭（房主关闭 或 人数归零自动关闭） */
     public static final int STATUS_CLOSED = 1;
+    /** 已过期（定时任务触发，只读，可续期恢复为 ACTIVE） */
+    public static final int STATUS_EXPIRED = 2;
+    /** 已归档（终态，资源已清理，不再现于房间列表） */
+    public static final int STATUS_ARCHIVED = 3;
+
+    // ====================================================================
+    // 过期与归档阈值
+    // ====================================================================
+
+    /** 过期房间转为已关闭的前置阈值（天），expire_time < now - N 天后触发系统关闭 */
+    public static final int EXPIRED_TO_CLOSED_DAYS = 30;
 
     // ====================================================================
     // 密码模式（room.password_mode）

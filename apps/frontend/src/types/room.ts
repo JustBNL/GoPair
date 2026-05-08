@@ -98,7 +98,9 @@ export interface RoomMember {
  */
 export const ROOM_STATUS = {
   ACTIVE: 0,
-  CLOSED: 1
+  CLOSED: 1,
+  EXPIRED: 2,
+  ARCHIVED: 3
 } as const
 
 export type RoomStatus = typeof ROOM_STATUS[keyof typeof ROOM_STATUS]

@@ -533,7 +533,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             query.setPageSize(RoomConst.DEFAULT_PAGE_SIZE);
         }
         Integer status = resolveStatus(query);
-        long total = roomMapper.countUserRoomsWithRelationship(userId, status);
+        long total = roomMapper.countUserRoomsWithRelationship(userId, status, query.getIncludeHistory());
 
         int currentPage = query.getPageNum();
         int pageSize = query.getPageSize();
@@ -543,7 +543,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         int retryCount = 0;
         while (true) {
             int offset = (currentPage - 1) * pageSize;
-            rooms = roomMapper.selectUserRoomsPage(userId, status, offset, pageSize);
+            rooms = roomMapper.selectUserRoomsPage(userId, status, query.getIncludeHistory(), offset, pageSize);
             if (rooms.isEmpty() && currentPage > 1 && retryCount == 0) {
                 currentPage = 1;
                 retryCount++;

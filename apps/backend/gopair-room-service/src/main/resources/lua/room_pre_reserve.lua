@@ -10,8 +10,8 @@
 -- 0 = ACCEPTED
 -- 1 = ALREADY_JOINED
 -- 2 = FULL
--- 3 = CLOSED
--- 4 = EXPIRED
+-- 3 = ROOM_NOT_ACTIVE (closed or archived)
+-- 4 = EXPIRED (expireAt 已过但 status 仍为 0 的边缘情况，由 Java 侧定期修正)
 -- 5 = ALREADY_PROCESSING
 
 local metaKey = KEYS[1]
@@ -23,15 +23,13 @@ local token = ARGV[2]
 local now = tonumber(ARGV[3])
 local tokenTtl = tonumber(ARGV[4])
 
--- status: 0 active, 1 closed
+-- EXPIRED(2) 允许进入只读模式，CLOSED(1) 和 ARCHIVED(3) 拒绝
 local status = redis.call('HGET', metaKey, 'status')
-if status and tonumber(status) ~= 0 then
-  return 3
-end
-
-local expireAt = redis.call('HGET', metaKey, 'expireAt')
-if expireAt and tonumber(expireAt) > 0 and now > tonumber(expireAt) then
-  return 4
+if status then
+  local s = tonumber(status)
+  if s == 1 or s == 3 then
+    return 3
+  end
 end
 
 -- already joined
@@ -58,4 +56,4 @@ redis.call('HSET', pendingKey, userId, token)
 -- set token info stub to allow query; value could be enriched by Java when set if needed
 redis.call('SETEX', tokenKey, tokenTtl, 'PROCESSING')
 
-return 0 
+return 0

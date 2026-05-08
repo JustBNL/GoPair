@@ -32,12 +32,20 @@ public interface RoomMapper extends BaseMapper<Room> {
     List<Room> selectExpiredRooms(@Param("currentTime") LocalDateTime currentTime);
 
     /**
-     * 查询需要清理的房间：已关闭超过阈值时间
+     * 查询需要归档的房间：已关闭超过阈值时间，资源清理后写入 status=3。
      *
-     * @param thresholdTime 阈值时间（当前时间 - 24小时）
-     * @return 待清理房间列表
+     * @param thresholdTime 阈值时间（当前时间 - ARCHIVE_THRESHOLD_HOURS 小时）
+     * @return 待归档房间列表
      */
-    List<Room> selectRoomsToClean(@Param("thresholdTime") LocalDateTime thresholdTime);
+    List<Room> selectRoomsToArchive(@Param("thresholdTime") LocalDateTime thresholdTime);
+
+    /**
+     * 查询已过期且超过归档前置阈值（30天）的房间，用于系统自动关闭。
+     *
+     * @param thresholdTime 阈值时间（当前时间 - EXPIRED_TO_CLOSED_DAYS 天）
+     * @return 待关闭的过期房间列表
+     */
+    List<Room> selectExpiredRoomsToClose(@Param("thresholdTime") LocalDateTime thresholdTime);
 
     /**
      * 根据用户ID查询用户创建的房间列表
@@ -66,28 +74,32 @@ public interface RoomMapper extends BaseMapper<Room> {
     int decrementMembersIfPositive(@Param("roomId") Long roomId);
 
     /**
-     * 查询用户参与的房间列表（带用户角色、加入时间），支持分页。
+     * 查询用户参与的房间列表（带用户角色、加入时间），支持分页和历史房间过滤。
      *
-     * @param userId  当前用户 ID
-     * @param status  房间状态（null 表示不限制状态）
-     * @param offset  偏移量
-     * @param limit   每页大小
+     * @param userId         当前用户 ID
+     * @param status         房间状态（null 表示不限状态）
+     * @param includeHistory  是否包含历史房间（true=IN(0,1,2)，false/null=IN(0)）
+     * @param offset         偏移量
+     * @param limit          每页大小
      * @return 房间 VO 列表，userRole/joinTime 已填充
      */
     List<RoomVO> selectUserRoomsPage(@Param("userId") Long userId,
                                      @Param("status") Integer status,
+                                     @Param("includeHistory") Boolean includeHistory,
                                      @Param("offset") int offset,
                                      @Param("limit") int limit);
 
     /**
      * 统计用户参与的房间数量（支持状态过滤），用于分页计数。
      *
-     * @param userId  用户 ID
-     * @param status  房间状态（null 表示不限制状态）
+     * @param userId         用户 ID
+     * @param status         房间状态（null 表示不限状态）
+     * @param includeHistory 是否包含历史房间（true=IN(0,1,2)，false/null=IN(0)）
      * @return 符合条件的房间数量
      */
     Long countUserRoomsWithRelationship(@Param("userId") Long userId,
-                                       @Param("status") Integer status);
+                                       @Param("status") Integer status,
+                                       @Param("includeHistory") Boolean includeHistory);
 
     /**
      * 仅更新房间状态和关闭时间（避免幽灵更新）
@@ -110,4 +122,13 @@ public interface RoomMapper extends BaseMapper<Room> {
      */
     int updatePasswordVisible(@Param("roomId") Long roomId,
                               @Param("passwordVisible") Integer passwordVisible);
+
+    /**
+     * 仅更新房间状态（无条件，用于归档操作）。
+     *
+     * @param roomId 房间ID
+     * @param status 目标状态
+     * @return 更新行数
+     */
+    int updateStatus(@Param("roomId") Long roomId, @Param("status") Integer status);
 } 

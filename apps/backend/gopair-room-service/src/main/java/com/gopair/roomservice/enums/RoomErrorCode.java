@@ -100,7 +100,32 @@ public enum RoomErrorCode implements ErrorCode {
     /**
      * 参数无效
      */
-    PARAM_INVALID(20217, "参数无效");
+    PARAM_INVALID(20217, "参数无效"),
+
+    /**
+     * 房间已过期，进入只读模式
+     */
+    ROOM_READ_ONLY(20218, "房间已过期，进入只读模式"),
+
+    /**
+     * 房间已归档，无法操作
+     */
+    ROOM_ARCHIVED(20219, "房间已归档，无法操作"),
+
+    /**
+     * 房间已过期，无需重复操作
+     */
+    ALREADY_EXPIRED(20220, "房间已过期，无需重复操作"),
+
+    /**
+     * 房间已归档，无法执行此操作
+     */
+    ALREADY_ARCHIVED(20221, "房间已归档，无法执行此操作"),
+
+    /**
+     * 已过期房间无法直接关闭，请先续期
+     */
+    EXPIRED_CANNOT_CLOSE(20222, "已过期房间无法直接关闭，请先续期");
 
     private final int code;
     private final String message;

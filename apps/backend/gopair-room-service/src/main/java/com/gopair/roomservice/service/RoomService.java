@@ -159,4 +159,19 @@ public interface RoomService {
      * @return 是否为房间成员
      */
     boolean isMemberInRoom(Long roomId, Long userId);
+
+    /**
+     * 将房间标记为已过期（status=2），由定时任务触发。
+     *
+     * @param roomId 房间ID
+     */
+    void expireRoom(Long roomId);
+
+    /**
+     * 系统关闭房间（不检查权限），由定时任务触发。
+     * 用于 EXPIRED 状态超时后的自动关闭。
+     *
+     * @param roomId 房间ID
+     */
+    void systemCloseRoom(Long roomId);
 }
