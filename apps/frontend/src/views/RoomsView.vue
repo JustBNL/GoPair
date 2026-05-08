@@ -467,7 +467,7 @@ async function handlePageChange(page: number) {
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
-  await roomStore.fetchUserRooms()
+  await roomStore.fetchUserRooms({ includeHistory: true })
   if (authStore.user) {
     chatStore.initChat()
     connectPrivateChat()

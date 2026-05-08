@@ -25,7 +25,7 @@ public class VoiceCallService {
     private final VoiceCallMapper voiceCallMapper;
     private final VoiceCallParticipantMapper participantMapper;
 
-    public Page<VoiceCallVO> getVoiceCallPage(VoiceCallPageQuery query) {
+    public IPage<VoiceCallVO> getVoiceCallPage(VoiceCallPageQuery query) {
         Page<VoiceCallVO> page = new Page<>(query.pageNum(), query.pageSize());
         return voiceCallMapper.selectVoiceCallPage(page, query);
     }

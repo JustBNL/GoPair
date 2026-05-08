@@ -1,6 +1,6 @@
 package com.gopair.adminservice.controller;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gopair.adminservice.domain.po.VoiceCall;
 import com.gopair.adminservice.domain.po.VoiceCallParticipant;
 import com.gopair.adminservice.domain.query.VoiceCallPageQuery;
@@ -27,7 +27,7 @@ public class VoiceCallController {
 
     @Operation(summary = "分页查询通话记录")
     @GetMapping("/page")
-    public R<Page<VoiceCallVO>> getVoiceCallPage(
+    public R<IPage<VoiceCallVO>> getVoiceCallPage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "20") Integer pageSize,
             @RequestParam(required = false) Long roomId,
