@@ -36,7 +36,7 @@ function handleLogout() {
         <circle cx="14" cy="10" r="4" fill="currentColor" opacity="0.75"/>
         <circle cx="14" cy="18" r="4" fill="currentColor" opacity="0.75"/>
       </svg>
-      <span class="sidebar__logo-text">GoPair</span>
+      <span class="sidebar__logo-text">聊天室后台管理</span>
     </div>
 
     <nav class="sidebar__nav" aria-label="主导航">
@@ -68,10 +68,10 @@ function handleLogout() {
           target="_blank"
           rel="noopener noreferrer"
           class="sidebar__quick-link"
-          title="进入 GoPair 应用"
+          title="查看全链路日志追踪"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          <span>进入应用</span>
+          <span>查看全链路日志追踪</span>
         </a>
 
         <button class="sidebar__theme-btn" @click="app.toggleTheme" :title="app.isDark ? '切换亮色' : '切换暗色'" :aria-label="app.isDark ? '切换至亮色模式' : '切换至暗色模式'">

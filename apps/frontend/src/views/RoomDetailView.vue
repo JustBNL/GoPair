@@ -483,7 +483,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message as antMessage, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
@@ -684,7 +684,6 @@ const {
   passwordHidden,
   currentPassword,
   remainingSeconds,
-  initPasswordState,
   resetPasswordState,
   togglePasswordVisibility,
 } = useRoomPassword({
@@ -719,9 +718,6 @@ const passwordDrawerVisible = ref(false)
 async function handlePasswordUpdateSuccess() {
   await loadRoomInfo()
   resetPasswordState()
-  if (currentRoom.value) {
-    initPasswordState()
-  }
 }
 
 // Emoji 漂浮动画状态
@@ -1368,15 +1364,10 @@ onMounted(async () => {
   await loadRoomInfo()
   if (currentRoom.value) {
     await initRoomSubscription()
-    initPasswordState()
   }
   if (authStore.user) {
     chatStore.initChat()
   }
-})
-
-onUnmounted(() => {
-  resetPasswordState()
 })
 </script>
 

@@ -95,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted, onUnmounted } from 'vue'
+import { computed, ref, reactive, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -142,10 +142,8 @@ const {
   passwordHidden,
   currentPassword,
   remainingSeconds,
-  initPasswordState,
   resetPasswordState,
   togglePasswordVisibility,
-  loadCurrentPassword,
 } = useRoomPassword({
   roomId: () => props.room.roomId,
   passwordMode: () => props.room.passwordMode,
@@ -154,14 +152,6 @@ const {
   showPasswordArea: () => showPasswordArea.value,
   loadPasswordApi: (roomId: number) =>
     roomStore.getRoomCurrentPassword(roomId).then(r => r ?? null),
-})
-
-onMounted(() => {
-  initPasswordState()
-})
-
-onUnmounted(() => {
-  resetPasswordState()
 })
 
 function showPasswordModal() {
@@ -193,11 +183,6 @@ async function savePassword() {
     message.success('密码设置成功')
     resetPasswordForm()
     resetPasswordState()
-    if (passwordForm.mode === 2) {
-      initPasswordState()
-    } else if (passwordForm.mode === 1) {
-      loadCurrentPassword()
-    }
   } catch (e: any) {
     message.error(e?.message || '设置失败，请重试')
   } finally {
