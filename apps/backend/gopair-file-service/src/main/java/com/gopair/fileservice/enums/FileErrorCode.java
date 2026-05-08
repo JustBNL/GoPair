@@ -44,7 +44,12 @@ public enum FileErrorCode implements ErrorCode {
     /**
      * MinIO操作异常
      */
-    MINIO_OPERATION_FAILED(50006, "存储服务操作失败");
+    MINIO_OPERATION_FAILED(50006, "存储服务操作失败"),
+
+    /**
+     * 房间已被禁用
+     */
+    ROOM_DISABLED(50007, "房间已被管理员禁用");
 
     private final int code;
     private final String message;

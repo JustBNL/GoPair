@@ -12,6 +12,7 @@ import com.gopair.adminservice.domain.po.RoomFile;
 import com.gopair.adminservice.domain.po.User;
 import com.gopair.adminservice.domain.po.VoiceCall;
 import com.gopair.adminservice.domain.po.VoiceCallParticipant;
+import com.gopair.adminservice.domain.vo.FileVO;
 import com.gopair.adminservice.filter.AdminAuthFilter;
 import com.gopair.adminservice.mapper.AdminAuditLogMapper;
 import com.gopair.adminservice.mapper.AdminUserMapper;
@@ -355,9 +356,9 @@ class AdminManageControllerTest {
         @Test
         @DisplayName("正常返回分页数据")
         void getFilePage_ShouldReturnPage() throws Exception {
-            Page<RoomFile> mockPage = new Page<>(1, 20);
+            Page<FileVO> mockPage = new Page<>(1, 20);
             mockPage.setTotal(1);
-            mockPage.setRecords(java.util.List.of(createMockFile(1L, "test.pdf")));
+            mockPage.setRecords(java.util.List.of(createMockFileVO(1L, "test.pdf")));
 
             when(fileManageService.getFilePage(any())).thenReturn(mockPage);
 
@@ -639,6 +640,18 @@ class AdminManageControllerTest {
         file.setCreateTime(LocalDateTime.now());
         file.setUpdateTime(LocalDateTime.now());
         return file;
+    }
+
+    private FileVO createMockFileVO(Long fileId, String fileName) {
+        FileVO vo = new FileVO();
+        vo.setFileId(fileId);
+        vo.setRoomId(1L);
+        vo.setFileName(fileName);
+        vo.setFilePath("/files/" + fileId);
+        vo.setFileSize(1024L);
+        vo.setFileType("document");
+        vo.setUploadTime(LocalDateTime.now());
+        return vo;
     }
 
     private VoiceCall createMockVoiceCall(Long callId) {

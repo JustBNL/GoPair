@@ -30,7 +30,7 @@ public class UserManageService {
     private final RoomMemberMapper roomMemberMapper;
     private final RoomMapper roomMapper;
 
-    public record UserPageQuery(Integer pageNum, Integer pageSize, String keyword) {}
+    public record UserPageQuery(Integer pageNum, Integer pageSize, String keyword, Character status) {}
 
     public Page<User> getUserPage(UserPageQuery query) {
         Page<User> page = new Page<>(query.pageNum(), query.pageSize());
@@ -41,6 +41,9 @@ public class UserManageService {
                     .like(User::getEmail, query.keyword()));
         }
         wrapper.orderByDesc(User::getCreateTime);
+        if (query.status() != null) {
+            wrapper.eq(User::getStatus, query.status());
+        }
         return userMapper.selectPage(page, wrapper);
     }
 
@@ -84,6 +87,29 @@ public class UserManageService {
         user.setStatus('0');
         userMapper.updateById(user);
         log.info("[UserManage] 启用用户: userId={}", userId);
+    }
+
+    @AdminAudit(operation = "USER_EMAIL_MIGRATE", targetType = "USER")
+    public void migrateEmail(Long userId, String newEmail) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        String oldEmail = user.getEmail();
+
+        LambdaQueryWrapper<User> existWrapper = new LambdaQueryWrapper<>();
+        existWrapper.eq(User::getEmail, newEmail)
+                .ne(userId != null, User::getUserId, userId);
+        List<User> existUsers = userMapper.selectList(existWrapper);
+        boolean normalUserExists = existUsers.stream()
+                .anyMatch(u -> u.getStatus() != '2');
+        if (normalUserExists) {
+            throw new IllegalArgumentException("该邮箱已被其他用户使用");
+        }
+
+        user.setEmail(newEmail);
+        userMapper.updateById(user);
+        log.info("[UserManage] 邮箱迁移: userId={}, oldEmail={}, newEmail={}", userId, oldEmail, newEmail);
     }
 
 }

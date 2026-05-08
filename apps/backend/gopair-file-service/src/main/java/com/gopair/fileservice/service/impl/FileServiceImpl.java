@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -43,6 +44,7 @@ public class FileServiceImpl implements FileService {
     private final RoomFileMapper roomFileMapper;
     private final WebSocketMessageProducer wsProducer;
     private final StringRedisTemplate redisTemplate;
+    private final RestTemplate restTemplate;
     private static final String ROOM_QUOTA_KEY_PREFIX = "file:quota:";
     private static final String AVATAR_PATH_PREFIX = "avatar/";
     private static final int QUOTA_DEVIATION_TOLERANCE_BYTES = 1;
@@ -113,6 +115,10 @@ public class FileServiceImpl implements FileService {
         long fs = file.getSize();
         log.info("[file-service] start op:uploadFile roomId:{} userId:{} file:{} size:{}B", roomId, userId, fn, fs);
         checkFileTypeAndSize(ft, fs);
+        // 检查房间是否被禁用
+        if (checkRoomDisabled(roomId)) {
+            throw new FileException(FileErrorCode.ROOM_DISABLED);
+        }
         String uuid = UUID.randomUUID().toString().replace("-", "");
         String ok = buildObjectKey(roomId, "original", uuid, ft);
         String tk = null;
@@ -495,6 +501,19 @@ public class FileServiceImpl implements FileService {
                     Map.of("fileId", fileId, "fileName", fileName, "roomId", roomId));
         } catch (Exception e) {
             log.warn("[file-service] ws event ignored type:{} roomId:{} err:{}", eventType, roomId, e.getMessage());
+        }
+    }
+
+    private boolean checkRoomDisabled(Long roomId) {
+        try {
+            String url = "http://room-service/room/" + roomId + "/status";
+            @SuppressWarnings("unchecked")
+            com.gopair.common.core.R<Integer> resp = restTemplate.getForObject(url, com.gopair.common.core.R.class);
+            Integer status = (resp != null) ? resp.getData() : null;
+            return status != null && status == 4;
+        } catch (Exception e) {
+            log.warn("[file-service] checkRoomDisabled failed roomId:{} err:{}", roomId, e.getMessage());
+            return false;
         }
     }
 

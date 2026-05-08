@@ -56,6 +56,10 @@ public class SystemConstants {
     public static final String ROUTING_KEY_ROOM_LEAVE = "room.leave.requested";
     public static final String QUEUE_ROOM_LEAVE = "room.leave.queue";
 
+    public static final String EXCHANGE_ROOM_STATUS_CHANGE = "room.status.change.exchange";
+    public static final String ROUTING_KEY_ROOM_STATUS_CHANGE = "room.status.change.requested";
+    public static final String QUEUE_ROOM_STATUS_CHANGE = "room.status.change.queue";
+
     /*
      * Voice 服务专用
      */

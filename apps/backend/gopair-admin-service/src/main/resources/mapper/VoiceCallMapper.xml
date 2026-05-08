@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gopair.adminservice.mapper.VoiceCallMapper">
+
+    <resultMap id="VoiceCallVOMap" type="com.gopair.adminservice.domain.vo.VoiceCallVO" autoMapping="true">
+        <id column="call_id" property="callId"/>
+        <result column="is_auto_created" property="isAutoCreated"/>
+    </resultMap>
+
+    <select id="selectVoiceCallPage" resultMap="VoiceCallVOMap">
+        SELECT
+            vc.call_id,
+            vc.room_id,
+            vc.initiator_id,
+            vc.call_type,
+            vc.status,
+            vc.start_time,
+            vc.end_time,
+            vc.duration,
+            vc.is_auto_created,
+            r.room_name,
+            u.nickname AS initiator_nickname,
+            (SELECT COUNT(*) FROM voice_call_participant WHERE call_id = vc.call_id) AS participant_count,
+            (SELECT COUNT(*) FROM voice_call_participant WHERE call_id = vc.call_id AND connection_status = 1) AS connected_count
+        FROM voice_call vc
+        LEFT JOIN room r ON vc.room_id = r.room_id
+        LEFT JOIN user u ON vc.initiator_id = u.user_id
+        <where>
+            <if test="query.roomId != null">
+                AND vc.room_id = #{query.roomId}
+            </if>
+            <if test="query.initiatorId != null">
+                AND vc.initiator_id = #{query.initiatorId}
+            </if>
+            <if test="query.callType != null">
+                AND vc.call_type = #{query.callType}
+            </if>
+            <if test="query.status != null">
+                AND vc.status = #{query.status}
+            </if>
+            <if test="query.startTime != null and query.startTime != ''">
+                AND vc.start_time &gt;= #{query.startTime}
+            </if>
+            <if test="query.endTime != null and query.endTime != ''">
+                AND vc.start_time &lt;= #{query.endTime}
+            </if>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (r.room_name LIKE CONCAT('%', #{query.keyword}, '%') OR u.nickname LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY vc.start_time DESC
+    </select>
+
+</mapper>

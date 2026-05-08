@@ -28,8 +28,9 @@ public class UserManageController {
     public R<Page<User>> getUserPage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "20") Integer pageSize,
-            @RequestParam(required = false) String keyword) {
-        UserManageService.UserPageQuery query = new UserManageService.UserPageQuery(pageNum, pageSize, keyword);
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Character status) {
+        UserManageService.UserPageQuery query = new UserManageService.UserPageQuery(pageNum, pageSize, keyword, status);
         return R.ok(userManageService.getUserPage(query));
     }
 
@@ -61,6 +62,17 @@ public class UserManageController {
     public R<Void> enableUser(@PathVariable Long userId) {
         try {
             userManageService.enableUser(userId);
+            return R.ok();
+        } catch (IllegalArgumentException e) {
+            return R.fail(400, e.getMessage());
+        }
+    }
+
+    @Operation(summary = "账号迁移")
+    @PostMapping("/{userId}/migrate-email")
+    public R<Void> migrateEmail(@PathVariable Long userId, @RequestParam String newEmail) {
+        try {
+            userManageService.migrateEmail(userId, newEmail);
             return R.ok();
         } catch (IllegalArgumentException e) {
             return R.fail(400, e.getMessage());

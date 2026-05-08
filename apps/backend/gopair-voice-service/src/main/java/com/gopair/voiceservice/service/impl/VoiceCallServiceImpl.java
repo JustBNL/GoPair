@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,6 +42,10 @@ public class VoiceCallServiceImpl implements VoiceCallService {
     private final VoiceCallMapper voiceCallMapper;
     private final VoiceCallParticipantMapper participantMapper;
     private final WebSocketMessageProducer wsProducer;
+    private final RestTemplate restTemplate;
+
+    private static final String ROOM_SERVICE_URL = "http://room-service/room/";
+    private static final int ROOM_STATUS_DISABLED = 4;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -114,6 +119,12 @@ public class VoiceCallServiceImpl implements VoiceCallService {
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "创建或加入通话", module = "语音通话")
     public CallVO joinOrCreateCall(Long roomId, Long userId) {
+        // 检查房间是否被禁用
+        Integer roomStatus = getRoomStatus(roomId);
+        if (roomStatus != null && roomStatus == ROOM_STATUS_DISABLED) {
+            throw new IllegalStateException("房间已被管理员禁用");
+        }
+
         VoiceCall call = voiceCallMapper.selectOne(
                 new LambdaQueryWrapper<VoiceCall>()
                         .eq(VoiceCall::getRoomId, roomId)
@@ -440,6 +451,20 @@ public class VoiceCallServiceImpl implements VoiceCallService {
             throw new IllegalArgumentException("通话不存在或已结束");
         }
         return call;
+    }
+
+    private Integer getRoomStatus(Long roomId) {
+        try {
+            String url = ROOM_SERVICE_URL + roomId + "/status";
+            @SuppressWarnings("unchecked")
+            com.gopair.common.core.R<Integer> resp = restTemplate.getForObject(url, com.gopair.common.core.R.class);
+            if (resp != null && resp.getData() != null) {
+                return resp.getData();
+            }
+        } catch (Exception e) {
+            log.warn("[语音] 获取房间状态失败 roomId={} err={}", roomId, e.getMessage());
+        }
+        return null;
     }
 
     private CallVO buildCallVO(VoiceCall call) {

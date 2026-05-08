@@ -1,9 +1,11 @@
 package com.gopair.adminservice.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.domain.po.VoiceCall;
 import com.gopair.adminservice.domain.po.VoiceCallParticipant;
+import com.gopair.adminservice.domain.query.VoiceCallPageQuery;
+import com.gopair.adminservice.domain.vo.VoiceCallVO;
 import com.gopair.adminservice.mapper.VoiceCallMapper;
 import com.gopair.adminservice.mapper.VoiceCallParticipantMapper;
 import lombok.RequiredArgsConstructor;
@@ -23,19 +25,9 @@ public class VoiceCallService {
     private final VoiceCallMapper voiceCallMapper;
     private final VoiceCallParticipantMapper participantMapper;
 
-    public record VoiceCallPageQuery(Integer pageNum, Integer pageSize, Long roomId, Integer status) {}
-
-    public Page<VoiceCall> getVoiceCallPage(VoiceCallPageQuery query) {
-        Page<VoiceCall> page = new Page<>(query.pageNum(), query.pageSize());
-        LambdaQueryWrapper<VoiceCall> wrapper = new LambdaQueryWrapper<>();
-        if (query.roomId() != null) {
-            wrapper.eq(VoiceCall::getRoomId, query.roomId());
-        }
-        if (query.status() != null) {
-            wrapper.eq(VoiceCall::getStatus, query.status());
-        }
-        wrapper.orderByDesc(VoiceCall::getStartTime);
-        return voiceCallMapper.selectPage(page, wrapper);
+    public Page<VoiceCallVO> getVoiceCallPage(VoiceCallPageQuery query) {
+        Page<VoiceCallVO> page = new Page<>(query.pageNum(), query.pageSize());
+        return voiceCallMapper.selectVoiceCallPage(page, query);
     }
 
     public VoiceCall getVoiceCallById(Long callId) {
@@ -44,7 +36,8 @@ public class VoiceCallService {
 
     public List<VoiceCallParticipant> getParticipants(Long callId) {
         return participantMapper.selectList(
-                new LambdaQueryWrapper<VoiceCallParticipant>().eq(VoiceCallParticipant::getCallId, callId)
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<VoiceCallParticipant>()
+                        .eq(VoiceCallParticipant::getCallId, callId)
         );
     }
 }

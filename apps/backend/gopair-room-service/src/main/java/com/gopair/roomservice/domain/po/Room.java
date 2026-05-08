@@ -56,7 +56,7 @@ public class Room extends BaseEntity {
     private Long ownerId;
 
     /**
-     * 房间状态（0-活跃 1-已关闭）
+     * 房间状态（0-活跃 1-已关闭 2-已过期 3-已归档 4-已禁用）
      */
     private Integer status;
 
@@ -69,6 +69,16 @@ public class Room extends BaseEntity {
      * 房间关闭时间，标记房间进入可清理阶段，永久保留
      */
     private LocalDateTime closedTime;
+
+    /**
+     * 禁用时间，管理员禁用房间时记录
+     */
+    private LocalDateTime disabledTime;
+
+    /**
+     * 禁用原因，管理员禁用房间时记录
+     */
+    private String disabledReason;
 
     /**
      * 乐观锁版本（预留字段）

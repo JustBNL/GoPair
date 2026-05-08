@@ -40,6 +40,37 @@ export interface DashboardStats {
   todayVoiceCallDuration: number
 }
 
+export interface DailyStats {
+  date: string
+  newUsers: number
+  newRooms: number
+  messages: number
+  voiceCallDuration: number
+}
+
+export interface RoomStatusDistribution {
+  active: number
+  closed: number
+  expired: number
+}
+
+export interface RecentRoom {
+  roomId: number
+  roomName: string
+  status: number
+  currentMembers: number
+  maxMembers: number
+  createTime: string
+}
+
+export interface DashboardTrends {
+  daily: DailyStats[]
+  roomStatusDistribution: RoomStatusDistribution
+  totalUsers: number
+  totalRooms: number
+  totalMessages: number
+}
+
 /* ---------- 用户 ---------- */
 export interface User {
   userId: number
@@ -62,6 +93,7 @@ export interface UserQuery {
   pageNum: number
   pageSize: number
   keyword?: string
+  status?: string
 }
 
 /* ---------- 房间 ---------- */
@@ -75,6 +107,8 @@ export interface Room {
   ownerId: number
   status: number
   expireTime: string
+  disabledTime: string | null
+  disabledReason: string | null
   version: number
   passwordMode: number
   createTime: string
@@ -117,15 +151,29 @@ export interface Message {
   fileName: string | null
   fileSize: number | null
   replyToId: number | null
+  isRecalled: boolean
+  recalledAt: string | null
   createTime: string
   updateTime: string
+  // JOIN 来的关联字段
+  roomName?: string
+  ownerId?: number
+  senderNickname?: string
+  replyToContent?: string
+  replyToSenderNickname?: string
 }
 
 export interface MessageQuery {
   pageNum: number
   pageSize: number
   roomId?: number
+  senderId?: number
+  ownerId?: number
+  messageType?: number
+  isRecalled?: boolean
   keyword?: string
+  startTime?: string
+  endTime?: string
 }
 
 /* ---------- 文件 ---------- */
@@ -144,6 +192,8 @@ export interface RoomFile {
   uploadTime: string
   createTime: string
   updateTime: string
+  // JOIN 来的关联字段
+  roomName?: string
 }
 
 export interface FileDetail extends RoomFile {}
@@ -152,7 +202,11 @@ export interface FileQuery {
   pageNum: number
   pageSize: number
   roomId?: number
+  uploaderId?: number
+  fileType?: string
   keyword?: string
+  startTime?: string
+  endTime?: string
 }
 
 /* ---------- 审计日志 ---------- */
@@ -188,6 +242,11 @@ export interface VoiceCall {
   endTime: string | null
   duration: number
   isAutoCreated: boolean
+  // JOIN 来的关联字段
+  roomName?: string
+  initiatorNickname?: string
+  participantCount?: number
+  connectedCount?: number
 }
 
 export interface VoiceCallDetail extends VoiceCall {}
@@ -205,5 +264,10 @@ export interface CallQuery {
   pageNum: number
   pageSize: number
   roomId?: number
+  initiatorId?: number
+  callType?: number
   status?: number
+  keyword?: string
+  startTime?: string
+  endTime?: string
 }

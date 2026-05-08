@@ -102,10 +102,27 @@ public class JoinReservationServiceImpl implements JoinReservationService {
             case 0: status = ReserveStatus.ACCEPTED;        break;
             case 1: status = ReserveStatus.ALREADY_JOINED;   break;
             case 2: status = ReserveStatus.FULL;             break;
-            case 3: status = ReserveStatus.ARCHIVED;        break;
-            case 4: status = ReserveStatus.EXPIRED;         break;
+            case 3: status = ReserveStatus.ARCHIVED;          break;
+            case 4: status = ReserveStatus.EXPIRED;          break;
             case 5: status = ReserveStatus.ALREADY_PROCESSING; break;
             default: status = ReserveStatus.SYSTEM_BUSY;
+        }
+        // Lua 返回码 3 可能对应 CLOSED/ARCHIVED/DISABLED，兜底读 Redis 精确区分
+        if (status == ReserveStatus.ARCHIVED) {
+            try {
+                Object redisStatus = stringRedisTemplate.opsForHash()
+                        .get(RoomConst.metaKey(roomId), RoomConst.FIELD_STATUS);
+                if (redisStatus != null) {
+                    int s = Integer.parseInt(redisStatus.toString());
+                    if (s == RoomConst.STATUS_DISABLED) {
+                        status = ReserveStatus.DISABLED;
+                    } else if (s == RoomConst.STATUS_CLOSED) {
+                        status = ReserveStatus.CLOSED;
+                    }
+                }
+            } catch (Exception ignored) {
+                // Redis 读取失败时保持 ARCHIVED 不变，触发 ARCHIVED 错误码
+            }
         }
         if (log.isDebugEnabled()) {
             RoomRedisDiagnostics snapshot = snapshotRoomState(roomId);

@@ -48,6 +48,14 @@ public interface RoomMapper extends BaseMapper<Room> {
     List<Room> selectExpiredRoomsToClose(@Param("thresholdTime") LocalDateTime thresholdTime);
 
     /**
+     * 查询已禁用且超过清理阈值的房间，用于定时任务系统关闭。
+     *
+     * @param thresholdTime 阈值时间（当前时间 - DISABLED_TO_CLOSED_HOURS 小时）
+     * @return 待关闭的禁用房间列表
+     */
+    List<Room> selectDisabledRoomsToClose(@Param("thresholdTime") LocalDateTime thresholdTime);
+
+    /**
      * 根据用户ID查询用户创建的房间列表
      * 
      * @param ownerId 房主ID
@@ -124,13 +132,25 @@ public interface RoomMapper extends BaseMapper<Room> {
                               @Param("passwordVisible") Integer passwordVisible);
 
     /**
-     * 仅更新房间状态（无条件，用于归档操作）。
+     * 仅更新房间状态和关闭时间（无条件，用于归档操作）。
      *
      * @param roomId 房间ID
      * @param status 目标状态
      * @return 更新行数
      */
     int updateStatus(@Param("roomId") Long roomId, @Param("status") Integer status);
+
+    /**
+     * 更新禁用房间的状态和关闭时间（WHERE status=4）。
+     *
+     * @param roomId     房间ID
+     * @param status     目标状态
+     * @param closedTime 关闭时间
+     * @return 更新行数
+     */
+    int updateStatusAndClosedTimeForDisabled(@Param("roomId") Long roomId,
+                                            @Param("status") Integer status,
+                                            @Param("closedTime") LocalDateTime closedTime);
 
     /**
      * 更新房间过期时间和状态（用于续期）。

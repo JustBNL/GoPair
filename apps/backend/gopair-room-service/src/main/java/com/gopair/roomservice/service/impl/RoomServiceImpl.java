@@ -215,6 +215,8 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                 throw new RoomException(RoomErrorCode.ROOM_CLOSED);
             case ARCHIVED:
                 throw new RoomException(RoomErrorCode.ROOM_ARCHIVED);
+            case DISABLED:
+                throw new RoomException(RoomErrorCode.ROOM_DISABLED);
             case EXPIRED:
                 throw new RoomException(RoomErrorCode.ROOM_EXPIRED);
             case SYSTEM_BUSY:
@@ -374,6 +376,10 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         // 防止重复关闭
         if (room.getStatus() != null && room.getStatus() == RoomConst.STATUS_CLOSED) {
             throw new RoomException(RoomErrorCode.ROOM_ALREADY_CLOSED);
+        }
+        // 已禁用房间不允许直接关闭（禁用优先级更高）
+        if (room.getStatus() != null && room.getStatus() == RoomConst.STATUS_DISABLED) {
+            throw new RoomException(RoomErrorCode.DISABLED_CANNOT_CLOSE);
         }
         // 已过期房间不允许直接关闭，必须先续期
         if (room.getStatus() != null && room.getStatus() == RoomConst.STATUS_EXPIRED) {
@@ -562,6 +568,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (status == RoomConst.STATUS_ARCHIVED) {
             throw new RoomException(RoomErrorCode.ARCHIVED_CANNOT_RENEW);
         }
+        if (status == RoomConst.STATUS_DISABLED) {
+            throw new RoomException(RoomErrorCode.DISABLED_CANNOT_RENEW);
+        }
 
         if (!room.getOwnerId().equals(userId)) {
             throw new RoomException(RoomErrorCode.NO_PERMISSION);
@@ -644,6 +653,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         }
         if (status != null && status == RoomConst.STATUS_EXPIRED) {
             throw new RoomException(RoomErrorCode.EXPIRED_CANNOT_REOPEN);
+        }
+        if (status != null && status == RoomConst.STATUS_DISABLED) {
+            throw new RoomException(RoomErrorCode.DISABLED_CANNOT_REOPEN);
         }
         if (status != null && status != RoomConst.STATUS_CLOSED) {
             throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
@@ -1076,5 +1088,63 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             return false;
         }
         return roomMemberService.isMemberInRoom(roomId, userId);
+    }
+
+    @Override
+    public Integer getRoomStatus(Long roomId) {
+        Room room = roomMapper.selectById(roomId);
+        return room != null ? room.getStatus() : null;
+    }
+
+    /**
+     * 系统关闭禁用房间（不检查权限），由定时任务触发。
+     * 用于 DISABLED 状态超时后的自动关闭。
+     *
+     * * [执行链路]
+     * 1. 校验房间存在且 status=4。
+     * 2. UPDATE status=1，closed_time=now（WHERE status=4）。
+     * 3. 同步 Redis status=1 + 广播 room_closed WebSocket + 终止语音通话。
+     *
+     * @param roomId 房间ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogRecord(operation = "系统关闭禁用房间", module = "定时任务")
+    public void systemCloseDisabledRoom(Long roomId) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            log.warn("[房间服务][schedule] 房间{}不存在，跳过禁用房间关闭", roomId);
+            return;
+        }
+        if (room.getStatus() == null || room.getStatus() != RoomConst.STATUS_DISABLED) {
+            log.debug("[房间服务][schedule] 房间{}状态非DISABLED(status={})，跳过禁用房间关闭", roomId, room.getStatus());
+            return;
+        }
+
+        int updated = roomMapper.updateStatusAndClosedTimeForDisabled(roomId, RoomConst.STATUS_CLOSED, LocalDateTime.now());
+        if (updated > 0) {
+            log.info("[房间服务][schedule] 禁用房间{}已超时，status 4 -> 1", roomId);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_CLOSED);
+                        wsProducer.sendEventToRoom(roomId, "room_closed", Map.of(
+                            "roomId", roomId,
+                            "operatorId", (Object) null
+                        ));
+                    } catch (Exception e) {
+                        log.warn("[房间服务][schedule] 禁用房间{}系统关闭事件发送失败", roomId, e);
+                    }
+                    try {
+                        Integer count = restTemplate.postForObject(
+                                RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, Integer.class);
+                        log.info("[房间服务][schedule] 禁用房间{}系统关闭，语音通话终止完成，共终止{}个通话", roomId, count);
+                    } catch (Exception e) {
+                        log.warn("[房间服务][schedule] 禁用房间{}系统关闭时终止语音通话失败: {}", roomId, e.getMessage());
+                    }
+                }
+            });
+        }
     }
 }

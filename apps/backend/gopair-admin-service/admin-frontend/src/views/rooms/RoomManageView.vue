@@ -23,6 +23,11 @@ const confirmOpen   = ref(false)
 const confirmTarget = ref<Room | null>(null)
 const confirmLoading = ref(false)
 
+const disableOpen   = ref(false)
+const disableTarget = ref<Room | null>(null)
+const disableLoading = ref(false)
+const disableReason = ref('')
+
 async function loadRooms() {
   loading.value = true
   try {
@@ -67,6 +72,39 @@ async function handleView(roomId: number) {
 function openCloseConfirm(room: Room) {
   confirmTarget.value = room
   confirmOpen.value   = true
+}
+
+function openDisableConfirm(room: Room) {
+  disableTarget.value = room
+  disableReason.value = ''
+  disableOpen.value  = true
+}
+
+async function handleDisable() {
+  if (!disableTarget.value) return
+  disableLoading.value = true
+  try {
+    await roomApi.disable(disableTarget.value.roomId, disableReason.value || undefined)
+    message.success('房间已禁用')
+    disableOpen.value = false
+    loadRooms()
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    message.error(err?.message || '操作失败')
+  } finally {
+    disableLoading.value = false
+  }
+}
+
+async function handleEnable(room: Room) {
+  try {
+    await roomApi.enable(room.roomId)
+    message.success('房间已解禁')
+    loadRooms()
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    message.error(err?.message || '操作失败')
+  }
 }
 
 async function handleConfirm() {
@@ -134,6 +172,7 @@ loadRooms()
         <a-select-option :value="1">已关闭</a-select-option>
         <a-select-option :value="2">已过期</a-select-option>
         <a-select-option :value="3">已归档</a-select-option>
+        <a-select-option :value="4">已禁用</a-select-option>
       </a-select>
     </div>
 
@@ -166,6 +205,8 @@ loadRooms()
           <div class="room-manage-view__actions">
             <a-button type="link" size="small" @click="handleView(record.roomId)">详情</a-button>
             <a-button v-if="record.status === 0" type="link" size="small" danger @click="openCloseConfirm(record)">关闭</a-button>
+            <a-button v-if="record.status === 0" type="link" size="small" danger @click="openDisableConfirm(record)">禁用</a-button>
+            <a-button v-if="record.status === 4" type="link" size="small" @click="handleEnable(record)">解禁</a-button>
           </div>
         </template>
       </template>
@@ -182,6 +223,8 @@ loadRooms()
           <a-descriptions-item label="成员数">{{ roomDetail.room.currentMembers }} / {{ roomDetail.room.maxMembers }}</a-descriptions-item>
           <a-descriptions-item label="创建时间">{{ formatTime(roomDetail.room.createTime) }}</a-descriptions-item>
           <a-descriptions-item label="过期时间">{{ formatTime(roomDetail.room.expireTime) }}</a-descriptions-item>
+          <a-descriptions-item v-if="roomDetail.room.disabledTime" label="禁用时间">{{ formatTime(roomDetail.room.disabledTime) }}</a-descriptions-item>
+          <a-descriptions-item v-if="roomDetail.room.disabledReason" label="禁用原因">{{ roomDetail.room.disabledReason }}</a-descriptions-item>
         </a-descriptions>
 
         <div class="room-manage-view__members-title">成员列表（{{ roomDetail.members.length }}）</div>
@@ -238,6 +281,28 @@ loadRooms()
       :loading="confirmLoading"
       @confirm="handleConfirm"
     />
+
+    <a-modal
+      v-model:open="disableOpen"
+      title="禁用房间"
+      :confirm-loading="disableLoading"
+      ok-text="禁用"
+      cancel-text="取消"
+      @ok="handleDisable"
+    >
+      <p>确定禁用房间「{{ disableTarget?.roomName }}」？</p>
+      <p style="color: #888; font-size: 13px;">禁用后所有用户无法进入，房间内接口不可调用，语音通话关闭。已在房间内的用户不会被移出。</p>
+      <div style="margin-top: 16px;">
+        <label style="display: block; margin-bottom: 6px; font-weight: 500;">禁用原因（可选）</label>
+        <a-textarea
+          v-model:value="disableReason"
+          placeholder="请输入禁用原因"
+          :rows="3"
+          :maxlength="500"
+          show-count
+        />
+      </div>
+    </a-modal>
   </div>
 </template>
 

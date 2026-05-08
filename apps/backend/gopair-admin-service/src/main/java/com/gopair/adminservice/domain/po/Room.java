@@ -41,6 +41,16 @@ public class Room extends BaseEntity {
      */
     private LocalDateTime closedTime;
 
+    /**
+     * 禁用时间，管理员禁用房间时记录
+     */
+    private LocalDateTime disabledTime;
+
+    /**
+     * 禁用原因，管理员禁用房间时记录
+     */
+    private String disabledReason;
+
     private Integer version;
 
     private Integer passwordMode;

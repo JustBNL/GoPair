@@ -65,4 +65,11 @@ public class RabbitMQInfrastructureConfig {
                 .to(dlExchange())
                 .with(SystemConstants.DL_ROUTING_KEY_ALL);
     }
+
+    // ==================== Room Status Change ====================
+
+    @Bean
+    public TopicExchange roomStatusChangeExchange() {
+        return ExchangeBuilder.topicExchange(SystemConstants.EXCHANGE_ROOM_STATUS_CHANGE).durable(true).build();
+    }
 }

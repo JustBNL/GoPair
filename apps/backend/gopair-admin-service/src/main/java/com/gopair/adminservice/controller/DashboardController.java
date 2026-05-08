@@ -7,7 +7,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 仪表盘控制器
@@ -24,5 +27,18 @@ public class DashboardController {
     @GetMapping("/stats")
     public R<DashboardService.DashboardStats> getStats() {
         return R.ok(dashboardService.getStats());
+    }
+
+    @Operation(summary = "获取7日趋势数据")
+    @GetMapping("/trends")
+    public R<DashboardService.DashboardTrends> getTrends() {
+        return R.ok(dashboardService.getTrends());
+    }
+
+    @Operation(summary = "获取最近活跃房间")
+    @GetMapping("/recent-rooms")
+    public R<List<DashboardService.RecentRoom>> getRecentRooms(
+            @RequestParam(defaultValue = "5") int limit) {
+        return R.ok(dashboardService.getRecentRooms(limit));
     }
 }

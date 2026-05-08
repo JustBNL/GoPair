@@ -2,7 +2,9 @@
 import { ref, reactive } from 'vue'
 import { message } from 'ant-design-vue'
 import type { TableProps } from 'ant-design-vue'
+import type { Dayjs } from 'dayjs'
 import PageHeader from '@/components/common/PageHeader.vue'
+import StatusBadge from '@/components/common/StatusBadge.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import { fileApi } from '@/api/files'
 import { formatTime, formatFileSize } from '@/utils/format'
@@ -13,6 +15,24 @@ const fileList  = ref<RoomFile[]>([])
 const pagination = reactive({ total: 0, current: 1, pageSize: 20 })
 const searchKw  = ref('')
 const viewMode  = ref<'table' | 'grid'>('table')
+
+const filters = reactive({
+  roomId: undefined as number | undefined,
+  uploaderId: undefined as number | undefined,
+  fileType: undefined as string | undefined,
+})
+
+const dateRange = ref<[Dayjs | null, Dayjs | null]>([null, null])
+
+const fileTypeOptions = [
+  { label: '全部类型', value: undefined },
+  { label: '图片', value: 'png' },
+  { label: 'PDF', value: 'pdf' },
+  { label: '文档', value: 'doc' },
+  { label: '表格', value: 'xls' },
+  { label: '音频', value: 'mp3' },
+  { label: '视频', value: 'mp4' },
+]
 
 const drawerVisible  = ref(false)
 const drawerLoading = ref(false)
@@ -25,10 +45,14 @@ const confirmLoading = ref(false)
 async function loadFiles() {
   loading.value = true
   try {
+    const [startDate, endDate] = dateRange.value
     const params: FileQuery = {
       pageNum: pagination.current,
       pageSize: pagination.pageSize,
+      ...filters,
       keyword: searchKw.value || undefined,
+      startTime: startDate ? startDate.format('YYYY-MM-DD') : undefined,
+      endTime: endDate ? endDate.format('YYYY-MM-DD') : undefined,
     }
     const res = await fileApi.getPage(params)
     fileList.value   = res.records as RoomFile[]
@@ -42,14 +66,16 @@ const isImage = (file: RoomFile) =>
   ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(file.fileType.toLowerCase())
 
 const columns = [
-  { title: '文件ID',   dataIndex: 'fileId',          key: 'fileId',          width: 80 },
-  { title: '文件名',   dataIndex: 'fileName',        key: 'fileName',        ellipsis: true },
-  { title: '类型',     dataIndex: 'fileType',        key: 'fileType',        width: 80 },
-  { title: '大小',     dataIndex: 'fileSize',        key: 'fileSize',        width: 100 },
+  { title: '文件ID',   dataIndex: 'fileId',           key: 'fileId',           width: 80 },
+  { title: '房间号',   dataIndex: 'roomId',            key: 'roomId',           width: 90 },
+  { title: '房间名称', dataIndex: 'roomName',           key: 'roomName',         width: 160, ellipsis: true },
+  { title: '文件名',   dataIndex: 'fileName',          key: 'fileName',         ellipsis: true },
+  { title: '类型',     dataIndex: 'fileType',         key: 'fileType',         width: 90 },
+  { title: '大小',     dataIndex: 'fileSize',          key: 'fileSize',         width: 90 },
+  { title: '上传者ID', dataIndex: 'uploaderId',        key: 'uploaderId',       width: 90 },
   { title: '上传者',   dataIndex: 'uploaderNickname', key: 'uploaderNickname', width: 100 },
-  { title: '下载次数', dataIndex: 'downloadCount',    key: 'downloadCount',    width: 100 },
-  { title: '上传时间', dataIndex: 'uploadTime',       key: 'uploadTime',      width: 170 },
-  { title: '操作',     key: 'actions',               width: 120 },
+  { title: '下载次数', dataIndex: 'downloadCount',     key: 'downloadCount',    width: 90 },
+  { title: '上传时间', dataIndex: 'uploadTime',        key: 'uploadTime',       width: 170 },
 ]
 
 async function handleView(fileId: number) {
@@ -102,6 +128,21 @@ function onSearch(value: string) {
   }, 350)
 }
 
+function onFilterChange() {
+  pagination.current = 1
+  loadFiles()
+}
+
+function onReset() {
+  searchKw.value = ''
+  filters.roomId = undefined
+  filters.uploaderId = undefined
+  filters.fileType = undefined
+  dateRange.value = [null, null]
+  pagination.current = 1
+  loadFiles()
+}
+
 loadFiles()
 </script>
 
@@ -110,15 +151,44 @@ loadFiles()
     <PageHeader title="文件管理" description="查看和管理所有上传文件" />
 
     <div class="file-manage-view__toolbar">
+      <a-input-number
+        v-model:value="filters.roomId"
+        placeholder="房间号"
+        :min="1"
+        class="file-manage-view__number-input"
+        @change="onFilterChange"
+      />
+      <a-input-number
+        v-model:value="filters.uploaderId"
+        placeholder="上传者ID"
+        :min="1"
+        class="file-manage-view__number-input"
+        @change="onFilterChange"
+      />
+      <a-select
+        v-model:value="filters.fileType"
+        placeholder="文件类型"
+        :options="fileTypeOptions"
+        allow-clear
+        class="file-manage-view__select"
+        @change="onFilterChange"
+      />
+      <a-range-picker
+        v-model:value="dateRange"
+        value-format="YYYY-MM-DD"
+        class="file-manage-view__date-range"
+        @change="onFilterChange"
+      />
       <a-input-search
         v-model:value="searchKw"
         aria-label="搜索文件名"
         placeholder="搜索文件名"
         @search="onSearch"
         @change="() => { pagination.current = 1; loadFiles() }"
-        style="width: 280px;"
+        class="file-manage-view__search"
       />
-      <a-radio-group v-model:value="viewMode">
+      <a-button @click="onReset">重置</a-button>
+      <a-radio-group v-model:value="viewMode" class="file-manage-view__view-toggle">
         <a-radio-button value="table">列表</a-radio-button>
         <a-radio-button value="grid">网格</a-radio-button>
       </a-radio-group>
@@ -130,16 +200,19 @@ loadFiles()
         :data-source="fileList"
         :loading="loading"
         :pagination="{ ...pagination, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
-        :scroll="{ x: 800 }"
+        :scroll="{ x: 1200 }"
         class="file-manage-view__table"
         @change="onPageChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'fileId'">
-            <span class="file-manage-view__mono">{{ record.fileId }}</span>
+          <template v-if="column.key === 'fileId' || column.key === 'roomId' || column.key === 'uploaderId'">
+            <span class="file-manage-view__mono">{{ record[column.dataIndex as keyof RoomFile] }}</span>
           </template>
           <template v-else-if="column.key === 'fileSize'">
             <span class="file-manage-view__muted">{{ formatFileSize(record.fileSize) }}</span>
+          </template>
+          <template v-else-if="column.key === 'fileType'">
+            <StatusBadge :status="record.fileType" type="file" />
           </template>
           <template v-else-if="column.key === 'uploadTime'">
             <span class="file-manage-view__muted">{{ formatTime(record.uploadTime) }}</span>
@@ -147,6 +220,7 @@ loadFiles()
           <template v-else-if="column.key === 'actions'">
             <div class="file-manage-view__actions">
               <a-button type="link" size="small" @click="handleView(record.fileId)">详情</a-button>
+              <a-button type="link" size="small" :href="record.filePath" target="_blank" download>下载</a-button>
               <a-button type="link" size="small" danger @click="openDeleteConfirm(record)">删除</a-button>
             </div>
           </template>
@@ -204,6 +278,8 @@ loadFiles()
           <a-descriptions-item label="文件名">{{ fileDetail.fileName }}</a-descriptions-item>
           <a-descriptions-item label="文件类型">{{ fileDetail.fileType }}</a-descriptions-item>
           <a-descriptions-item label="文件大小">{{ formatFileSize(fileDetail.fileSize) }}</a-descriptions-item>
+          <a-descriptions-item label="房间号">{{ fileDetail.roomId }}</a-descriptions-item>
+          <a-descriptions-item label="房间名称">{{ fileDetail.roomName || '—' }}</a-descriptions-item>
           <a-descriptions-item label="上传者">{{ fileDetail.uploaderNickname }}</a-descriptions-item>
           <a-descriptions-item label="下载次数">{{ fileDetail.downloadCount }}</a-descriptions-item>
           <a-descriptions-item label="上传时间">{{ formatTime(fileDetail.uploadTime) }}</a-descriptions-item>
@@ -230,8 +306,29 @@ loadFiles()
 .file-manage-view__toolbar {
   margin-bottom: var(--space-4);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+.file-manage-view__number-input {
+  width: 120px;
+}
+
+.file-manage-view__select {
+  width: 120px;
+}
+
+.file-manage-view__date-range {
+  width: 260px;
+}
+
+.file-manage-view__search {
+  width: 200px;
+}
+
+.file-manage-view__view-toggle {
+  margin-left: auto;
 }
 
 .file-manage-view__table {

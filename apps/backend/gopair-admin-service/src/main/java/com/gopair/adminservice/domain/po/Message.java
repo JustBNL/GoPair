@@ -7,6 +7,8 @@ import com.gopair.framework.entity.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 /**
  * 消息实体类，对应数据库message表
  */
@@ -33,4 +35,8 @@ public class Message extends BaseEntity {
     private Long fileSize;
 
     private Long replyToId;
+
+    private Boolean isRecalled = false;
+
+    private LocalDateTime recalledAt;
 }

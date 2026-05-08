@@ -80,6 +80,10 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             if (!checkUserInRoom(sendMessageDto.getRoomId(), senderId)) {
                 throw new MessageException(MessageErrorCode.USER_NOT_IN_ROOM);
             }
+            // 检查房间是否被禁用
+            if (checkRoomDisabled(sendMessageDto.getRoomId())) {
+                throw new MessageException(MessageErrorCode.ROOM_DISABLED);
+            }
 
             // 验证消息类型
             MessageType messageType = MessageType.fromValue(sendMessageDto.getMessageType());
@@ -364,6 +368,22 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         } catch (Exception e) {
             log.warn("房间成员校验接口调用失败, 房间ID: {}, 用户ID: {}, 错误: {}",
                      roomId, userId, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 检查房间是否被禁用。
+     */
+    private boolean checkRoomDisabled(Long roomId) {
+        try {
+            String url = ROOM_SERVICE_URL + roomId + "/status";
+            @SuppressWarnings("unchecked")
+            R<Integer> response = restTemplate.getForObject(url, R.class);
+            Integer status = (response != null) ? response.getData() : null;
+            return status != null && status == 4;
+        } catch (Exception e) {
+            log.warn("房间状态查询接口调用失败, 房间ID: {}, 错误: {}", roomId, e.getMessage());
             return false;
         }
     }

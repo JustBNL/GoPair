@@ -17,6 +17,7 @@ public interface JoinReservationService {
         CLOSED,         // 房间已关闭
         ARCHIVED,       // 房间已归档
         EXPIRED,        // 房间已过期（expireAt 边界情况，由 Java 侧定期修正）
+        DISABLED,       // 房间已禁用（管理员操作，Redis 同步前由 Java 侧兜底）
         SYSTEM_BUSY     // 系统繁忙（Redis 超时 / MQ 发送失败），稍后重试
     }
 

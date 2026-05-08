@@ -71,7 +71,12 @@ public enum MessageErrorCode implements ErrorCode {
     /**
      * 消息已被撤回
      */
-    MESSAGE_ALREADY_RECALLED(20410, "消息已被撤回");
+    MESSAGE_ALREADY_RECALLED(20410, "消息已被撤回"),
+
+    /**
+     * 房间已被禁用
+     */
+    ROOM_DISABLED(20411, "房间已被管理员禁用");
 
     /**
      * 错误码

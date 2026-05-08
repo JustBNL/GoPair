@@ -88,6 +88,8 @@ public final class RoomConst {
     public static final int STATUS_EXPIRED = 2;
     /** 已归档（终态，资源已清理，不再现于房间列表） */
     public static final int STATUS_ARCHIVED = 3;
+    /** 已禁用（管理员操作，房间不可读写，语音关闭，但不禁踢用户） */
+    public static final int STATUS_DISABLED = 4;
 
     // ====================================================================
     // 定时清理阈值（小时）
@@ -95,6 +97,9 @@ public final class RoomConst {
 
     /** 过期房间转为已关闭的前置阈值（小时），expire_time < now - N 小时后触发系统关闭 */
     public static final int EXPIRED_TO_CLOSED_HOURS = 24;
+
+    /** 禁用房间转为已关闭的前置阈值（小时），disabled_time < now - N 小时后触发系统关闭 */
+    public static final int DISABLED_TO_CLOSED_HOURS = 24;
 
     // ====================================================================
     // 续期时长选项（小时）

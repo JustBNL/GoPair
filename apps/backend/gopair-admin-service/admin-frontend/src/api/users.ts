@@ -14,4 +14,9 @@ export const userApi = {
   enable(userId: number) {
     return request.post<ApiResponse<null>>(`/users/${userId}/enable`)
   },
+  migrateEmail(userId: number, newEmail: string) {
+    return request.post<ApiResponse<null>>(`/users/${userId}/migrate-email`, null, {
+      params: { newEmail },
+    })
+  },
 }

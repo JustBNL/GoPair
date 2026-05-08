@@ -13,6 +13,7 @@ const loading    = ref(false)
 const userList   = ref<User[]>([])
 const pagination = reactive({ total: 0, current: 1, pageSize: 20 })
 const searchKw  = ref('')
+const statusFilter = ref<string | undefined>(undefined)
 
 const drawerVisible  = ref(false)
 const drawerLoading = ref(false)
@@ -23,6 +24,11 @@ const confirmTarget = ref<User | null>(null)
 const confirmAction = ref<'disable' | 'enable'>('disable')
 const confirmLoading = ref(false)
 
+const migrateOpen    = ref(false)
+const migrateLoading = ref(false)
+const migrateTarget = ref<User | null>(null)
+const migrateEmail   = ref('')
+
 async function loadUsers() {
   loading.value = true
   try {
@@ -30,6 +36,7 @@ async function loadUsers() {
       pageNum: pagination.current,
       pageSize: pagination.pageSize,
       keyword: searchKw.value || undefined,
+      status: statusFilter.value || undefined,
     }
     const res = await userApi.getPage(params)
     userList.value   = res.records as User[]
@@ -66,6 +73,29 @@ function openConfirm(user: User, action: 'disable' | 'enable') {
   confirmTarget.value  = user
   confirmAction.value = action
   confirmOpen.value   = true
+}
+
+function openMigrate(user: User) {
+  migrateTarget.value = user
+  migrateEmail.value  = ''
+  migrateOpen.value   = true
+}
+
+async function handleMigrate() {
+  if (!migrateTarget.value || !migrateEmail.value.trim()) return
+  migrateLoading.value = true
+  try {
+    await userApi.migrateEmail(migrateTarget.value.userId, migrateEmail.value.trim())
+    message.success('账号迁移成功')
+    migrateOpen.value = false
+    drawerVisible.value = false
+    loadUsers()
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    message.error(err?.message || '迁移失败')
+  } finally {
+    migrateLoading.value = false
+  }
 }
 
 async function handleConfirm() {
@@ -121,6 +151,17 @@ loadUsers()
         @change="() => { pagination.current = 1; loadUsers() }"
         style="width: 280px;"
       />
+      <a-select
+        v-model:value="statusFilter"
+        placeholder="状态筛选"
+        allow-clear
+        style="width: 140px;"
+        @change="() => { pagination.current = 1; loadUsers() }"
+      >
+        <a-select-option :value="'0'">正常</a-select-option>
+        <a-select-option :value="'1'">停用</a-select-option>
+        <a-select-option :value="'2'">已注销</a-select-option>
+      </a-select>
     </div>
 
     <a-table
@@ -146,7 +187,7 @@ loadUsers()
           <div class="user-manage-view__actions">
             <a-button type="link" size="small" @click="handleView(record.userId)">详情</a-button>
             <a-button v-if="record.status === '0'" type="link" size="small" danger @click="openConfirm(record, 'disable')">停用</a-button>
-            <a-button v-else type="link" size="small" @click="openConfirm(record, 'enable')">启用</a-button>
+            <a-button v-else-if="record.status === '1'" type="link" size="small" @click="openConfirm(record, 'enable')">启用</a-button>
           </div>
         </template>
       </template>
@@ -157,7 +198,10 @@ loadUsers()
         <a-descriptions :column="1" bordered size="small">
           <a-descriptions-item label="用户ID">{{ userDetail.user.userId }}</a-descriptions-item>
           <a-descriptions-item label="昵称">{{ userDetail.user.nickname }}</a-descriptions-item>
-          <a-descriptions-item label="邮箱">{{ userDetail.user.email }}</a-descriptions-item>
+          <a-descriptions-item label="邮箱">
+            {{ userDetail.user.email }}
+            <a-button type="link" size="small" @click="openMigrate(userDetail.user)">账号迁移</a-button>
+          </a-descriptions-item>
           <a-descriptions-item label="状态"><StatusBadge :status="userDetail.user.status" type="user" /></a-descriptions-item>
           <a-descriptions-item label="加入房间数">{{ userDetail.roomCount }}</a-descriptions-item>
           <a-descriptions-item label="创建房间数">{{ userDetail.ownedRoomCount }}</a-descriptions-item>
@@ -179,6 +223,27 @@ loadUsers()
       :loading="confirmLoading"
       @confirm="handleConfirm"
     />
+
+    <a-modal
+      v-model:open="migrateOpen"
+      title="账号迁移"
+      :confirm-loading="migrateLoading"
+      :mask-closable="false"
+      @ok="handleMigrate"
+    >
+      <div style="margin-bottom: 12px;">
+        将用户 <strong>{{ migrateTarget?.nickname }}</strong> 的邮箱变更为：
+      </div>
+      <a-input
+        v-model:value="migrateEmail"
+        placeholder="请输入新邮箱地址"
+        size="large"
+        @keyup.enter="handleMigrate"
+      />
+      <div style="margin-top: 8px; color: var(--color-text-muted); font-size: 12px;">
+        迁移后该用户将使用新邮箱登录，旧邮箱可释放。
+      </div>
+    </a-modal>
   </div>
 </template>
 

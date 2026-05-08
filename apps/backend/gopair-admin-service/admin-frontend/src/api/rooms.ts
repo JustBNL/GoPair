@@ -11,4 +11,10 @@ export const roomApi = {
   close(roomId: number) {
     return request.post<ApiResponse<null>>(`/rooms/${roomId}/close`)
   },
+  disable(roomId: number, reason?: string) {
+    return request.post<ApiResponse<null>>(`/rooms/${roomId}/disable`, reason ? { reason } : {})
+  },
+  enable(roomId: number) {
+    return request.post<ApiResponse<null>>(`/rooms/${roomId}/enable`)
+  },
 }

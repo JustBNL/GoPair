@@ -176,6 +176,14 @@ public interface RoomService {
     void systemCloseRoom(Long roomId);
 
     /**
+     * 系统关闭禁用房间（不检查权限），由定时任务触发。
+     * 用于 DISABLED 状态超时后的自动关闭。
+     *
+     * @param roomId 房间ID
+     */
+    void systemCloseDisabledRoom(Long roomId);
+
+    /**
      * 续期房间：将 ACTIVE 或 EXPIRED 房间的过期时间延长，并将状态恢复为 ACTIVE。
      *
      * @param roomId      房间ID
@@ -195,4 +203,13 @@ public interface RoomService {
      * @return 重新开启后的房间信息
      */
     RoomVO reopenRoom(Long roomId, Long userId, Integer expireHours);
+
+    /**
+     * 获取房间状态（内部服务调用，无需鉴权拦截）。
+     * 用于 voice/message/file-service 等内部服务校验房间状态。
+     *
+     * @param roomId 房间ID
+     * @return 房间状态值（null 表示房间不存在）
+     */
+    Integer getRoomStatus(Long roomId);
 }

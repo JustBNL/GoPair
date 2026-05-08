@@ -1,8 +1,11 @@
 package com.gopair.adminservice.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.annotation.AdminAudit;
 import com.gopair.adminservice.domain.po.RoomFile;
+import com.gopair.adminservice.domain.query.FilePageQuery;
+import com.gopair.adminservice.domain.vo.FileVO;
 import com.gopair.adminservice.service.FileManageService;
 import com.gopair.common.core.R;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,12 +26,17 @@ public class FileManageController {
 
     @Operation(summary = "分页查询文件")
     @GetMapping("/page")
-    public R<Page<RoomFile>> getFilePage(
+    public R<IPage<FileVO>> getFilePage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "20") Integer pageSize,
             @RequestParam(required = false) Long roomId,
-            @RequestParam(required = false) String keyword) {
-        FileManageService.FilePageQuery query = new FileManageService.FilePageQuery(pageNum, pageSize, roomId, keyword);
+            @RequestParam(required = false) Long uploaderId,
+            @RequestParam(required = false) String fileType,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime) {
+        FilePageQuery query = new FilePageQuery(
+                pageNum, pageSize, roomId, uploaderId, fileType, keyword, startTime, endTime);
         return R.ok(fileManageService.getFilePage(query));
     }
 

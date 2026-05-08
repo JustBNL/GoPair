@@ -68,6 +68,19 @@ public class RabbitConfig {
         return BindingBuilder.bind(roomLeaveQueue()).to(roomLeaveExchange()).with(ROUTING_KEY_ROOM_LEAVE).noargs();
     }
 
+    // ==================== Room Status Change resources ====================
+
+    @Bean
+    public Queue roomStatusChangeQueue() {
+        return QueueBuilder.durable(QUEUE_ROOM_STATUS_CHANGE).build();
+    }
+
+    @Bean
+    public Binding roomStatusChangeBinding() {
+        TopicExchange statusExchange = ExchangeBuilder.topicExchange(EXCHANGE_ROOM_STATUS_CHANGE).durable(true).build();
+        return BindingBuilder.bind(roomStatusChangeQueue()).to(statusExchange).with(ROUTING_KEY_ROOM_STATUS_CHANGE);
+    }
+
     // ==================== Listener factory ====================
 
     @Bean

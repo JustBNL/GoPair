@@ -424,7 +424,7 @@
 //            LOG.info("启用用户成功: userId={}, newStatus={}", userId, updated.getStatus());
 //        }
 //    }
-//
+
 //    // ==================== 用户邮箱迁移 ====================
 //
 //    @Nested
@@ -486,24 +486,24 @@
 //        }
 //
 //        @Test
-//        @DisplayName("迁移成功 - 目标邮箱被已注销用户占用（可重新分配）")
-//        void migrateEmail_cancelledUserEmail() {
-//            Long userId = insertTestUser('0', "MigrateUser3", "cancelled_old@test.com");
-//            Long cancelledUserId = insertTestUser('1', "CancelledUser", "cancelled_target@test.com");
+//        @DisplayName("迁移成功 - 目标邮箱被停用用户占用（可重新分配）")
+//        void migrateEmail_disabledUserEmail() {
+//            Long userId = insertTestUser('0', "MigrateUser3", "disabled_old@test.com");
+//            Long disabledUserId = insertTestUser('1', "DisabledUser", "disabled_target@test.com");
 //            Long adminId = insertTestAdminUser();
 //            setAdminContext(adminId, TEST_ADMIN_USERNAME);
 //
-//            LOG.info("==== [migrateEmail] 目标邮箱被注销用户占用 ====");
+//            LOG.info("==== [migrateEmail] 目标邮箱被停用用户占用 ====");
 //
-//            userManageService.migrateEmail(userId, "cancelled_target@test.com");
+//            userManageService.migrateEmail(userId, "disabled_target@test.com");
 //
 //            User updated = userMapper.selectById(userId);
-//            assertEquals("cancelled_target@test.com", updated.getEmail());
+//            assertEquals("disabled_target@test.com", updated.getEmail());
 //
-//            LOG.info("注销用户邮箱可重新分配: userId={}, newEmail={}", userId, updated.getEmail());
+//            LOG.info("停用用户邮箱可重新分配: userId={}, newEmail={}", userId, updated.getEmail());
 //        }
 //    }
-//
+
 //    // ==================== 测试流 B：房间管理 + 文件管理 ====================
 //
 //    @Nested

@@ -111,4 +111,14 @@ public class RoomVO {
      * 关闭时间，null 表示手动关闭（可重新开启），非 null 表示系统关闭（不可重新开启）
      */
     private LocalDateTime closedTime;
+
+    /**
+     * 禁用时间，null 表示未禁用
+     */
+    private LocalDateTime disabledTime;
+
+    /**
+     * 禁用原因，null 表示未禁用
+     */
+    private String disabledReason;
 } 

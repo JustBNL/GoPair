@@ -23,11 +23,11 @@ local token = ARGV[2]
 local now = tonumber(ARGV[3])
 local tokenTtl = tonumber(ARGV[4])
 
--- EXPIRED(2) 允许进入只读模式，CLOSED(1) 和 ARCHIVED(3) 拒绝
+-- EXPIRED(2) 允许进入只读模式，CLOSED(1)、ARCHIVED(3)、DISABLED(4) 拒绝
 local status = redis.call('HGET', metaKey, 'status')
 if status then
   local s = tonumber(status)
-  if s == 1 or s == 3 then
+  if s == 1 or s == 3 or s == 4 then
     return 3
   end
 end

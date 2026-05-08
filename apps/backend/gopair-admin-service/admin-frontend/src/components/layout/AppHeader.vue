@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
-const app   = useAppStore()
 const auth  = useAuthStore()
 
 const pageTitle = computed(() => {
@@ -21,9 +19,6 @@ const pageTitle = computed(() => {
     </div>
     <div class="app-header__right">
       <span class="app-header__greeting">{{ auth.nickname || '管理员' }}</span>
-      <button class="app-header__theme-btn" @click="app.toggleTheme" :aria-label="app.isDark ? '切换至亮色模式' : '切换至暗色模式'">
-        {{ app.isDark ? '亮色' : '暗色' }}
-      </button>
     </div>
   </header>
 </template>
@@ -64,21 +59,5 @@ const pageTitle = computed(() => {
 .app-header__greeting {
   font-size: 13px;
   color: var(--color-text-muted);
-}
-
-.app-header__theme-btn {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-3);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.app-header__theme-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 </style>

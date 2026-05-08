@@ -1,7 +1,9 @@
 package com.gopair.adminservice.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.gopair.adminservice.domain.po.Message;
+import com.gopair.adminservice.domain.query.MessagePageQuery;
+import com.gopair.adminservice.domain.vo.MessageVO;
 import com.gopair.adminservice.service.MessageManageService;
 import com.gopair.common.core.R;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,21 +24,32 @@ public class MessageManageController {
 
     @Operation(summary = "分页查询消息")
     @GetMapping("/page")
-    public R<Page<Message>> getMessagePage(
+    public R<IPage<MessageVO>> getMessagePage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "20") Integer pageSize,
             @RequestParam(required = false) Long roomId,
-            @RequestParam(required = false) String keyword) {
-        MessageManageService.MessagePageQuery query = new MessageManageService.MessagePageQuery(pageNum, pageSize, roomId, keyword);
-        return R.ok(messageManageService.getMessagePage(query));
+            @RequestParam(required = false) Long senderId,
+            @RequestParam(required = false) Long ownerId,
+            @RequestParam(required = false) Integer messageType,
+            @RequestParam(required = false) Boolean isRecalled,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime) {
+        MessagePageQuery query = new MessagePageQuery(
+                pageNum, pageSize, roomId, senderId, ownerId,
+                messageType, isRecalled, keyword, startTime, endTime);
+        return R.ok(messageManageService.getMessagePageVO(query));
     }
 
     @Operation(summary = "按房间查询消息")
     @GetMapping("/room/{roomId}")
-    public R<Page<Message>> getMessageByRoom(
+    public R<IPage<MessageVO>> getMessageByRoom(
             @PathVariable Long roomId,
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "50") Integer pageSize) {
-        return R.ok(messageManageService.getMessageByRoom(roomId, pageNum, pageSize));
+        MessagePageQuery query = new MessagePageQuery(
+                pageNum, pageSize, roomId, null, null,
+                null, null, null, null, null);
+        return R.ok(messageManageService.getMessagePageVO(query));
     }
 }

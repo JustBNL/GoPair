@@ -62,10 +62,24 @@ function handleLogout() {
     </nav>
 
     <div class="sidebar__footer">
-      <button class="sidebar__theme-btn" @click="app.toggleTheme" :title="app.isDark ? '切换亮色' : '切换暗色'" :aria-label="app.isDark ? '切换至亮色模式' : '切换至暗色模式'">
-        <svg v-if="app.isDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      </button>
+      <div class="sidebar__footer-row">
+        <a
+          href="http://localhost:5080/web/?org_identifier=default"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="sidebar__quick-link"
+          title="进入 GoPair 应用"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>进入应用</span>
+        </a>
+
+        <button class="sidebar__theme-btn" @click="app.toggleTheme" :title="app.isDark ? '切换亮色' : '切换暗色'" :aria-label="app.isDark ? '切换至亮色模式' : '切换至暗色模式'">
+          <svg v-if="app.isDark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+
       <div class="sidebar__user">
         <span class="sidebar__user-name">{{ auth.nickname || '管理员' }}</span>
         <button class="sidebar__logout" @click="handleLogout" title="退出登录" aria-label="退出登录">
@@ -154,6 +168,12 @@ function handleLogout() {
   gap: var(--space-2);
 }
 
+.sidebar__footer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .sidebar__theme-btn {
   display: flex;
   align-items: center;
@@ -166,12 +186,42 @@ function handleLogout() {
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: background-color var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
   margin-left: auto;
+  margin-right: var(--space-2);
 }
 
 .sidebar__theme-btn:hover {
   background-color: var(--color-sidebar-hover);
   color: var(--color-sidebar-text);
+}
+
+.sidebar__quick-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-sidebar-text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.sidebar__quick-link:hover {
+  background-color: var(--color-sidebar-hover);
+  color: var(--color-primary);
+}
+
+.sidebar__quick-link-icon {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar__quick-link:hover .sidebar__quick-link-icon {
+  opacity: 1;
 }
 
 .sidebar__user {

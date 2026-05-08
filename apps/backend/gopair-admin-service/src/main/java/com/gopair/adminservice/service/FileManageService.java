@@ -1,14 +1,15 @@
 package com.gopair.adminservice.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.domain.po.RoomFile;
+import com.gopair.adminservice.domain.query.FilePageQuery;
+import com.gopair.adminservice.domain.vo.FileVO;
 import com.gopair.adminservice.mapper.RoomFileMapper;
 import com.gopair.adminservice.annotation.AdminAudit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 /**
  * 文件管理服务
@@ -20,19 +21,9 @@ public class FileManageService {
 
     private final RoomFileMapper roomFileMapper;
 
-    public record FilePageQuery(Integer pageNum, Integer pageSize, Long roomId, String keyword) {}
-
-    public Page<RoomFile> getFilePage(FilePageQuery query) {
-        Page<RoomFile> page = new Page<>(query.pageNum(), query.pageSize());
-        LambdaQueryWrapper<RoomFile> wrapper = new LambdaQueryWrapper<>();
-        if (query.roomId() != null) {
-            wrapper.eq(RoomFile::getRoomId, query.roomId());
-        }
-        if (StringUtils.hasText(query.keyword())) {
-            wrapper.like(RoomFile::getFileName, query.keyword());
-        }
-        wrapper.orderByDesc(RoomFile::getCreateTime);
-        return roomFileMapper.selectPage(page, wrapper);
+    public IPage<FileVO> getFilePage(FilePageQuery query) {
+        Page<FileVO> page = new Page<>(query.pageNum(), query.pageSize());
+        return roomFileMapper.selectFilePage(page, query);
     }
 
     public RoomFile getFileById(Long fileId) {

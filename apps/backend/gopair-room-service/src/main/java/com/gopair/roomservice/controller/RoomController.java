@@ -227,6 +227,19 @@ public class RoomController {
     }
 
     /**
+     * 获取房间状态（内部服务调用，无需鉴权拦截）。
+     * 用于 voice/message/file-service 等内部服务校验房间状态，DISABLED 房间应被拒绝操作。
+     */
+    @Operation(summary = "获取房间状态", description = "内部接口，获取指定房间的当前状态")
+    @GetMapping("/{roomId}/status")
+    public R<Integer> getRoomStatus(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId) {
+        Integer status = roomService.getRoomStatus(roomId);
+        return R.ok(status);
+    }
+
+    /**
      * 批量添加房间成员（压测场景专用，内部调用）。
      *
      * @param roomId 房间ID

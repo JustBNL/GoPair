@@ -106,7 +106,7 @@ public class RoomCacheSyncServiceImpl implements RoomCacheSyncService {
     @LogRecord(operation = "更新缓存房间状态", module = "缓存同步")
     public void setStatus(Long roomId, int status) {
         try {
-            redis.opsForHash().put(RoomConst.metaKey(roomId), RoomConst.FIELD_STATUS, String.valueOf(status));
+             redis.opsForHash().put(RoomConst.metaKey(roomId), RoomConst.FIELD_STATUS, String.valueOf(status));
         } catch (Exception e) {
             log.warn("[房间服务] Redis 更新房间状态失败 roomId={} status={} 错误={}", roomId, status, e.getMessage());
         }

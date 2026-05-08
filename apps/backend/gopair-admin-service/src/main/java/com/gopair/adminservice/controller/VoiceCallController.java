@@ -3,6 +3,8 @@ package com.gopair.adminservice.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.domain.po.VoiceCall;
 import com.gopair.adminservice.domain.po.VoiceCallParticipant;
+import com.gopair.adminservice.domain.query.VoiceCallPageQuery;
+import com.gopair.adminservice.domain.vo.VoiceCallVO;
 import com.gopair.adminservice.service.VoiceCallService;
 import com.gopair.common.core.R;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,12 +27,18 @@ public class VoiceCallController {
 
     @Operation(summary = "分页查询通话记录")
     @GetMapping("/page")
-    public R<Page<VoiceCall>> getVoiceCallPage(
+    public R<Page<VoiceCallVO>> getVoiceCallPage(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "20") Integer pageSize,
             @RequestParam(required = false) Long roomId,
-            @RequestParam(required = false) Integer status) {
-        VoiceCallService.VoiceCallPageQuery query = new VoiceCallService.VoiceCallPageQuery(pageNum, pageSize, roomId, status);
+            @RequestParam(required = false) Long initiatorId,
+            @RequestParam(required = false) Integer callType,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startTime,
+            @RequestParam(required = false) String endTime) {
+        VoiceCallPageQuery query = new VoiceCallPageQuery(
+                pageNum, pageSize, roomId, initiatorId, callType, status, keyword, startTime, endTime);
         return R.ok(voiceCallService.getVoiceCallPage(query));
     }
 

@@ -55,4 +55,29 @@ public class RoomManageController {
             return R.fail(400, e.getMessage());
         }
     }
+
+    @Operation(summary = "禁用房间")
+    @PostMapping("/{roomId}/disable")
+    @AdminAudit(operation = "ROOM_DISABLE", targetType = "ROOM")
+    public R<Void> disableRoom(@PathVariable Long roomId, @RequestBody(required = false) Map<String, String> body) {
+        try {
+            String reason = body != null ? body.get("reason") : null;
+            roomManageService.disableRoom(roomId, reason);
+            return R.ok();
+        } catch (IllegalArgumentException e) {
+            return R.fail(400, e.getMessage());
+        }
+    }
+
+    @Operation(summary = "解禁房间")
+    @PostMapping("/{roomId}/enable")
+    @AdminAudit(operation = "ROOM_ENABLE", targetType = "ROOM")
+    public R<Void> enableRoom(@PathVariable Long roomId) {
+        try {
+            roomManageService.enableRoom(roomId);
+            return R.ok();
+        } catch (IllegalArgumentException e) {
+            return R.fail(400, e.getMessage());
+        }
+    }
 }

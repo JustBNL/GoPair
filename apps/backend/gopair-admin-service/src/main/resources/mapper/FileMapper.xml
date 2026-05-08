@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gopair.adminservice.mapper.RoomFileMapper">
+
+    <resultMap id="FileVOMap" type="com.gopair.adminservice.domain.vo.FileVO" autoMapping="true">
+        <id column="file_id" property="fileId"/>
+    </resultMap>
+
+    <select id="selectFilePage" resultMap="FileVOMap">
+        SELECT
+            rf.file_id,
+            rf.room_id,
+            rf.uploader_id,
+            rf.uploader_nickname,
+            rf.file_name,
+            rf.file_path,
+            rf.file_size,
+            rf.thumbnail_size,
+            rf.file_type,
+            rf.content_type,
+            rf.download_count,
+            rf.upload_time,
+            rf.create_time,
+            rf.update_time,
+            r.room_name
+        FROM room_file rf
+        LEFT JOIN room r ON rf.room_id = r.room_id
+        <where>
+            <if test="query.roomId != null">
+                AND rf.room_id = #{query.roomId}
+            </if>
+            <if test="query.uploaderId != null">
+                AND rf.uploader_id = #{query.uploaderId}
+            </if>
+            <if test="query.fileType != null and query.fileType != ''">
+                AND rf.file_type = #{query.fileType}
+            </if>
+            <if test="query.startTime != null and query.startTime != ''">
+                AND rf.upload_time &gt;= #{query.startTime}
+            </if>
+            <if test="query.endTime != null and query.endTime != ''">
+                AND rf.upload_time &lt;= #{query.endTime}
+            </if>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND rf.file_name LIKE CONCAT('%', #{query.keyword}, '%')
+            </if>
+        </where>
+        ORDER BY rf.upload_time DESC
+    </select>
+
+</mapper>

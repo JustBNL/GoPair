@@ -9,6 +9,8 @@ import com.gopair.adminservice.mapper.RoomMapper;
 import com.gopair.adminservice.mapper.RoomMemberMapper;
 import com.gopair.adminservice.mapper.UserMapper;
 import com.gopair.adminservice.annotation.AdminAudit;
+import com.gopair.adminservice.messaging.RoomStatusChangeProducer;
+import com.gopair.adminservice.context.AdminContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ public class RoomManageService {
     private final RoomMapper roomMapper;
     private final RoomMemberMapper roomMemberMapper;
     private final UserMapper userMapper;
+    private final RoomStatusChangeProducer roomStatusChangeProducer;
 
     public record RoomPageQuery(Integer pageNum, Integer pageSize, Integer status, String keyword) {}
 
@@ -88,5 +91,42 @@ public class RoomManageService {
         room.setClosedTime(LocalDateTime.now());
         roomMapper.updateById(room);
         log.info("[RoomManage] 强制关闭房间: roomId={}", roomId);
+    }
+
+    @AdminAudit(operation = "ROOM_DISABLE", targetType = "ROOM")
+    public void disableRoom(Long roomId, String reason) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new IllegalArgumentException("房间不存在");
+        }
+        room.setStatus(4);
+        room.setDisabledTime(LocalDateTime.now());
+        room.setDisabledReason(reason);
+        roomMapper.updateById(room);
+        log.info("[RoomManage] 禁用房间: roomId={} reason={}", roomId, reason);
+
+        Long adminId = getCurrentAdminId();
+        roomStatusChangeProducer.sendDisable(roomId, adminId, reason);
+    }
+
+    @AdminAudit(operation = "ROOM_ENABLE", targetType = "ROOM")
+    public void enableRoom(Long roomId) {
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new IllegalArgumentException("房间不存在");
+        }
+        room.setStatus(0);
+        room.setDisabledTime(null);
+        room.setDisabledReason(null);
+        roomMapper.updateById(room);
+        log.info("[RoomManage] 解禁房间: roomId={}", roomId);
+
+        Long adminId = getCurrentAdminId();
+        roomStatusChangeProducer.sendEnable(roomId, adminId);
+    }
+
+    private Long getCurrentAdminId() {
+        var ctx = AdminContextHolder.get();
+        return ctx != null ? ctx.getAdminId() : null;
     }
 }
