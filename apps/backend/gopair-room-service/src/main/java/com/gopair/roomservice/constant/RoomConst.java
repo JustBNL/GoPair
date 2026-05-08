@@ -43,6 +43,9 @@ public final class RoomConst {
     /** SCAN 扫描 pending key 使用的匹配模式 */
     public static final String PATTERN_ROOM_PENDING = "room:*:pending";
 
+    /** 房间待移除成员 Hash Key，field=userId, value=leaveType。格式：room:{roomId}:pending_removal */
+    public static final String KEY_ROOM_PENDING_REMOVAL = "room:%d:pending_removal";
+
     // ====================================================================
     // Redis Meta Hash 字段名
     // ====================================================================
@@ -71,6 +74,7 @@ public final class RoomConst {
     public static String pendingKey(Long roomId)      { return String.format(KEY_ROOM_PENDING, roomId); }
     public static String joinTokenKey(String token)   { return String.format(KEY_JOIN_TOKEN,   token);  }
     public static String metaInitLockKey(Long roomId) { return String.format("lock:room:meta:%d", roomId); }
+    public static String pendingRemovalKey(Long roomId) { return String.format(KEY_ROOM_PENDING_REMOVAL, roomId); }
 
     // ====================================================================
     // 房间状态（room.status）
@@ -107,10 +111,8 @@ public final class RoomConst {
 
     /** 普通成员 */
     public static final int ROLE_MEMBER = 0;
-    /** 管理员 */
-    public static final int ROLE_ADMIN  = 1;
     /** 房主 */
-    public static final int ROLE_OWNER  = 2;
+    public static final int ROLE_OWNER  = 1;
 
     // ====================================================================
     // join token 结果值后缀
@@ -120,4 +122,72 @@ public final class RoomConst {
     public static final String JOIN_RESULT_JOINED = "JOINED";
     /** 加入失败，完整格式：{roomId}:{userId}:FAILED */
     public static final String JOIN_RESULT_FAILED = "FAILED";
+
+    // ====================================================================
+    // 内部私有常量（不对外暴露，仅本类方法引用）
+    // ====================================================================
+
+    /** 元数据初始化时，未抢到锁的轮询重试次数 */
+    public static final int META_INIT_RETRY_COUNT = 3;
+
+    /** 元数据初始化时，每次轮询等待间隔（毫秒） */
+    public static final int META_INIT_RETRY_INTERVAL_MS = 50;
+
+    /** 元数据初始化分布式锁的 TTL（秒），防止进程崩溃死锁 */
+    public static final int META_INIT_LOCK_TTL_SECONDS = 5;
+
+    // ====================================================================
+    // HTTP 降级与批处理配置
+    // ====================================================================
+
+    /** 用户服务 HTTP 端点前缀 */
+    public static final String USER_SERVICE_URL = "http://user-service/user/";
+
+    /** 批量查询用户资料的批量上限 */
+    public static final int USER_BATCH_MAX_IDS = 200;
+
+    /** 批量查询失败时单条兜底拉取上限 */
+    public static final int USER_SINGLE_FETCH_FALLBACK_MAX = 64;
+
+    /** 分页默认 pageSize */
+    public static final int DEFAULT_PAGE_SIZE = 10;
+
+    // ====================================================================
+    // 资源清理批处理参数
+    // ====================================================================
+
+    /** 关闭房间资源清理任务 — 每批处理上限 */
+    public static final int CLEANUP_BATCH_SIZE = 100;
+
+    /** 关闭房间资源清理任务 — 最大循环轮次 */
+    public static final int CLEANUP_MAX_ITERATIONS = 10;
+
+    /** 关闭房间待清理阈值（小时），closed_time < now - N 小时视为可清理 */
+    public static final int CLEANUP_THRESHOLD_HOURS = 24;
+
+    // ====================================================================
+    // 服务间 HTTP 端点
+    // ====================================================================
+
+    /** 文件服务清理接口前缀 */
+    public static final String FILE_SERVICE_URL = "http://file-service/file/room/";
+
+    /** 消息服务清理接口前缀 */
+    public static final String MESSAGE_SERVICE_URL = "http://message-service/message/room/";
+
+    /** 语音通话服务清理接口前缀 */
+    public static final String VOICE_SERVICE_URL = "http://voice-service/voice-call/room/";
+
+    // ====================================================================
+    // 布尔标志语义常量
+    // ====================================================================
+
+    /** 密码可见性 — 对成员可见 */
+    public static final int PASSWORD_VISIBLE = 1;
+
+    /** 密码可见性 — 对成员隐藏 */
+    public static final int PASSWORD_HIDDEN = 0;
+
+    /** 乐观锁初始版本号 */
+    public static final int INITIAL_VERSION = 0;
 }

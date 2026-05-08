@@ -1,14 +1,21 @@
 package com.gopair.roomservice.service;
 
 import com.gopair.framework.logging.annotation.LogRecord;
+import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.domain.po.Room;
-import com.gopair.roomservice.service.RoomService;
+import com.gopair.roomservice.mapper.RoomMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 定时任务服务
@@ -19,10 +26,12 @@ import java.util.List;
 @Component
 public class ScheduleService {
 
-    private final RoomService roomService;
+    private final RoomMapper roomMapper;
+    private final StringRedisTemplate redis;
 
-    public ScheduleService(RoomService roomService) {
-        this.roomService = roomService;
+    public ScheduleService(RoomMapper roomMapper, StringRedisTemplate redis) {
+        this.roomMapper = roomMapper;
+        this.redis = redis;
     }
 
     @PostConstruct
@@ -42,12 +51,12 @@ public class ScheduleService {
 
         try {
             int totalProcessed = 0;
-            int batchSize = 100;
-            int maxIterations = 10;
+            int batchSize = RoomConst.CLEANUP_BATCH_SIZE;
+            int maxIterations = RoomConst.CLEANUP_MAX_ITERATIONS;
             int iteration = 0;
 
             while (iteration < maxIterations) {
-                List<Room> roomsToClean = roomService.findRoomsToClean();
+                List<Room> roomsToClean = roomMapper.selectRoomsToClean(LocalDateTime.now().minusHours(RoomConst.CLEANUP_THRESHOLD_HOURS));
 
                 if (roomsToClean.isEmpty()) {
                     log.info("[房间服务][schedule] 没有需要清理的房间");

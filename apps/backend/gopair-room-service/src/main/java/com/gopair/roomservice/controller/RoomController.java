@@ -9,6 +9,7 @@ import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.dto.UpdateRoomPasswordDto;
 import com.gopair.roomservice.domain.dto.UpdatePasswordVisibilityDto;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
+import com.gopair.roomservice.domain.vo.RoomPasswordVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.domain.vo.JoinAcceptedVO;
 import com.gopair.roomservice.service.JoinResultQueryService.JoinStatusVO;
@@ -158,11 +159,11 @@ public class RoomController {
     /** 获取当前房间密码/令牌（仅房主） */
     @Operation(summary = "获取当前密码", description = "房主查询当前有效密码或动态令牌")
     @GetMapping("/{roomId}/password/current")
-    public R<RoomVO> getRoomCurrentPassword(
+    public R<RoomPasswordVO> getRoomCurrentPassword(
             @Parameter(description = "房间ID", required = true)
             @PathVariable Long roomId) {
         Long userId = UserContextHolder.getCurrentUserId();
-        RoomVO vo = roomService.getRoomCurrentPassword(roomId, userId);
+        RoomPasswordVO vo = roomService.getRoomCurrentPassword(roomId, userId);
         return R.ok(vo);
     }
 

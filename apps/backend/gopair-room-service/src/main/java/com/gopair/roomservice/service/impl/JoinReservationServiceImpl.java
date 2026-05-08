@@ -45,11 +45,6 @@ public class JoinReservationServiceImpl implements JoinReservationService {
     @Value("${gopair.room.reservation.join-token-ttl-seconds:30}")
     private long tokenTtlSeconds;
 
-    /** 未抢到分布式锁时的轮询重试次数 */
-    private static final int META_INIT_RETRY_COUNT = 3;
-    /** 每次轮询等待间隔（毫秒） */
-    private static final int META_INIT_RETRY_INTERVAL_MS = 50;
-
     public JoinReservationServiceImpl(StringRedisTemplate stringRedisTemplate,
                                       DefaultRedisScript<Long> roomPreReserveScript,
                                       DefaultRedisScript<Long> roomRollbackReserveScript,
@@ -121,6 +116,7 @@ public class JoinReservationServiceImpl implements JoinReservationService {
         if (status == ReserveStatus.ACCEPTED) {
             JoinRoomRequestedEvent event = new JoinRoomRequestedEvent(roomId, userId, token, System.currentTimeMillis());
             boolean sent = joinRoomProducer.sendRequested(event);
+            //发送消息队列失败就执行回滚脚本
             if (!sent) {
                 stringRedisTemplate.execute(
                         roomRollbackReserveScript,
@@ -132,6 +128,7 @@ public class JoinReservationServiceImpl implements JoinReservationService {
             }
             return PreReserveResult.of(status, token, "已受理");
         }
+        // 这个需要关注
         if (status == ReserveStatus.SYSTEM_BUSY) {
             RoomRedisDiagnostics snapshot = snapshotRoomState(roomId);
             log.warn("[房间服务][join-async] 预占返回处理中 房间={} 用户={} token={} meta={} pending={} members={}",
@@ -160,7 +157,7 @@ public class JoinReservationServiceImpl implements JoinReservationService {
         String lockKey = RoomConst.metaInitLockKey(roomId);
         // 抢占分布式锁，TTL 5s 防止死锁（如进程崩溃未释放）
         Boolean locked = stringRedisTemplate.opsForValue()
-                .setIfAbsent(lockKey, "1", 5L, TimeUnit.SECONDS);
+                .setIfAbsent(lockKey, "1", (long) RoomConst.META_INIT_LOCK_TTL_SECONDS, TimeUnit.SECONDS);
 
         if (Boolean.TRUE.equals(locked)) {
             try {
@@ -197,9 +194,9 @@ public class JoinReservationServiceImpl implements JoinReservationService {
             }
         } else {
             // 未抢到锁：轮询等待其他请求完成，最多尝试 META_INIT_RETRY_COUNT 次
-            for (int i = 0; i < META_INIT_RETRY_COUNT; i++) {
+            for (int i = 0; i < RoomConst.META_INIT_RETRY_COUNT; i++) {
                 try {
-                    Thread.sleep(META_INIT_RETRY_INTERVAL_MS);
+                    Thread.sleep(RoomConst.META_INIT_RETRY_INTERVAL_MS);
                 } catch (InterruptedException ignored) {
                     Thread.currentThread().interrupt();
                     return;
@@ -210,7 +207,7 @@ public class JoinReservationServiceImpl implements JoinReservationService {
                 }
             }
             log.warn("[房间服务][join-async] 房间={} 元数据初始化等待超时（{}ms），Redis 缓存可能为空", roomId,
-                    META_INIT_RETRY_COUNT * META_INIT_RETRY_INTERVAL_MS);
+                    RoomConst.META_INIT_RETRY_COUNT * RoomConst.META_INIT_RETRY_INTERVAL_MS);
         }
     }
 

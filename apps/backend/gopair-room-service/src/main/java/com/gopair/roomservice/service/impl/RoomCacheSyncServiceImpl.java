@@ -9,6 +9,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -20,29 +22,48 @@ public class RoomCacheSyncServiceImpl implements RoomCacheSyncService {
         this.redis = redis;
     }
 
+    /**
+     * 初始化房间元信息到 Redis Hash，结构如下：
+     *
+     *   Key:   room:meta:{roomId}
+     *   Type:  Hash
+     *   Fields:
+     *     max          -> 房间最大人数（Integer）
+     *     confirmed    -> 已确认人数（Integer）
+     *     reserved    -> 待确认预占数（Integer）
+     *     status       -> 房间状态（Integer）
+     *     expireAt     -> 过期时间戳毫秒（Long）
+     *     passwordMode -> 密码模式（Integer, 0=无密码）
+     *     ownerId      -> 房主用户ID（Long，仅 ownerId != null 时写入）
+     *
+     *   Key:   room:members:{roomId}
+     *   Type:  Set
+     *   Value: {ownerId}（仅 ownerId != null 时写入）
+     */
     @Override
     @LogRecord(operation = "初始化房间缓存", module = "缓存同步")
     public void initializeRoomInCache(Room room, Long ownerId) {
         if (room == null || room.getRoomId() == null) return;
+
         Long roomId = room.getRoomId();
         String meta = RoomConst.metaKey(roomId);
-        String expireAt = String.valueOf(
-                room.getExpireTime() == null ? 0L
-                        : room.getExpireTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        long expireAtMs = room.getExpireTime() == null ? 0L
+                : room.getExpireTime().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        int passwordMode = room.getPasswordMode() == null ? RoomConst.PASSWORD_MODE_NONE : room.getPasswordMode();
+
+        Map<String, String> fields = new HashMap<>();
+        fields.put(RoomConst.FIELD_MAX,          String.valueOf(room.getMaxMembers()     == null ? 0 : room.getMaxMembers()));
+        fields.put(RoomConst.FIELD_CONFIRMED,   String.valueOf(room.getCurrentMembers() == null ? 0 : room.getCurrentMembers()));
+        fields.put(RoomConst.FIELD_RESERVED,     "0");
+        fields.put(RoomConst.FIELD_STATUS,       String.valueOf(room.getStatus()         == null ? RoomConst.STATUS_ACTIVE : room.getStatus()));
+        fields.put(RoomConst.FIELD_EXPIRE_AT,    String.valueOf(expireAtMs));
+        fields.put(RoomConst.FIELD_PASSWORD_MODE, String.valueOf(passwordMode));
+        if (ownerId != null) {
+            fields.put(RoomConst.FIELD_OWNER_ID, String.valueOf(ownerId));
+        }
         try {
-            redis.opsForHash().put(meta, RoomConst.FIELD_MAX,
-                    String.valueOf(room.getMaxMembers() == null ? 0 : room.getMaxMembers()));
-            redis.opsForHash().put(meta, RoomConst.FIELD_CONFIRMED,
-                    String.valueOf(room.getCurrentMembers() == null ? 0 : room.getCurrentMembers()));
-            redis.opsForHash().put(meta, RoomConst.FIELD_RESERVED, "0");
-            redis.opsForHash().put(meta, RoomConst.FIELD_STATUS,
-                    String.valueOf(room.getStatus() == null ? RoomConst.STATUS_ACTIVE : room.getStatus()));
-            redis.opsForHash().put(meta, RoomConst.FIELD_EXPIRE_AT, expireAt);
-            // 密码模式写入缓存，供入房预检使用
-            int passwordMode = room.getPasswordMode() == null ? RoomConst.PASSWORD_MODE_NONE : room.getPasswordMode();
-            redis.opsForHash().put(meta, RoomConst.FIELD_PASSWORD_MODE, String.valueOf(passwordMode));
+            redis.opsForHash().putAll(meta, fields);
             if (ownerId != null) {
-                redis.opsForHash().put(meta, RoomConst.FIELD_OWNER_ID, String.valueOf(ownerId));
                 redis.opsForSet().add(RoomConst.membersKey(roomId), String.valueOf(ownerId));
             }
             log.info("[房间服务] Redis 缓存初始化成功 roomId={}", roomId);

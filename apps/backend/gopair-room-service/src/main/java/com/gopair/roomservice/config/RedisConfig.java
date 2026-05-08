@@ -48,4 +48,20 @@ public class RedisConfig {
         script.setResultType(Long.class);
         return script;
     }
+
+    @Bean(name = "roomMarkRemovalScript")
+    public DefaultRedisScript<Long> roomMarkRemovalScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("lua/room_mark_removal.lua"));
+        script.setResultType(Long.class);
+        return script;
+    }
+
+    @Bean(name = "roomRollbackRemovalScript")
+    public DefaultRedisScript<Long> roomRollbackRemovalScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("lua/room_rollback_removal.lua"));
+        script.setResultType(Long.class);
+        return script;
+    }
 } 

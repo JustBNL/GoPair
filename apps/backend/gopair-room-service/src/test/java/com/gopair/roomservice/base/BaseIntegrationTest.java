@@ -3,8 +3,8 @@ package com.gopair.roomservice.base;
 import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.roomservice.messaging.JoinRoomConsumer;
 import com.gopair.roomservice.messaging.JoinRoomProducer;
-import com.gopair.roomservice.messaging.LeaveRoomConsumer;
-import com.gopair.roomservice.messaging.LeaveRoomProducer;
+import com.gopair.roomservice.messaging.MemberRemovalConsumer;
+import com.gopair.roomservice.messaging.MemberRemovalProducer;
 import com.gopair.roomservice.messaging.UserOfflineConsumer;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -46,10 +46,10 @@ public abstract class BaseIntegrationTest {
     protected JoinRoomConsumer joinRoomConsumer;
 
     @MockBean
-    protected LeaveRoomProducer leaveRoomProducer;
+    protected MemberRemovalProducer memberRemovalProducer;
 
     @MockBean
-    protected LeaveRoomConsumer leaveRoomConsumer;
+    protected MemberRemovalConsumer memberRemovalConsumer;
 
     @MockBean
     protected UserOfflineConsumer userOfflineConsumer;

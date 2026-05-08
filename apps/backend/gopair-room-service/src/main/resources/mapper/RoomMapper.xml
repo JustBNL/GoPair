@@ -122,4 +122,24 @@
         </where>
     </select>
 
+    <!-- 仅更新房间状态和关闭时间（避免幽灵更新覆盖其他字段） -->
+    <update id="updateStatusAndClosedTime">
+        UPDATE room
+        SET status = #{status},
+            closed_time = #{closedTime},
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+          AND status = 0
+    </update>
+
+    <!-- 仅更新密码可见性（避免幽灵更新覆盖其他字段） -->
+    <update id="updatePasswordVisible">
+        UPDATE room
+        SET password_visible = #{passwordVisible},
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+    </update>
+
 </mapper> 

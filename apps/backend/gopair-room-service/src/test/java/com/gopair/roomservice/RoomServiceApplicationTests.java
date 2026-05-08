@@ -4,8 +4,8 @@ import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.roomservice.config.RoomConfig;
 import com.gopair.roomservice.messaging.JoinRoomConsumer;
 import com.gopair.roomservice.messaging.JoinRoomProducer;
-import com.gopair.roomservice.messaging.LeaveRoomConsumer;
-import com.gopair.roomservice.messaging.LeaveRoomProducer;
+import com.gopair.roomservice.messaging.MemberRemovalConsumer;
+import com.gopair.roomservice.messaging.MemberRemovalProducer;
 import com.gopair.roomservice.messaging.UserOfflineConsumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -37,10 +37,10 @@ class RoomServiceApplicationTests {
     private JoinRoomConsumer joinRoomConsumer;
 
     @MockBean
-    private LeaveRoomProducer leaveRoomProducer;
+    private MemberRemovalProducer memberRemovalProducer;
 
     @MockBean
-    private LeaveRoomConsumer leaveRoomConsumer;
+    private MemberRemovalConsumer memberRemovalConsumer;
 
     @MockBean
     private UserOfflineConsumer userOfflineConsumer;

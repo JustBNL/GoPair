@@ -88,4 +88,26 @@ public interface RoomMapper extends BaseMapper<Room> {
      */
     Long countUserRoomsWithRelationship(@Param("userId") Long userId,
                                        @Param("status") Integer status);
+
+    /**
+     * 仅更新房间状态和关闭时间（避免幽灵更新）
+     *
+     * @param roomId     房间ID
+     * @param status     目标状态
+     * @param closedTime 关闭时间
+     * @return 更新行数
+     */
+    int updateStatusAndClosedTime(@Param("roomId") Long roomId,
+                                  @Param("status") Integer status,
+                                  @Param("closedTime") LocalDateTime closedTime);
+
+    /**
+     * 仅更新密码可见性（避免幽灵更新）
+     *
+     * @param roomId        房间ID
+     * @param passwordVisible 密码可见性
+     * @return 更新行数
+     */
+    int updatePasswordVisible(@Param("roomId") Long roomId,
+                              @Param("passwordVisible") Integer passwordVisible);
 } 

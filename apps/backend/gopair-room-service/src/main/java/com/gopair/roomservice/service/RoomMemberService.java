@@ -104,7 +104,7 @@ public interface RoomMemberService {
      *
      * @param roomId    房间ID
      * @param userId   用户ID
-     * @param leaveType 离开类型（1=主动离开 2=被踢出 3=房间关闭被动离开）
+     * @param leaveType 离开类型，见 {@link com.gopair.roomservice.enums.LeaveTypeEnum#getValue()}
      * @return true=标记成功（成员仍在房间）；false=成员不在房间或已离开
      */
     boolean markAsLeft(Long roomId, Long userId, Integer leaveType);
@@ -114,7 +114,7 @@ public interface RoomMemberService {
      * 通常在房间关闭时调用，将所有仍在房间的成员标记为被动离开。
      *
      * @param roomId    房间ID
-     * @param leaveType 离开类型（统一为 3=房间关闭被动离开）
+     * @param leaveType 离开类型，见 {@link com.gopair.roomservice.enums.LeaveTypeEnum#getValue()}
      */
     void markAllAsLeft(Long roomId, Integer leaveType);
 

@@ -6,6 +6,7 @@ import com.gopair.roomservice.domain.dto.RoomDto;
 import com.gopair.roomservice.domain.dto.RoomQueryDto;
 import com.gopair.roomservice.domain.po.Room;
 import com.gopair.roomservice.domain.vo.RoomMemberVO;
+import com.gopair.roomservice.domain.vo.RoomPasswordVO;
 import com.gopair.roomservice.domain.vo.RoomVO;
 import com.gopair.roomservice.domain.vo.JoinAcceptedVO;
 import com.gopair.roomservice.service.JoinResultQueryService.JoinStatusVO;
@@ -79,14 +80,6 @@ public interface RoomService {
     List<Room> findExpiredRooms();
 
     /**
-     * 查询需要清理的房间：已关闭超过24小时。
-     * 用于定时任务分批查询待清理的房间，不包含 room_member 清理。
-     *
-     * @return 待清理房间列表
-     */
-    List<Room> findRoomsToClean();
-
-    /**
      * 清理房间资源（消息、文件、语音通话）。
      * room 和 room_member 永久保留，不在此方法中删除。
      * 由定时任务统一调用，作为清理流程的入口。
@@ -137,7 +130,7 @@ public interface RoomService {
      * @param userId 操作用户ID（必须是房主）
      * @return 当前密码明文或TOTP令牌，以及剩余有效秒数
      */
-    RoomVO getRoomCurrentPassword(Long roomId, Long userId);
+    RoomPasswordVO getRoomCurrentPassword(Long roomId, Long userId);
 
     /**
      * 踢出房间成员（仅房主）

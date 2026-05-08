@@ -55,15 +55,6 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redisTemplate;
 
-    /** 用户服务内部调用地址（Nacos 服务名） */
-    private static final String USER_SERVICE_URL = "http://user-service/user/";
-
-    /** 单次批量查询用户资料上限，与用户服务 {@code listUsersByIds} 对齐 */
-    private static final int USER_BATCH_MAX_IDS = 200;
-
-    /** 批量解析失败或旧版无 by-ids 时，对仍缺资料的成员逐个补拉，避免整页显示「用户{id}」 */
-    private static final int USER_SINGLE_FETCH_FALLBACK_MAX = 64;
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "批量添加房间成员", module = "成员管理")
@@ -98,8 +89,8 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             RoomMember rm = new RoomMember();
             rm.setRoomId(roomId);
             rm.setUserId(userId);
-            rm.setRole(0);
-            rm.setStatus(0);
+            rm.setRole(RoomConst.ROLE_MEMBER);
+            rm.setStatus(RoomConst.MEMBER_STATUS_ONLINE);
             rm.setJoinTime(now);
             rm.setLastActiveTime(now);
             return rm;
@@ -144,7 +135,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         if (history != null) {
             history.setLeaveTime(null);
             history.setLeaveType(null);
-            history.setStatus(0);
+            history.setStatus(RoomConst.MEMBER_STATUS_ONLINE);
             history.setJoinTime(LocalDateTime.now());
             history.setLastActiveTime(LocalDateTime.now());
             roomMemberMapper.updateById(history);
@@ -156,8 +147,8 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         RoomMember roomMember = new RoomMember();
         roomMember.setRoomId(roomId);
         roomMember.setUserId(userId);
-        roomMember.setRole(role != null ? role : 0);
-        roomMember.setStatus(0);
+        roomMember.setRole(role != null ? role : RoomConst.ROLE_MEMBER);
+        roomMember.setStatus(RoomConst.MEMBER_STATUS_ONLINE);
         roomMember.setJoinTime(LocalDateTime.now());
         roomMember.setLastActiveTime(LocalDateTime.now());
 
@@ -333,7 +324,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         List<Long> distinct = userIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()
-                .limit(USER_BATCH_MAX_IDS)
+                .limit(RoomConst.USER_BATCH_MAX_IDS)
                 .collect(Collectors.toList());
         if (distinct.isEmpty()) {
             return map;
@@ -377,7 +368,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     private void mergeProfilesFromUserServiceHttpBatch(List<Long> distinct, Map<Long, UserProfileBrief> map) {
         String idParam = distinct.stream().map(String::valueOf).collect(Collectors.joining(","));
         try {
-            String url = USER_SERVICE_URL + "by-ids?ids=" + idParam;
+            String url = RoomConst.USER_SERVICE_URL + "by-ids?ids=" + idParam;
             String response = restTemplate.getForObject(url, String.class);
             if (response == null) {
                 return;
@@ -454,14 +445,14 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             return;
         }
         List<Long> distinct = userIds.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
-        int budget = USER_SINGLE_FETCH_FALLBACK_MAX;
+        int budget = RoomConst.USER_SINGLE_FETCH_FALLBACK_MAX;
         for (Long uid : distinct) {
             UserProfileBrief existing = map.get(uid);
             if (existing != null && StringUtils.hasText(existing.nickname())) {
                 continue;
             }
             if (budget-- <= 0) {
-                log.warn("[房间成员] 单个补拉用户资料已达上限{}，仍有成员无用户服务资料", USER_SINGLE_FETCH_FALLBACK_MAX);
+                log.warn("[房间成员] 单个补拉用户资料已达上限{}，仍有成员无用户服务资料", RoomConst.USER_SINGLE_FETCH_FALLBACK_MAX);
                 break;
             }
             fetchOneUserProfile(uid).ifPresent(p -> {
@@ -485,7 +476,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
      */
     private Optional<UserProfileBrief> fetchOneUserProfile(Long userId) {
         try {
-            String response = restTemplate.getForObject(USER_SERVICE_URL + userId, String.class);
+            String response = restTemplate.getForObject(RoomConst.USER_SERVICE_URL + userId, String.class);
             if (response == null) {
                 return Optional.empty();
             }
@@ -539,7 +530,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             query.setPageNum(1);
         }
         if (query.getPageSize() == null || query.getPageSize() < 1) {
-            query.setPageSize(10);
+            query.setPageSize(RoomConst.DEFAULT_PAGE_SIZE);
         }
         Integer status = resolveStatus(query);
         long total = roomMapper.countUserRoomsWithRelationship(userId, status);
@@ -579,7 +570,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
             return query.getStatus();
         }
         if (!Boolean.TRUE.equals(query.getIncludeHistory())) {
-            return 0;
+            return RoomConst.STATUS_ACTIVE;
         }
         return null;
     }
