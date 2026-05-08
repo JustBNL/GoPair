@@ -3,7 +3,7 @@
     :open="visible"
     title="重新开启房间"
     :confirm-loading="reopenLoading"
-    :width="400"
+    :width="440"
     centered
     @ok="handleConfirm"
     @cancel="handleCancel"
@@ -17,20 +17,42 @@
         <span class="value">{{ room.roomName }}</span>
       </div>
       <div class="reopen-hours-selector">
-        <a-radio-group v-model:value="selectedHours">
+        <a-radio-group v-model:value="selectedPreset">
           <a-radio-button v-for="opt in RENEW_HOURS_OPTIONS" :key="opt.value" :value="opt.value">
             {{ opt.label }}
           </a-radio-button>
+          <a-radio-button :value="-1">自定义</a-radio-button>
         </a-radio-group>
+        <Transition name="slide-fade">
+          <div v-if="selectedPreset === -1" class="custom-duration-panel">
+            <a-input-number
+              v-model:value="customValue"
+              :min="1"
+              :max="customMaxByUnit"
+              :precision="0"
+              size="large"
+              placeholder="请输入数值"
+              class="custom-value-input"
+            />
+            <a-select
+              v-model:value="customUnit"
+              :options="TIME_UNIT_OPTIONS"
+              class="custom-unit-select"
+            />
+            <span class="custom-equivalent" v-if="customValue > 0">
+              等效 {{ customValue }} {{ unitLabel }} = {{ customHours }}小时
+            </span>
+          </div>
+        </Transition>
       </div>
     </div>
   </a-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { RENEW_HOURS_OPTIONS } from '@/types/room'
+import { RENEW_HOURS_OPTIONS, TIME_UNIT_OPTIONS, TimeUnit, convertToHours } from '@/types/room'
 import { useRoomStore } from '@/stores/room'
 import type { RoomInfo } from '@/types/room'
 
@@ -49,20 +71,52 @@ interface Emits {
 const emit = defineEmits<Emits>()
 
 const roomStore = useRoomStore()
-const selectedHours = ref(24)
+const selectedPreset = ref<number>(24)
+const customValue = ref<number>(1)
+const customUnit = ref<TimeUnit>(TimeUnit.DAYS)
 const reopenLoading = ref(false)
+
+const customHours = computed(() => {
+  if (customValue.value <= 0) return 0
+  return convertToHours({ value: customValue.value, unit: customUnit.value })
+})
+
+const customMaxByUnit = computed(() => {
+  switch (customUnit.value) {
+    case TimeUnit.MINUTES: return 14400
+    case TimeUnit.HOURS:   return 240
+    case TimeUnit.DAYS:    return 10
+  }
+})
+
+const unitLabel = computed(() => {
+  const map: Record<TimeUnit, string> = {
+    [TimeUnit.MINUTES]: '分钟',
+    [TimeUnit.HOURS]: '小时',
+    [TimeUnit.DAYS]: '天'
+  }
+  return map[customUnit.value]
+})
 
 watch(() => props.visible, (newVal) => {
   if (newVal) {
-    selectedHours.value = 24
+    selectedPreset.value = 24
+    customValue.value = 1
+    customUnit.value = TimeUnit.DAYS
   }
 })
 
 async function handleConfirm() {
   if (!props.room) return
+  let extendHours: number
+  if (selectedPreset.value === -1) {
+    extendHours = convertToHours({ value: customValue.value, unit: customUnit.value })
+  } else {
+    extendHours = selectedPreset.value
+  }
   reopenLoading.value = true
   try {
-    await roomStore.reopenRoom(props.room.roomId, selectedHours.value)
+    await roomStore.reopenRoom(props.room.roomId, extendHours)
     emit('update:visible', false)
     emit('success', roomStore.currentRoom || props.room)
     message.success('房间已重新开启')
@@ -120,5 +174,44 @@ function handleCancel() {
   flex: 1;
   text-align: center;
   min-width: 70px;
+}
+
+.custom-duration-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--surface-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+}
+
+.custom-value-input {
+  width: 120px;
+}
+
+.custom-unit-select {
+  width: 100px;
+}
+
+.custom-equivalent {
+  width: 100%;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.slide-fade-enter-active {
+  transition: all 0.2s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.15s ease-in;
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>

@@ -102,6 +102,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         }
 
         int expireHours = roomDto.getExpireHours() != null ? roomDto.getExpireHours() : roomConfig.getDefaultExpireHours();
+        if (expireHours > roomConfig.getMaxExpireHours()) {
+            throw new RoomException(RoomErrorCode.PARAM_INVALID);
+        }
         String roomCode = RoomCodeUtils.generateWithRetry(this::isRoomCodeUnique);
         int passwordMode = roomDto.getPasswordMode();
 
@@ -543,7 +546,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
-        if (extendHours == null || extendHours < 1 || extendHours > 168) {
+        if (extendHours == null || extendHours < 1 || extendHours > roomConfig.getMaxExpireHours()) {
             throw new RoomException(RoomErrorCode.PARAM_INVALID);
         }
 
@@ -626,7 +629,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
-        if (expireHours == null || expireHours < 1 || expireHours > 168) {
+        if (expireHours == null || expireHours < 1 || expireHours > roomConfig.getMaxExpireHours()) {
             throw new RoomException(RoomErrorCode.PARAM_INVALID);
         }
 

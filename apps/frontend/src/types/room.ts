@@ -114,6 +114,9 @@ export interface CreateRoomFormData {
   description: string
   maxMembers: number
   expireHours: number
+  expirePreset: number       // 预设档位（-1 表示自定义）
+  customDurationValue?: number  // 自定义数值
+  customDurationUnit?: TimeUnit // 自定义单位
   passwordMode: number
   rawPassword: string
   passwordVisible: number
@@ -135,6 +138,48 @@ export const RENEW_HOURS_OPTIONS = [
 ] as const
 
 export type RenewHoursOption = typeof RENEW_HOURS_OPTIONS[number]['value']
+
+/**
+ * 时间单位枚举
+ */
+export enum TimeUnit {
+  MINUTES = 'minutes',
+  HOURS = 'hours',
+  DAYS = 'days'
+}
+
+/**
+ * 时间单位选项（用于下拉选择器）
+ */
+export const TIME_UNIT_OPTIONS = [
+  { value: TimeUnit.MINUTES, label: '分钟' },
+  { value: TimeUnit.HOURS, label: '小时' },
+  { value: TimeUnit.DAYS, label: '天' }
+] as const
+
+/**
+ * 自定义时长输入数据接口
+ */
+export interface CustomDurationInput {
+  value: number
+  unit: TimeUnit
+}
+
+/**
+ * 将自定义时长输入转换为小时数
+ * @param input 自定义时长输入
+ * @returns 小时数
+ */
+export function convertToHours(input: CustomDurationInput): number {
+  switch (input.unit) {
+    case TimeUnit.MINUTES:
+      return Math.ceil(input.value / 60)
+    case TimeUnit.HOURS:
+      return input.value
+    case TimeUnit.DAYS:
+      return input.value * 24
+  }
+}
 
 /**
  * 房间Store状态接口

@@ -36,6 +36,13 @@ public class RoomConfig {
     private Integer defaultExpireHours = 24;
     
     /**
+     * 房间最大过期时长（小时），限制创建/续期/重新开启时传入的上限
+     * 10天 = 240小时
+     */
+    @Positive
+    private Integer maxExpireHours = 240;
+    
+    /**
      * 房间码长度
      */
     @Positive

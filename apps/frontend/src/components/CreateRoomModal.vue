@@ -83,9 +83,9 @@
             </a-form-item>
 
             <!-- 房间有效期 -->
-            <a-form-item name="expireHours" label="房间有效期">
+            <a-form-item name="expirePreset" label="房间有效期">
               <a-select
-                v-model:value="formData.expireHours"
+                v-model:value="formData.expirePreset"
                 size="large"
                 placeholder="选择有效期"
               >
@@ -96,7 +96,30 @@
                 <a-select-option :value="48">48小时</a-select-option>
                 <a-select-option :value="72">72小时</a-select-option>
                 <a-select-option :value="168">1周</a-select-option>
+                <a-select-option :value="-1">自定义</a-select-option>
               </a-select>
+              <Transition name="slide-fade">
+                <div v-if="formData.expirePreset === -1" class="custom-duration-panel">
+                  <a-input-number
+                    v-model:value="formData.customDurationValue"
+                    :min="1"
+                    :max="createCustomMaxByUnit"
+                    :precision="0"
+                    size="large"
+                    placeholder="请输入数值"
+                    class="custom-value-input"
+                  />
+                  <a-select
+                    v-model:value="formData.customDurationUnit"
+                    :options="TIME_UNIT_OPTIONS"
+                    size="large"
+                    class="custom-unit-select"
+                  />
+                  <span class="custom-equivalent" v-if="formData.customDurationValue > 0">
+                    等效 {{ formData.customDurationValue }} {{ createUnitLabel }} = {{ createCustomHours }}小时
+                  </span>
+                </div>
+              </Transition>
             </a-form-item>
 
             <!-- 房间密码 -->
@@ -169,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, h } from 'vue'
+import { ref, reactive, computed, watch, h } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance } from 'ant-design-vue'
 import {
@@ -180,6 +203,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useRoomStore } from '@/stores/room'
 import type { CreateRoomFormData, RoomInfo } from '@/types/room'
+import { TimeUnit, TIME_UNIT_OPTIONS, convertToHours } from '@/types/room'
 
 // ==================== 组件属性 ====================
 
@@ -212,6 +236,9 @@ const formData = reactive<CreateRoomFormData>({
   description: '',
   maxMembers: 10,
   expireHours: 24,
+  expirePreset: 24,
+  customDurationValue: 1,
+  customDurationUnit: TimeUnit.DAYS,
   passwordMode: 0,
   rawPassword: '',
   passwordVisible: 1
@@ -231,10 +258,34 @@ const formRules = {
     { required: true, message: '请设置最大成员数' },
     { type: 'number', min: 2, max: 1000, message: '成员数必须在2-1000之间' }
   ],
-  expireHours: [
+  expirePreset: [
     { required: true, message: '请选择房间有效期' }
   ]
 }
+
+// ==================== 计算属性 ====================
+
+const createCustomHours = computed(() => {
+  if (formData.customDurationValue <= 0) return 0
+  return convertToHours({ value: formData.customDurationValue, unit: formData.customDurationUnit })
+})
+
+const createCustomMaxByUnit = computed(() => {
+  switch (formData.customDurationUnit) {
+    case TimeUnit.MINUTES: return 14400
+    case TimeUnit.HOURS:   return 240
+    case TimeUnit.DAYS:    return 10
+  }
+})
+
+const createUnitLabel = computed(() => {
+  const map: Record<TimeUnit, string> = {
+    [TimeUnit.MINUTES]: '分钟',
+    [TimeUnit.HOURS]: '小时',
+    [TimeUnit.DAYS]: '天'
+  }
+  return map[formData.customDurationUnit]
+})
 
 // ==================== 监听器 ====================
 
@@ -263,12 +314,19 @@ async function handleSubmit(values: CreateRoomFormData) {
     }
   }
 
+  let finalExpireHours: number
+  if (values.expirePreset === -1) {
+    finalExpireHours = convertToHours({ value: values.customDurationValue!, unit: values.customDurationUnit! })
+  } else {
+    finalExpireHours = values.expirePreset
+  }
+
   try {
     const room = await roomStore.createRoom({
       roomName: values.roomName.trim(),
       description: values.description?.trim() || undefined,
       maxMembers: values.maxMembers,
-      expireHours: values.expireHours,
+      expireHours: finalExpireHours,
       passwordMode: values.passwordMode,
       rawPassword: values.passwordMode === 1 ? values.rawPassword : undefined,
       passwordVisible: values.passwordMode !== 0 ? values.passwordVisible : undefined
@@ -306,6 +364,9 @@ function resetForm() {
   formData.description = ''
   formData.maxMembers = 10
   formData.expireHours = 24
+  formData.expirePreset = 24
+  formData.customDurationValue = 1
+  formData.customDurationUnit = TimeUnit.DAYS
   formData.passwordMode = 0
   formData.rawPassword = ''
   formData.passwordVisible = 1
@@ -321,11 +382,18 @@ function resetForm() {
 
 :deep(.create-room-modal .ant-modal-content) {
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 :deep(.create-room-modal .ant-modal-body) {
   padding: 0;
+}
+
+:deep(.ant-modal.create-room-modal .ant-modal-close) {
+  position: absolute !important;
+  right: 4px !important;
+  top: 14px !important;
 }
 
 /* ==================== 模态框头部 ==================== */
@@ -382,7 +450,11 @@ function resetForm() {
 /* ==================== 高级设置 ==================== */
 
 .advanced-settings {
-  margin: 8px 0;
+  margin: -24px 0 8px;
+}
+
+:deep(.create-form > .ant-form-item:nth-last-child(2)) {
+  margin-bottom: 4px;
 }
 
 :deep(.advanced-settings .ant-collapse-header) {
@@ -443,7 +515,7 @@ function resetForm() {
 .form-actions {
   display: flex;
   gap: 12px;
-  margin-top: 32px;
+  margin-top: 16px;
 }
 
 .cancel-btn {
@@ -525,6 +597,47 @@ function resetForm() {
   .submit-btn {
     flex: none;
   }
+}
+
+/* ==================== 自定义时长面板 ==================== */
+
+.custom-duration-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--surface-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+}
+
+.custom-value-input {
+  width: 120px;
+}
+
+.custom-unit-select {
+  width: 100px;
+}
+
+.custom-equivalent {
+  width: 100%;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.slide-fade-enter-active {
+  transition: all 0.2s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.15s ease-in;
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>
 
