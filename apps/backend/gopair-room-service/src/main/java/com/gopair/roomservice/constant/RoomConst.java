@@ -204,14 +204,15 @@ public final class RoomConst {
     /** 消息服务清理接口前缀 */
     public static final String MESSAGE_SERVICE_URL = "http://message-service/message/room/";
 
-    /** 语音通话服务清理接口前缀 */
-    public static final String VOICE_SERVICE_URL = "http://voice-service/voice-call/room/";
+    /** 语音通话服务接口前缀 */
+    public static final String VOICE_SERVICE_URL = "http://voice-service/voice/room/";
+
+    /** 语音通话服务优雅终止接口前缀（广播 call_end） */
+    public static final String VOICE_SERVICE_END_ALL_URL = "http://voice-service/voice/room/";
 
     // ====================================================================
     // 布尔标志语义常量
     // ====================================================================
-
-    /** 密码可见性 — 对成员可见 */
     public static final int PASSWORD_VISIBLE = 1;
 
     /** 密码可见性 — 对成员隐藏 */

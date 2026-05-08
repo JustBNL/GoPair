@@ -321,6 +321,56 @@ public class VoiceCallServiceImpl implements VoiceCallService {
         return calls.size();
     }
 
+    @Override
+    public int endAllCallsInRoom(Long roomId) {
+        List<VoiceCall> activeCalls = voiceCallMapper.selectList(
+                new LambdaQueryWrapper<VoiceCall>()
+                        .eq(VoiceCall::getRoomId, roomId)
+                        .eq(VoiceCall::getStatus, CallStatus.IN_PROGRESS.getCode())
+        );
+
+        if (activeCalls.isEmpty()) {
+            log.info("[语音服务] 房间{}无活跃通话，跳过终止", roomId);
+            return 0;
+        }
+
+        int count = 0;
+        for (VoiceCall call : activeCalls) {
+            if (call.getStatus() == CallStatus.IN_PROGRESS.getCode()) {
+                call.setStatus(CallStatus.ENDED.getCode());
+                call.setEndTime(LocalDateTime.now());
+                if (call.getStartTime() != null) {
+                    long seconds = java.time.Duration.between(call.getStartTime(), call.getEndTime()).getSeconds();
+                    call.setDuration((int) Math.max(0, seconds));
+                }
+                voiceCallMapper.updateById(call);
+            }
+
+            List<Long> activeUserIds = getActiveParticipantUserIds(call.getCallId());
+            for (Long uid : activeUserIds) {
+                try {
+                    wsProducer.sendSignalingMessage(uid, Map.of(
+                            "type", "call-end",
+                            "callId", call.getCallId()
+                    ));
+                } catch (Exception e) {
+                    log.warn("[语音服务] 发送 call-end 信令失败: callId={}, userId={}", call.getCallId(), uid, e);
+                }
+            }
+
+            wsProducer.sendEventToRoom(roomId, "call_end", Map.of(
+                    "callId", call.getCallId(),
+                    "roomId", roomId
+            ));
+
+            count++;
+            log.info("[语音服务] 房间{}下通话{}已终止", roomId, call.getCallId());
+        }
+
+        log.info("[语音服务] 房间{}共终止{}个活跃通话", roomId, count);
+        return count;
+    }
+
     // -------------------------------------------------------------------------
     // 私有工具方法
     // -------------------------------------------------------------------------

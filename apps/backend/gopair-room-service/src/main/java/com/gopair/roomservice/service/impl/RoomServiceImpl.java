@@ -415,6 +415,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                     } catch (Exception e) {
                         log.warn("[房间服务] 发送 room_closed 事件失败: roomId={}, operatorId={}", roomId, userId);
                     }
+                    // 强制终止房间内所有语音通话
+                    try {
+                        Integer count = restTemplate.postForObject(
+                                RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, Integer.class);
+                        log.info("[房间服务] 房间{}关闭，语音通话终止完成，共终止{}个通话", roomId, count);
+                    } catch (Exception e) {
+                        log.warn("[房间服务] 房间{}关闭时终止语音通话失败: {}", roomId, e.getMessage());
+                    }
                 }
             });
         }
@@ -495,6 +503,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                 ));
             } catch (Exception e) {
                 log.warn("[房间服务][schedule] 房间{}系统关闭事件发送失败", roomId, e);
+            }
+            // 强制终止房间内所有语音通话
+            try {
+                Integer count = restTemplate.postForObject(
+                        RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, Integer.class);
+                log.info("[房间服务][schedule] 房间{}系统关闭，语音通话终止完成，共终止{}个通话", roomId, count);
+            } catch (Exception e) {
+                log.warn("[房间服务][schedule] 房间{}系统关闭时终止语音通话失败: {}", roomId, e.getMessage());
             }
         }
     }

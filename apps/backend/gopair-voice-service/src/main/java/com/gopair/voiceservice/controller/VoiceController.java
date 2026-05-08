@@ -138,4 +138,15 @@ public class VoiceController {
             @Parameter(description = "房间ID") @PathVariable Long roomId) {
         return R.ok(voiceCallService.cleanupRoomVoiceCalls(roomId));
     }
+
+    /**
+     * 结束房间内所有活跃通话（优雅终止，广播 call_end）。
+     * 由房间关闭时调用，保证前端能收到通话结束通知。
+     */
+    @Operation(summary = "结束房间内所有语音通话")
+    @PostMapping("/room/{roomId}/end-all")
+    public R<Integer> endAllCalls(
+            @Parameter(description = "房间ID") @PathVariable Long roomId) {
+        return R.ok(voiceCallService.endAllCallsInRoom(roomId));
+    }
 }

@@ -420,6 +420,91 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         }
     }
 
+    // ==================== 分支流 D：房间关闭优雅终止 ====================
+
+    @Nested
+    @DisplayName("分支流 D：房间关闭优雅终止")
+    class RoomCloseGracefulTerminateFlow {
+
+        private void flushRedis() {
+            var factory = stringRedisTemplate.getConnectionFactory();
+            if (factory != null && factory.getConnection() != null) {
+                factory.getConnection().serverCommands().flushDb();
+            }
+        }
+
+        @BeforeEach
+        void cleanup() {
+            testDataCleaner.cleanupAll();
+            flushRedis();
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("POST /voice/room/{roomId}/end-all -> 有活跃通话时终止所有通话")
+        void endAllCalls_WithActiveCalls_ShouldTerminateAll() {
+            Long roomId = nextRoomId();
+            Long ownerId = 60100L;
+            Long userId1 = 60101L;
+            Long userId2 = 60102L;
+
+            // 场景：创建两个通话（ownerId 和 userId1 各创建一个）
+            CallVO call1 = voiceCallService.joinOrCreateCall(roomId, ownerId);
+            voiceCallService.joinCall(call1.getCallId(), userId1);
+
+            Long roomId2 = nextRoomId();
+            CallVO call2 = voiceCallService.joinOrCreateCall(roomId2, userId2);
+
+            log.info("==== [POST /voice/room/{}/end-all] ====", roomId);
+
+            // 调用 end-all 终止 roomId 下的所有通话
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + roomId + "/end-all"),
+                    null,
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+            assertThat(response.getBody().getData()).isEqualTo(1);
+
+            // 验证通话1状态变为 ENDED
+            Object[] call1Row = selectCall(call1.getCallId());
+            assertThat(call1Row).isNotNull();
+            assertThat(call1Row[4]).isEqualTo(CallStatus.ENDED.getCode()); // status
+            assertThat(call1Row[6]).isNotNull(); // end_time
+
+            // 验证通话2（不同房间）状态不变
+            Object[] call2Row = selectCall(call2.getCallId());
+            assertThat(call2Row).isNotNull();
+            assertThat(call2Row[4]).isEqualTo(CallStatus.IN_PROGRESS.getCode()); // status
+
+            log.info("房间{}共终止1个通话(callId={})，另一房间{}通话(callId={})状态保持IN_PROGRESS",
+                    roomId, call1.getCallId(), roomId2, call2.getCallId());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("POST /voice/room/{roomId}/end-all -> 无活跃通话时返回0")
+        void endAllCalls_NoActiveCalls_ShouldReturnZero() {
+            Long emptyRoomId = freshRoomId();
+
+            log.info("==== [POST /voice/room/{}/end-all 无活跃通话] ====", emptyRoomId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + emptyRoomId + "/end-all"),
+                    null,
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+            assertThat(response.getBody().getData()).isEqualTo(0);
+
+            log.info("无活跃通话: roomId={}, 返回0", emptyRoomId);
+        }
+    }
+
     // ==================== 辅助方法 ====================
 
     private HttpHeaders userHeaders(Long userId, String nickname) {

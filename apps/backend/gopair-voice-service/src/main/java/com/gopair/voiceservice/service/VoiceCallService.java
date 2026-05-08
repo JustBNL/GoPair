@@ -53,4 +53,19 @@ public interface VoiceCallService {
 
     /** 清理房间的所有语音通话记录（删除通话及参与者） */
     int cleanupRoomVoiceCalls(Long roomId);
+
+    /**
+     * 结束房间内所有活跃通话（优雅终止，广播 call_end）。
+     * 由房间关闭时调用，保证前端能收到通话结束通知。
+     *
+     * * [执行链路]
+     * 1. 查询房间内所有 status=IN_PROGRESS 的通话。
+     * 2. 逐个设置通话状态为 ENDED，并记录 endTime。
+     * 3. 向每个通话的所有活跃参与者发送 call-end 信令。
+     * 4. 向房间广播 call_end WebSocket 事件。
+     *
+     * @param roomId 房间ID
+     * @return 终止的通话数量
+     */
+    int endAllCallsInRoom(Long roomId);
 }
