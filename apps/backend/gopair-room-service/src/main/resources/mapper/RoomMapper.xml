@@ -11,13 +11,13 @@
         create_time, update_time
     </sql>
 
-    <!-- 根据房间码查询房间（支持活跃、已过期和已禁用状态，已禁用和已过期允许只读进入） -->
+    <!-- 根据房间码查询房间 -->
     <select id="selectByRoomCode" resultType="com.gopair.roomservice.domain.po.Room">
         SELECT
             <include refid="Base_Column_List" />
         FROM room
         WHERE room_code = #{roomCode}
-        AND status IN (0, 2, 4)
+        AND status IN (0, 1, 2, 4)
     </select>
 
     <!-- 查询过期房间列表（定时任务废弃，仅保留兼容） -->
@@ -75,7 +75,7 @@
 
     <!-- 更新房间当前成员数（手工CAS，保留兼容） -->
     <update id="updateCurrentMembers">
-        UPDATE room 
+        UPDATE room
         SET current_members = #{currentMembers},
             version = version + 1,
             update_time = NOW()
@@ -199,4 +199,4 @@
           AND status IN (0, 2)
     </update>
 
-</mapper> 
+</mapper>

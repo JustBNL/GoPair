@@ -23,7 +23,9 @@ public class FileManageService {
 
     public IPage<FileVO> getFilePage(FilePageQuery query) {
         Page<FileVO> page = new Page<>(query.pageNum(), query.pageSize());
-        return roomFileMapper.selectFilePage(page, query);
+
+        IPage<FileVO> filePage = roomFileMapper.selectFilePage(page, query);
+        return filePage;
     }
 
     public RoomFile getFileById(Long fileId) {

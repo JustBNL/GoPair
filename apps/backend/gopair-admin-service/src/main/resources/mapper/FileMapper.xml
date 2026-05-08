@@ -5,6 +5,7 @@
 
     <resultMap id="FileVOMap" type="com.gopair.adminservice.domain.vo.FileVO" autoMapping="true">
         <id column="file_id" property="fileId"/>
+        <result column="room_name" property="roomName"/>
     </resultMap>
 
     <select id="selectFilePage" resultMap="FileVOMap">

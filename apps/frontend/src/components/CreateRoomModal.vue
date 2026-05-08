@@ -100,21 +100,25 @@
               </a-select>
               <Transition name="slide-fade">
                 <div v-if="formData.expirePreset === -1" class="custom-duration-panel">
-                  <a-input-number
-                    v-model:value="formData.customDurationValue"
-                    :min="1"
-                    :max="createCustomMaxByUnit"
-                    :precision="0"
-                    size="large"
-                    placeholder="请输入数值"
-                    class="custom-value-input"
-                  />
-                  <a-select
-                    v-model:value="formData.customDurationUnit"
-                    :options="TIME_UNIT_OPTIONS"
-                    size="large"
-                    class="custom-unit-select"
-                  />
+                  <a-form-item name="customDurationValue" class="custom-duration-form-item">
+                    <a-input-number
+                      v-model:value="formData.customDurationValue"
+                      :min="1"
+                      :max="createCustomMaxByUnit"
+                      :precision="0"
+                      size="large"
+                      placeholder="请输入数值"
+                      class="custom-value-input"
+                    />
+                  </a-form-item>
+                  <a-form-item name="customDurationUnit" class="custom-duration-form-item">
+                    <a-select
+                      v-model:value="formData.customDurationUnit"
+                      :options="TIME_UNIT_OPTIONS"
+                      size="large"
+                      class="custom-unit-select"
+                    />
+                  </a-form-item>
                   <span class="custom-equivalent" v-if="formData.customDurationValue > 0">
                     等效 {{ formData.customDurationValue }} {{ createUnitLabel }} = {{ createCustomHours }}小时
                   </span>
@@ -260,6 +264,13 @@ const formRules = {
   ],
   expirePreset: [
     { required: true, message: '请选择房间有效期' }
+  ],
+  customDurationValue: [
+    { required: true, message: '请输入时长数值' },
+    { type: 'number', min: 1, message: '时长必须大于0' }
+  ],
+  customDurationUnit: [
+    { required: true, message: '请选择时长单位' }
   ]
 }
 
@@ -611,6 +622,10 @@ function resetForm() {
   background: var(--surface-bg);
   border-radius: 8px;
   border: 1px solid var(--border-default);
+}
+
+.custom-duration-form-item {
+  display: contents;
 }
 
 .custom-value-input {

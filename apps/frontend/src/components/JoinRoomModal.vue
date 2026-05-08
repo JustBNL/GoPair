@@ -75,6 +75,10 @@
             <a-tag :color="previewStatusColor" class="status-tag">
               {{ previewStatusText }}
             </a-tag>
+            <div class="blocked-hint" v-if="blockedHintText">
+              <WarningOutlined class="blocked-hint-icon" />
+              <span>{{ blockedHintText }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -93,7 +97,7 @@
 
       <!-- 房间密码输入（有密码时显示） -->
       <a-form-item
-        v-if="roomPreview && roomPreview.passwordMode && roomPreview.passwordMode !== 0"
+        v-if="isRoomJoinable && roomPreview.passwordMode && roomPreview.passwordMode !== 0"
         name="password"
         :label="roomPreview.passwordMode === 2 ? '动态令牌' : '房间密码'"
       >
@@ -186,6 +190,7 @@ const previewStatusColor = computed(() => {
   if (s === ROOM_STATUS.CLOSED) return 'red'
   if (s === ROOM_STATUS.EXPIRED) return 'orange'
   if (s === ROOM_STATUS.ARCHIVED) return 'default'
+  if (s === ROOM_STATUS.DISABLED) return 'red'
   if (isRoomFull.value) return 'orange'
   if (isRoomExpiringSoon.value) return 'orange'
   return 'green'
@@ -197,14 +202,26 @@ const previewStatusText = computed(() => {
   if (s === ROOM_STATUS.CLOSED) return '已关闭'
   if (s === ROOM_STATUS.EXPIRED) return '已过期（只读）'
   if (s === ROOM_STATUS.ARCHIVED) return '已归档'
+  if (s === ROOM_STATUS.DISABLED) return '已禁用'
   if (isRoomFull.value) return '房间已满'
   if (isRoomExpiringSoon.value) return '即将过期'
   return '可加入'
 })
 
+const blockedHintText = computed(() => {
+  if (!roomPreview.value || isRoomJoinable.value) return ''
+  const s = roomPreview.value.status
+  if (s === ROOM_STATUS.CLOSED) return '该房间已关闭，无法加入'
+  if (s === ROOM_STATUS.EXPIRED) return '该房间已过期，无法加入或操作'
+  if (s === ROOM_STATUS.ARCHIVED) return '该房间已归档，无法加入'
+  if (s === ROOM_STATUS.DISABLED) return '该房间已被管理员禁用，无法操作'
+  if (isRoomFull.value) return '该房间已达人数上限，请联系房主扩容'
+  return ''
+})
+
 const isRoomJoinable = computed(() => {
   if (!roomPreview.value) return false
-  return roomPreview.value.status === ROOM_STATUS.ACTIVE && !isRoomExpired.value && !isRoomFull.value
+  return roomPreview.value.status === ROOM_STATUS.ACTIVE && !isRoomExpired.value && !isRoomFull.value && !isRoomDisabled.value
 })
 
 const isRoomExpired = computed(() => {
@@ -215,6 +232,11 @@ const isRoomExpired = computed(() => {
 const isRoomFull = computed(() => {
   if (!roomPreview.value) return false
   return roomPreview.value.currentMembers >= roomPreview.value.maxMembers
+})
+
+const isRoomDisabled = computed(() => {
+  if (!roomPreview.value) return false
+  return roomPreview.value.status === ROOM_STATUS.DISABLED
 })
 
 const isRoomExpiringSoon = computed(() => {
@@ -258,14 +280,6 @@ async function searchRoom() {
 
 async function handleSubmit(_values: JoinRoomFormData) {
   if (!roomPreview.value) { message.warning('请先输入有效的房间码'); return }
-
-  // EXPIRED 房间直接进入只读模式，跳过异步加入流程
-  if (roomPreview.value.status === ROOM_STATUS.EXPIRED) {
-    resetForm()
-    emit('update:visible', false)
-    emit('success', roomPreview.value)
-    return
-  }
 
   if (!isRoomJoinable.value) { message.warning('该房间当前无法加入'); return }
   // 保存预览，用于成功后 emit
@@ -511,6 +525,26 @@ function resetForm() {
 
 .warning-icon {
   font-size: 16px;
+}
+
+.blocked-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(var(--color-error-rgb), 0.06);
+  border: 1px solid rgba(var(--color-error-rgb), 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--color-error);
+  line-height: 1.4;
+}
+
+.blocked-hint-icon {
+  font-size: 12px;
+  margin-top: 1px;
+  flex-shrink: 0;
 }
 
 /* ==================== 操作按钮 ==================== */

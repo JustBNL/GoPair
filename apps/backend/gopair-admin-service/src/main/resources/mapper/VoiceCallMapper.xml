@@ -6,6 +6,8 @@
     <resultMap id="VoiceCallVOMap" type="com.gopair.adminservice.domain.vo.VoiceCallVO" autoMapping="true">
         <id column="call_id" property="callId"/>
         <result column="is_auto_created" property="isAutoCreated"/>
+        <result column="room_name" property="roomName"/>
+        <result column="initiator_nickname" property="initiatorNickname"/>
     </resultMap>
 
     <select id="selectVoiceCallPage" resultMap="VoiceCallVOMap">

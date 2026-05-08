@@ -7,6 +7,11 @@
         <id column="message_id" property="messageId"/>
         <result column="is_recalled" property="isRecalled"/>
         <result column="recalled_at" property="recalledAt"/>
+        <result column="room_name" property="roomName"/>
+        <result column="owner_id" property="ownerId"/>
+        <result column="sender_nickname" property="senderNickname"/>
+        <result column="reply_to_content" property="replyToContent"/>
+        <result column="reply_to_sender_nickname" property="replyToSenderNickname"/>
     </resultMap>
 
     <select id="selectMessagePage" resultMap="MessageVOMap">
