@@ -95,11 +95,8 @@ public final class RoomConst {
     // 定时清理阈值（小时）
     // ====================================================================
 
-    /** 过期房间转为已关闭的前置阈值（小时），expire_time < now - N 小时后触发系统关闭 */
+    /** 关闭房间转为已归档的前置阈值（小时），closed_time < now - N 小时后触发归档 */
     public static final int EXPIRED_TO_CLOSED_HOURS = 24;
-
-    /** 禁用房间转为已关闭的前置阈值（小时），disabled_time < now - N 小时后触发系统关闭 */
-    public static final int DISABLED_TO_CLOSED_HOURS = 24;
 
     // ====================================================================
     // 续期时长选项（小时）

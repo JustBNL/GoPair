@@ -215,8 +215,8 @@ const reopenTargetRoom = ref<RoomInfo | null>(null)
 // 房间关系筛选状态：'all' | 'created' | 'joined'
 const roomFilter = ref<'all' | 'created' | 'joined'>('all')
 
-// 房间状态筛选状态：'all' | 'active' | 'closed' | 'expired'
-const statusFilter = ref<'all' | 'active' | 'closed' | 'expired'>('all')
+// 房间状态筛选状态：'all' | 'active' | 'closed' | 'expired' | 'disabled'
+const statusFilter = ref<'all' | 'active' | 'closed' | 'expired' | 'disabled'>('all')
 
 // 关系筛选选项配置
 const filterOptions = [
@@ -230,7 +230,8 @@ const statusOptions = [
   { label: '全部', value: 'all' },
   { label: '活跃', value: 'active' },
   { label: '已关闭', value: 'closed' },
-  { label: '已过期', value: 'expired' }
+  { label: '已过期', value: 'expired' },
+  { label: '已禁用', value: 'disabled' }
 ]
 
 const nicknameInitial = computed(() => {
@@ -272,10 +273,11 @@ const emptyDescription = computed(() => {
  */
 function buildStatusQuery(value: string): { status?: number; includeHistory?: boolean } {
   switch (value) {
-    case 'all':    return { includeHistory: true }
-    case 'active': return { status: 0 }
-    case 'closed': return { status: 1 }
+    case 'all':     return { includeHistory: true }
+    case 'active':  return { status: 0 }
+    case 'closed':  return { status: 1 }
     case 'expired': return { status: 2 }
+    case 'disabled': return { status: 4 }
   }
 }
 

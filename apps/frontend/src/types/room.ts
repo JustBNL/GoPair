@@ -101,7 +101,8 @@ export const ROOM_STATUS = {
   ACTIVE: 0,
   CLOSED: 1,
   EXPIRED: 2,
-  ARCHIVED: 3
+  ARCHIVED: 3,
+  DISABLED: 4
 } as const
 
 export type RoomStatus = typeof ROOM_STATUS[keyof typeof ROOM_STATUS]

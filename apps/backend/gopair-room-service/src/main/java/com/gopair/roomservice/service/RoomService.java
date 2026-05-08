@@ -176,14 +176,6 @@ public interface RoomService {
     void systemCloseRoom(Long roomId);
 
     /**
-     * 系统关闭禁用房间（不检查权限），由定时任务触发。
-     * 用于 DISABLED 状态超时后的自动关闭。
-     *
-     * @param roomId 房间ID
-     */
-    void systemCloseDisabledRoom(Long roomId);
-
-    /**
      * 续期房间：将 ACTIVE 或 EXPIRED 房间的过期时间延长，并将状态恢复为 ACTIVE。
      *
      * @param roomId      房间ID

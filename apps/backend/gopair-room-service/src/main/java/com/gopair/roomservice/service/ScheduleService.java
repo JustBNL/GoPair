@@ -39,22 +39,71 @@ public class ScheduleService {
     @Value("${gopair.schedule.room-archive-threshold-hours:24}")
     private int archiveThresholdHours;
 
-    @Value("${gopair.schedule.room-expired-to-closed-hours:24}")
-    private int expiredToClosedHours;
-
-    @Value("${gopair.schedule.room-disabled-to-closed-hours:24}")
-    private int disabledToClosedHours;
-
     @PostConstruct
     public void init() {
         log.info("[房间服务][schedule] 定时任务服务初始化完成");
     }
 
     /**
-     * 归档已关闭房间：清理资源后写入 status=3。
+     * 房间状态检查和维护：ACTIVE 过期检测。
+     * 每5分钟执行一次（由 gopair.schedule.room-cleanup-interval 配置）。
+     *
+     * * [执行链路]
+     * 1. ACTIVE → EXPIRED：检测 expire_time < now 的房间，将 status 改为 2，closed_time 置 null。
+     */
+    @Scheduled(fixedRateString = "${gopair.schedule.room-cleanup-interval:300000}")
+    @LogRecord(operation = "维护房间状态", module = "定时任务")
+    public void maintainRoomStatus() {
+        log.debug("[房间服务][schedule] 开始执行房间状态维护任务");
+
+        try {
+            // ACTIVE → EXPIRED
+            int expiredCount = processActiveToExpired();
+
+            log.debug("[房间服务][schedule] 房间状态维护完成：过期={}", expiredCount);
+
+        } catch (Exception e) {
+            log.error("[房间服务][schedule] 执行房间状态维护任务失败", e);
+        }
+    }
+
+    /**
+     * 将所有 status=0 且 expire_time < now 的房间改为 EXPIRED（status=2）。
+     */
+    private int processActiveToExpired() {
+        int total = 0;
+        int batchSize = RoomConst.CLEANUP_BATCH_SIZE;
+
+        while (true) {
+            List<Room> expiredRooms = roomMapper.selectExpiredRooms(LocalDateTime.now());
+            if (expiredRooms.isEmpty()) {
+                break;
+            }
+            for (Room room : expiredRooms) {
+                try {
+                    roomService.expireRoom(room.getRoomId());
+                    total++;
+                } catch (Exception e) {
+                    log.warn("[房间服务][schedule] 房间{}过期处理失败", room.getRoomId(), e);
+                }
+            }
+            if (expiredRooms.size() < batchSize) {
+                break;
+            }
+        }
+        return total;
+    }
+
+    /**
+     * 归档已关闭/过期/禁用的房间：清理资源后写入 status=3。
      * 每5分钟执行一次（由 gopair.schedule.room-cleanup-interval 配置），
      * 循环处理直到没有需要归档的房间为止。
      * room 和 room_member 永久保留，只变更 status。
+     *
+     * * [执行链路]
+     * 1. 查询待归档房间：status IN (1,2,4) 且 closed_time/expire_time/disabled_time 超过阈值。
+     * 2. 清理资源：调用 message/file/voice-service 清理关联数据。
+     * 3. 写入 status=3（已归档）。
      */
     @Scheduled(fixedRateString = "${gopair.schedule.room-cleanup-interval:300000}")
     @LogRecord(operation = "归档已关闭房间", module = "定时任务")
@@ -107,121 +156,6 @@ public class ScheduleService {
         } catch (Exception e) {
             log.error("[房间服务][schedule] 执行归档任务失败", e);
         }
-    }
-
-    /**
-     * 房间状态检查和维护：过期检测 + 超时过期房间系统关闭 + 禁用房间超时关闭。
-     * 每5分钟执行一次（由 gopair.schedule.room-cleanup-interval 配置）。
-     *
-     * * [执行链路]
-     * 1. ACTIVE → EXPIRED：检测 expire_time < now 的房间，将 status 改为 2，closed_time 置 null。
-     * 2. EXPIRED → CLOSED：检测 expire_time < now - expiredToClosedHours 的房间，执行系统关闭（status → 1，closed_time = now）。
-     * 3. DISABLED → CLOSED：检测 disabled_time < now - disabledToClosedHours 的房间，执行系统关闭（status → 1，closed_time = now）。
-     */
-    @Scheduled(fixedRateString = "${gopair.schedule.room-cleanup-interval:300000}")
-    @LogRecord(operation = "维护房间状态", module = "定时任务")
-    public void maintainRoomStatus() {
-        log.debug("[房间服务][schedule] 开始执行房间状态维护任务");
-
-        try {
-            // Step 1: ACTIVE → EXPIRED
-            int expiredCount = processActiveToExpired();
-
-            // Step 2: EXPIRED → CLOSED（系统关闭）
-            int closedCount = processExpiredToClosed();
-
-            // Step 3: DISABLED → CLOSED（系统关闭）
-            int disabledClosedCount = processDisabledToClosed();
-
-            log.debug("[房间服务][schedule] 房间状态维护完成：过期={}，系统关闭={}，禁用转关闭={}", expiredCount, closedCount, disabledClosedCount);
-
-        } catch (Exception e) {
-            log.error("[房间服务][schedule] 执行房间状态维护任务失败", e);
-        }
-    }
-
-    /**
-     * 将所有 status=0 且 expire_time < now 的房间改为 EXPIRED（status=2）。
-     */
-    private int processActiveToExpired() {
-        int total = 0;
-        int batchSize = RoomConst.CLEANUP_BATCH_SIZE;
-
-        while (true) {
-            List<Room> expiredRooms = roomMapper.selectExpiredRooms(LocalDateTime.now());
-            if (expiredRooms.isEmpty()) {
-                break;
-            }
-            for (Room room : expiredRooms) {
-                try {
-                    roomService.expireRoom(room.getRoomId());
-                    total++;
-                } catch (Exception e) {
-                    log.warn("[房间服务][schedule] 房间{}过期处理失败", room.getRoomId(), e);
-                }
-            }
-            if (expiredRooms.size() < batchSize) {
-                break;
-            }
-        }
-        return total;
-    }
-
-    /**
-     * 将所有 status=2 且 expire_time < now - expiredToClosedHours 小时的房间改为 CLOSED（status=1）。
-     */
-    private int processExpiredToClosed() {
-        int total = 0;
-        int batchSize = RoomConst.CLEANUP_BATCH_SIZE;
-
-        while (true) {
-            LocalDateTime threshold = LocalDateTime.now().minusHours(expiredToClosedHours);
-            List<Room> toClose = roomMapper.selectExpiredRoomsToClose(threshold);
-            if (toClose.isEmpty()) {
-                break;
-            }
-            for (Room room : toClose) {
-                try {
-                    // 系统关闭，不检查权限，operaterId 传 null
-                    roomService.systemCloseRoom(room.getRoomId());
-                    total++;
-                } catch (Exception e) {
-                    log.warn("[房间服务][schedule] 房间{}系统关闭失败", room.getRoomId(), e);
-                }
-            }
-            if (toClose.size() < batchSize) {
-                break;
-            }
-        }
-        return total;
-    }
-
-    /**
-     * 将所有 status=4 且 disabled_time < now - disabledToClosedHours 小时的房间改为 CLOSED（status=1）。
-     */
-    private int processDisabledToClosed() {
-        int total = 0;
-        int batchSize = RoomConst.CLEANUP_BATCH_SIZE;
-
-        while (true) {
-            LocalDateTime threshold = LocalDateTime.now().minusHours(disabledToClosedHours);
-            List<Room> toClose = roomMapper.selectDisabledRoomsToClose(threshold);
-            if (toClose.isEmpty()) {
-                break;
-            }
-            for (Room room : toClose) {
-                try {
-                    roomService.systemCloseDisabledRoom(room.getRoomId());
-                    total++;
-                } catch (Exception e) {
-                    log.warn("[房间服务][schedule] 禁用房间{}系统关闭失败", room.getRoomId(), e);
-                }
-            }
-            if (toClose.size() < batchSize) {
-                break;
-            }
-        }
-        return total;
     }
 
     /**

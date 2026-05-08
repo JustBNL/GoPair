@@ -532,6 +532,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         if (query.getPageSize() == null || query.getPageSize() < 1) {
             query.setPageSize(RoomConst.DEFAULT_PAGE_SIZE);
         }
+
         Integer status = resolveStatus(query);
         long total = roomMapper.countUserRoomsWithRelationship(userId, status, query.getIncludeHistory());
 

@@ -20,6 +20,7 @@ import com.gopair.roomservice.service.RoomService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,15 +34,11 @@ import java.util.List;
 @Tag(name = "房间管理", description = "房间相关接口")
 @RestController
 @RequestMapping("/room")
+@RequiredArgsConstructor
 public class RoomController {
 
     private final RoomService roomService;
     private final RoomMemberService roomMemberService;
-
-    public RoomController(RoomService roomService, RoomMemberService roomMemberService) {
-        this.roomService = roomService;
-        this.roomMemberService = roomMemberService;
-    }
 
     /** 创建房间 */
     @Operation(summary = "创建房间", description = "创建新房间")

@@ -836,6 +836,7 @@ const statusColor = computed(() => {
   if (s === ROOM_STATUS.CLOSED) return 'red'
   if (s === ROOM_STATUS.EXPIRED) return 'orange'
   if (s === ROOM_STATUS.ARCHIVED) return 'default'
+  if (s === ROOM_STATUS.DISABLED) return 'error'
   return 'success'
 })
 
@@ -846,6 +847,7 @@ const statusText = computed(() => {
   if (s === ROOM_STATUS.CLOSED) return '已关闭'
   if (s === ROOM_STATUS.EXPIRED) return '已过期（只读）'
   if (s === ROOM_STATUS.ARCHIVED) return '已归档'
+  if (s === ROOM_STATUS.DISABLED) return '已禁用'
   return '未知'
 })
 
