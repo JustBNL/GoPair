@@ -124,4 +124,43 @@
         DELETE FROM message WHERE room_id = #{roomId}
     </delete>
 
+    <!-- 游标分页查询房间历史消息（查 beforeMessageId 之前的消息，按 create_time DESC 返回） -->
+    <select id="selectHistoryMessagesBefore" resultMap="MessageVOMap">
+        SELECT <include refid="MessageVOColumns"/>
+        <include refid="MessageTableJoins"/>
+        WHERE m.room_id = #{roomId}
+          AND m.is_recalled = 0
+          <if test="beforeMessageId != null">
+              AND (m.create_time, m.message_id) &lt;
+                  (SELECT create_time, message_id FROM message WHERE message_id = #{beforeMessageId})
+          </if>
+        ORDER BY m.create_time DESC
+        LIMIT #{pageSize}
+    </select>
+
+    <!-- 查询指定消息ID之后的房间消息（用于 WebSocket 离线补发） -->
+    <select id="selectMessagesAfter" resultType="map">
+        SELECT
+            m.message_id,
+            m.room_id,
+            m.sender_id,
+            m.message_type,
+            m.content,
+            m.file_url,
+            m.file_name,
+            m.file_size,
+            m.reply_to_id,
+            m.is_recalled,
+            m.create_time,
+            u.nickname as sender_nickname,
+            u.avatar as sender_avatar
+        FROM message m
+        LEFT JOIN user u ON m.sender_id = u.user_id
+        WHERE m.room_id = #{roomId}
+          AND m.message_id > #{lastMessageId}
+          AND m.is_recalled = 0
+        ORDER BY m.message_id ASC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

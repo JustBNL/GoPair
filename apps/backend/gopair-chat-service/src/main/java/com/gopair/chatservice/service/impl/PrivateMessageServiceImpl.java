@@ -222,6 +222,12 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
         return privateMessageMapper.selectCount(wrapper) > 0;
     }
 
+    @Override
+    public List<Map<String, Object>> queryMessagesAfter(Long conversationId, Long lastMessageId, int limit) {
+        log.info("查询私聊离线补发消息, conversationId={}, afterMessageId={}, limit={}", conversationId, lastMessageId, limit);
+        return privateMessageMapper.selectMessagesAfter(conversationId, lastMessageId, limit);
+    }
+
     private Long computeConversationId(Long userIdA, Long userIdB) {
         long min = Math.min(userIdA, userIdB);
         long max = Math.max(userIdA, userIdB);

@@ -38,6 +38,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
   const connectionState = ref<ConnectionState>(ConnectionState.DISCONNECTED)
   const lastError = ref<Error | null>(null)
   const reconnectAttempts = ref(0)
+  const wasReconnecting = ref(false)
 
   // 私有状态
   let ws: WebSocket | null = null
@@ -104,7 +105,12 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
           connectionState.value = ConnectionState.CONNECTED
           reconnectAttempts.value = 0
           startHeartbeat()
-          callbacks.onConnected?.()
+          if (wasReconnecting.value) {
+            wasReconnecting.value = false
+            callbacks.onReconnected?.()
+          } else {
+            callbacks.onConnected?.()
+          }
           resolve()
         }
 
@@ -253,6 +259,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
 
     reconnectAttempts.value++
     connectionState.value = ConnectionState.RECONNECTING
+    wasReconnecting.value = true
     
     if (WS_FEATURES.debug) console.log(`🔄 安排第${reconnectAttempts.value}次重连...`)
     

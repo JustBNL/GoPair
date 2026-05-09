@@ -73,6 +73,25 @@ public class MessageController {
     }
 
     /**
+     * 游标分页查询房间历史消息（用于前端懒加载）
+     */
+    @Operation(summary = "查询历史消息", description = "游标分页查询房间历史消息，向上滚动时传入当前最旧消息的ID加载更早的消息")
+    @GetMapping("/room/{roomId}/history")
+    public R<List<MessageVO>> getRoomHistoryMessages(
+            @Parameter(description = "房间ID", required = true)
+            @PathVariable Long roomId,
+            @Parameter(description = "游标消息ID：查询此消息之前的消息")
+            @RequestParam(required = false) Long beforeMessageId,
+            @Parameter(description = "每页大小", example = "50")
+            @RequestParam(defaultValue = "50") Integer pageSize) {
+        if (pageSize > 50) {
+            pageSize = 50;
+        }
+        List<MessageVO> result = messageService.getHistoryMessages(roomId, beforeMessageId, pageSize);
+        return R.ok(result);
+    }
+
+    /**
      * 获取消息详情
      */
     @Operation(summary = "获取消息详情", description = "根据消息ID获取消息详细信息")

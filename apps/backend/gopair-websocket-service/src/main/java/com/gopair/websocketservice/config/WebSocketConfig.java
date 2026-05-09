@@ -15,7 +15,7 @@ import jakarta.annotation.PostConstruct;
 /**
  * WebSocket配置类
  * 配置统一的WebSocket端点
- * 
+ *
  * @author gopair
  */
 @Slf4j
@@ -37,13 +37,13 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         // 新架构：RESTful风格的WebSocket端点
-        
+
         String[] origins = parseAllowedOrigins(allowedOrigins);
-        
+
         // 全局连接端点
         registry.addHandler(globalWebSocketHandler, "/api/ws/connect")
                 .setAllowedOrigins(origins);
-        
+
         // 房间专用端点
         registry.addHandler(globalWebSocketHandler, "/api/ws/room/*")
                 .setAllowedOrigins(origins);
@@ -60,4 +60,4 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .filter(s -> !s.isEmpty())
                 .toArray(String[]::new);
     }
-} 
+}

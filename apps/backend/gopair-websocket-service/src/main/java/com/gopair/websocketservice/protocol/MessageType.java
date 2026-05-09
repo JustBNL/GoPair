@@ -78,7 +78,17 @@ public enum MessageType {
     /**
      * 频道消息（房间内的各种事件）
      */
-    CHANNEL_MESSAGE("channel_message");
+    CHANNEL_MESSAGE("channel_message"),
+
+    /**
+     * 离线消息补发请求
+     */
+    CATCH_UP("catch_up"),
+
+    /**
+     * 离线消息补发结果
+     */
+    CATCH_UP_RESULT("catch_up_result");
 
     private final String value;
 

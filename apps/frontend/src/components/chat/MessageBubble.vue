@@ -47,7 +47,9 @@
       >
         <!-- 已撤回消息 -->
         <div v-if="message.isRecalled" class="recalled-placeholder">
-          <span class="recalled-text">消息已撤回</span>
+          <span class="recalled-text">
+            {{ recalledText }}
+          </span>
         </div>
 
         <!-- 文本消息 -->
@@ -223,6 +225,14 @@ const formatDuration = (seconds: number) => {
   const secs = seconds % 60
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
+
+/** 撤回消息显示文本：显示撤回者，更友好 */
+const recalledText = computed(() => {
+  if (props.message.recallerNickname) {
+    return `「${props.message.recallerNickname}」撤回了消息`
+  }
+  return '消息已撤回'
+})
 
 // formatTime 来自 @/utils/format（已在本文件顶部导入）
 
@@ -414,8 +424,8 @@ const onDelete = () => {
       line-height: 1.4;
 
       :deep(img) {
-        width: 1.2em;
-        height: 1.2em;
+        width: 0.84em;
+        height: 0.84em;
         vertical-align: text-bottom;
         object-fit: contain;
         display: inline-block;
@@ -486,7 +496,7 @@ const onDelete = () => {
       min-height: 48px;
 
       .emoji-content {
-        font-size: 32px;
+        font-size: 22px;
         line-height: 1;
       }
     }

@@ -9,7 +9,6 @@ const BASE_URL = '/admin'
 const request: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 })
 
 /* 请求拦截器：注入 JWT Token */

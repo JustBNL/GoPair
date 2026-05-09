@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import type {
   FriendVO,
   FriendRequestVO,
@@ -10,9 +10,14 @@ import type {
 } from '@/types/chat'
 import { ChatAPI } from '@/api/chat'
 import { useAuthStore } from '@/stores/auth'
+import { useFriendNotification } from '@/composables/useFriendNotification'
 
 /** 与后端 computeConversationId 保持一致：minId * 1_000_000_0000 + maxId */
 const CONVERSATION_ID_MULTIPLIER = 1_000_000_0000
+/** 活跃消息窗口最大条数 */
+const MAX_WINDOW = 200
+/** 历史段最多保留数量 */
+const MAX_SEGMENTS = 10
 
 function computeConversationId(userIdA: number, userIdB: number): number {
   const min = Math.min(userIdA, userIdB)
@@ -63,6 +68,9 @@ export const useChatStore = defineStore('chat', () => {
   // 是否有更多历史消息可加载（cursor 分页）
   const hasMoreHistory = ref(true)
 
+  // 私聊历史分段缓存：数组顺序 [最新段, ..., 最旧段]
+  const privateHistorySegments = ref<PrivateMessageVO[][]>([])
+
   // 未读消息计数
   const unreadMessageCount = ref(0)
   const hasUnread = computed(() => unreadMessageCount.value > 0)
@@ -104,23 +112,44 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function fetchMessages(conversationId: number, beforeMessageId?: number) {
+  async function fetchMessages(conversationId: number, beforeMessageId?: number, scrollContainer?: HTMLElement | null) {
     if (!hasMoreHistory.value && beforeMessageId != null) return
     messagesLoading.value = true
+
+    // 保存滚动位置
+    const scrollHeightBefore = scrollContainer?.scrollHeight ?? 0
+
     try {
       const res = await ChatAPI.getMessages(conversationId, beforeMessageId, 50)
-      const records = res.data?.records || []
+      const records = (res.data?.records || []) as PrivateMessageVO[]
 
       if (beforeMessageId == null) {
         // 首次加载：清空后直接赋值
         currentMessages.value = records
+        privateHistorySegments.value = []
       } else {
-        // 上拉加载：将更早的消息头插到数组前面，保持正序（旧→新）
+        // 上拉加载历史：将更早的消息头插到数组前面
         currentMessages.value = [...records, ...currentMessages.value]
+
+        // 将历史段压入缓存
+        if (records.length > 0) {
+          privateHistorySegments.value.unshift(records)
+          // 压缩超出限制的旧段
+          if (privateHistorySegments.value.length > MAX_SEGMENTS) {
+            privateHistorySegments.value = privateHistorySegments.value.slice(0, MAX_SEGMENTS)
+          }
+        }
       }
 
-      // 判断是否还有更多：返回条数 < pageSize 说明没有更多了
+      // 判断是否还有更多
       hasMoreHistory.value = records.length >= 50
+
+      // 恢复滚动位置
+      await nextTick()
+      if (scrollContainer) {
+        const addedHeight = scrollContainer.scrollHeight - scrollHeightBefore
+        scrollContainer.scrollTop = addedHeight
+      }
     } finally {
       messagesLoading.value = false
     }
@@ -219,6 +248,7 @@ export const useChatStore = defineStore('chat', () => {
     currentConversationId.value = null
     currentMessages.value = []
     hasMoreHistory.value = true
+    privateHistorySegments.value = []
   }
 
   /**
@@ -239,9 +269,18 @@ export const useChatStore = defineStore('chat', () => {
   function appendMessage(msg: PrivateMessageVO) {
     if (msg.conversationId === currentConversationId.value) {
       const exists = currentMessages.value.some(m => m.messageId === msg.messageId)
-      console.log('[ChatStore] appendMessage WebSocket 收到, messageId=', msg.messageId, 'exists=', exists, 'content=', msg.content)
       if (!exists) {
         currentMessages.value = [...currentMessages.value, msg]
+        // 活跃窗口超过上限时，将最早的 N 条压缩到 historySegments
+        if (currentMessages.value.length > MAX_WINDOW) {
+          const overflow = currentMessages.value.slice(0, currentMessages.value.length - MAX_WINDOW)
+          currentMessages.value = currentMessages.value.slice(currentMessages.value.length - MAX_WINDOW)
+          if (privateHistorySegments.value.length > 0) {
+            privateHistorySegments.value[0] = [...overflow, ...privateHistorySegments.value[0]]
+          } else {
+            privateHistorySegments.value.unshift(overflow)
+          }
+        }
       }
     } else {
       unreadMessageCount.value++
@@ -288,6 +327,7 @@ export const useChatStore = defineStore('chat', () => {
       }
 
       if (message.eventType === 'friend_status') {
+        useFriendNotification().handleFriendStatusNotification(payload)
         onFriendStatusChanged()
       }
     } catch (error) {
@@ -322,6 +362,7 @@ export const useChatStore = defineStore('chat', () => {
     conversations, conversationsLoading,
     currentFriendId, currentConversationId,
     currentMessages, messagesLoading, hasMoreHistory,
+    privateHistorySegments,
     unreadMessageCount, hasUnread,
 
     // Friend actions

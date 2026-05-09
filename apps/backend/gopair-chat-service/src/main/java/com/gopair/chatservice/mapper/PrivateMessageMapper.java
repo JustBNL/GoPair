@@ -10,6 +10,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 私聊消息Mapper接口。
@@ -59,4 +60,18 @@ public interface PrivateMessageMapper extends BaseMapper<PrivateMessage> {
      * 批量查询会话详情（每会话最新消息 + 消息总数），合并 N+1 查询。
      */
     List<ConversationDetailVO> selectConversationDetailsBatch(@Param("userId") Long userId);
+
+    /**
+     * 查询指定消息ID之后的私聊消息（用于 WebSocket 离线补发）
+     *
+     * @param conversationId 会话ID
+     * @param lastMessageId 最后已知消息ID
+     * @param limit 最大返回条数
+     * @return 消息Map列表
+     */
+    List<Map<String, Object>> selectMessagesAfter(
+        @Param("conversationId") Long conversationId,
+        @Param("lastMessageId") Long lastMessageId,
+        @Param("limit") int limit
+    );
 }

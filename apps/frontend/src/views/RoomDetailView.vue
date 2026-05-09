@@ -198,7 +198,7 @@
         <!-- 内容区域 -->
         <div class="section-body">
           <!-- 聊天面板 -->
-          <div v-show="activeTab === 'chat'" class="message-list-wrapper">
+          <div v-show="activeTab === 'chat'" class="message-list-wrapper" ref="messageListRef" @scroll="handleMessageScroll">
             <div v-if="serviceStates.messages.loading" class="service-loading">
               <a-spin size="large" />
               <p>加载消息中...</p>
@@ -435,7 +435,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message as antMessage, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
@@ -466,6 +466,7 @@ import { useRoomWebSocket } from '@/composables/useRoomWebSocket'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import { useChatStore } from '@/stores/chat'
+import { useRoomMessageStore } from '@/stores/roomMessage'
 import type { RoomInfo, RoomMember } from '@/types/room'
 import { ROOM_STATUS } from '@/types/room'
 import {
@@ -494,6 +495,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
+const roomMessageStore = useRoomMessageStore()
 
 // 基础状态
 const loading = ref(true)
@@ -513,6 +515,10 @@ const memberProfileUserId = ref<number | null>(null)
 const showRenewModal = ref(false)
 const showReopenModal = ref(false)
 const roomId = computed(() => currentRoom.value?.roomId || 0)
+
+// 消息列表滚动容器 ref（用于懒加载）
+const messageListRef = ref<HTMLElement | null>(null)
+const isLoadingHistory = ref(false)
 const { 
   roomState,
   isRoomConnected,
@@ -605,7 +611,7 @@ const isOwner = computed(() =>
 )
 
 // 聊天相关状态
-const messages = computed(() => roomState.value.messages as MessageVO[])  // 单一数据源
+const messages = computed(() => roomMessageStore.messages as MessageVO[])  // 统一使用 roomMessageStore
 const unreadCount = ref(0)
 const replyMessage = ref<MessageVO | null>(null)
 const newMessage = ref('')
@@ -888,49 +894,28 @@ const loadRoomInfo = async () => {
 }
 
 /**
- * 加载消息列表
+ * 加载消息列表（使用 roomMessageStore 进行懒加载管理）
  */
 const loadMessages = async () => {
-  if (!currentRoom.value) return
-  
-  serviceStates.value.messages.loading = true
-  serviceStates.value.messages.error = null
-  
-  try {
-    // 使用“最新N条后再升序”的接口，后端已保证顺序；前端仍做兜底排序
-    const response = await MessageAPI.getLatestMessages(currentRoom.value.roomId, 50)
-    const messagesData = response.data || []
+	if (!currentRoom.value) return
 
-    // 兜底：按 createTime 升序
-    const sorted = [...messagesData].sort((a: any, b: any) => {
-      const ta = new Date(a.createTime as any).getTime()
-      const tb = new Date(b.createTime as any).getTime()
-      return ta - tb
-    })
+	serviceStates.value.messages.loading = true
+	serviceStates.value.messages.error = null
 
-    // 为消息数据添加 isOwn 字段
-    const messagesWithOwnership = sorted.map((message: any) => ({
-      ...message,
-      isOwn: message.senderId === currentUser.value?.userId
-    }))
-
-    // 以房间层为单一数据源
-    replaceMessages(messagesWithOwnership)
-    serviceStates.value.messages.retryCount = 0
-
-    // 初次加载滚动到底部
-    scrollToBottom()
-  } catch (error: any) {
-    console.error('加载消息失败:', error)
-    // 确保消息状态重置为空数组而不是undefined
-    replaceMessages([])
-    serviceStates.value.messages.error = '消息服务暂时不可用，请稍后重试'
-    serviceStates.value.messages.retryCount++
-    throw error  // 重新抛出错误，用于上层catch处理
-  } finally {
-    serviceStates.value.messages.loading = false
-  }
+	try {
+		await roomMessageStore.fetchInitialMessages(currentRoom.value.roomId)
+		serviceStates.value.messages.retryCount = 0
+		scrollToBottom()
+	} catch (error: any) {
+		console.error('加载消息失败:', error)
+		serviceStates.value.messages.error = '消息服务暂时不可用，请稍后重试'
+		serviceStates.value.messages.retryCount++
+		throw error
+	} finally {
+		serviceStates.value.messages.loading = false
+	}
 }
+
 
 /**
  * 加载文件数量
@@ -1240,6 +1225,23 @@ const scrollToBottom = () => {
   })
 }
 
+/**
+ * 消息列表滚动事件：检测到滚动到顶部时触发懒加载
+ */
+const handleMessageScroll = async () => {
+  const container = messageListRef.value
+  if (!container) return
+  // 滚动到顶部（容差 80px）且有更多历史时触发懒加载
+  if (container.scrollTop < 80 && roomMessageStore.hasMoreHistory && !roomMessageStore.loadingHistory) {
+    isLoadingHistory.value = true
+    try {
+      await roomMessageStore.fetchHistoryMessages(container)
+    } finally {
+      isLoadingHistory.value = false
+    }
+  }
+}
+
 // 监听标签页切换，清除未读消息数
 const handleTabChange = (key: string) => {
   if (key === 'chat') {
@@ -1253,6 +1255,10 @@ onMounted(async () => {
   if (currentRoom.value) {
     await initRoomSubscription()
   }
+})
+
+onBeforeUnmount(() => {
+  roomMessageStore.clearRoom()
 })
 </script>
 

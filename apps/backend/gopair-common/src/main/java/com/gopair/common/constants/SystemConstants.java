@@ -43,6 +43,7 @@ public class SystemConstants {
     public static final String ROUTING_KEY_SYSTEM_ROOM = "system.room";
     public static final String ROUTING_KEY_SYSTEM_OFFLINE = "system.offline";
     public static final String ROUTING_KEY_SIGNALING_USER = "signaling.user";
+    public static final String ROUTING_KEY_SIGNALING_ROOM = "signaling.room";
     public static final String ROUTING_KEY_FILE_PROGRESS = "file.progress";
 
     /*

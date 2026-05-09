@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 消息Mapper接口
@@ -70,9 +71,37 @@ public interface MessageMapper extends BaseMapper<Message> {
 
     /**
      * 根据房间ID删除所有消息
-     * 
+     *
      * @param roomId 房间ID
      * @return 删除的消息数量
      */
     int deleteByRoomId(@Param("roomId") Long roomId);
+
+    /**
+     * 游标分页查询房间历史消息（查 beforeMessageId 之前的消息，按 create_time DESC 返回）
+     *
+     * @param roomId 房间ID
+     * @param beforeMessageId 游标消息ID（查询此 ID 之前的消息）
+     * @param pageSize 每页大小
+     * @return 消息VO列表（需在Service层翻转回正序）
+     */
+    List<MessageVO> selectHistoryMessagesBefore(
+        @Param("roomId") Long roomId,
+        @Param("beforeMessageId") Long beforeMessageId,
+        @Param("pageSize") int pageSize
+    );
+
+    /**
+     * 查询指定消息ID之后的房间消息（用于 WebSocket 离线补发）
+     *
+     * @param roomId 房间ID
+     * @param lastMessageId 最后已知消息ID
+     * @param limit 最大返回条数
+     * @return 消息Map列表
+     */
+    List<Map<String, Object>> selectMessagesAfter(
+        @Param("roomId") Long roomId,
+        @Param("lastMessageId") Long lastMessageId,
+        @Param("limit") int limit
+    );
 } 

@@ -87,7 +87,6 @@
                 <div v-if="friend.lastMessageContent" class="friend-preview">
                   {{ friend.lastMessageContent }}
                 </div>
-                <div v-else class="friend-preview empty">暂无聊天记录</div>
               </div>
               <div v-if="friend.lastMessageTime" class="friend-time">
                 {{ formatTime(friend.lastMessageTime) }}
@@ -666,8 +665,8 @@ watch(dropdownOpen, (open) => {
 }
 
 .friend-name {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary, #1a1a1a);
   margin-bottom: 2px;
 }

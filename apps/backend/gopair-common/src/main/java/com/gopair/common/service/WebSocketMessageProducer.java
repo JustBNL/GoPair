@@ -89,6 +89,27 @@ public class WebSocketMessageProducer {
     }
 
     /**
+     * 发送WebRTC信令消息到房间频道（所有房间订阅者均可收到）
+     *
+     * @param roomId  房间ID
+     * @param payload 信令载荷
+     */
+    public void sendSignalingMessageToRoom(Long roomId, Map<String, Object> payload) {
+        WebSocketMessageDto message = WebSocketMessageDto.builder()
+                .messageId(UUID.randomUUID().toString())
+                .timestamp(LocalDateTime.now())
+                .type("signaling")
+                .channel(SystemConstants.CHANNEL_ROOM_PREFIX + roomId)
+                .eventType("signaling")
+                .payload(payload)
+                .source(getServiceName())
+                .build();
+
+        rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_SIGNALING_ROOM, message);
+        log.info("[VoiceWS] 发送信令到房间: roomId={}, messageId={}, payloadKeys={}", roomId, message.getMessageId(), payload.keySet());
+    }
+
+    /**
      * 发送文件传输进度消息
      *
      * @param userId   用户ID

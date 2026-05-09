@@ -6,6 +6,7 @@ import com.gopair.chatservice.domain.vo.PrivateMessageVO;
 import com.gopair.common.core.PageResult;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 私聊消息服务接口。
@@ -66,4 +67,14 @@ public interface PrivateMessageService {
      * @return 是否为参与者
      */
     boolean isParticipant(Long conversationId, Long userId);
+
+    /**
+     * 查询指定消息ID之后的私聊消息（用于 WebSocket 离线补发）
+     *
+     * @param conversationId 会话ID
+     * @param lastMessageId 最后已知消息ID
+     * @param limit 最大返回条数
+     * @return 消息Map列表
+     */
+    List<Map<String, Object>> queryMessagesAfter(Long conversationId, Long lastMessageId, int limit);
 }

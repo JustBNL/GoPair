@@ -216,6 +216,7 @@ export interface MessageVO {
   isOwn: boolean
   isRecalled?: boolean
   recalledAt?: string
+  recallerNickname?: string
 }
 
 /**

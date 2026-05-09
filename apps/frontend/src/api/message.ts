@@ -38,6 +38,17 @@ export class MessageAPI {
   }
 
   /**
+   * 游标分页查询房间历史消息（用于前端懒加载）
+   * @param roomId 房间ID
+   * @param beforeMessageId 游标消息ID（查询此消息之前的消息）
+   * @param pageSize 每页大小，默认50
+   */
+  static async getHistoryMessages(roomId: number, beforeMessageId: number, pageSize = 50): Promise<ApiResponse<MessageVO[]>> {
+    const url = `/message/room/${roomId}/history?beforeMessageId=${beforeMessageId}&pageSize=${pageSize}`
+    return http.get(url)
+  }
+
+  /**
    * 根据ID获取消息详情
    */
   static async getMessageById(messageId: number): Promise<ApiResponse<MessageVO>> {

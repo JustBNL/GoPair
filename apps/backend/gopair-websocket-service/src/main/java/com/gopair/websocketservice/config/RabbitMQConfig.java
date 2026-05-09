@@ -127,6 +127,13 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Binding signalingRoomBinding(TopicExchange websocketTopicExchange) {
+        return BindingBuilder.bind(websocketSignalingQueue())
+                .to(websocketTopicExchange)
+                .with(SystemConstants.ROUTING_KEY_SIGNALING_ROOM);
+    }
+
+    @Bean
     public Binding fileBinding(TopicExchange websocketTopicExchange) {
         return BindingBuilder.bind(websocketFileQueue())
                 .to(websocketTopicExchange)

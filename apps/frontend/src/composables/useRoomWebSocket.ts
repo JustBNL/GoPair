@@ -2,6 +2,7 @@ import { ref, computed, readonly, watch, onBeforeUnmount, type Ref } from 'vue'
 import { useWebSocket, buildSubscribeMessage, buildUnsubscribeMessage } from './useWebSocket'
 import { WS_ENDPOINTS, WS_FEATURES } from '@/config/websocket'
 import { useAuthStore } from '@/stores/auth'
+import { useRoomMessageStore } from '@/stores/roomMessage'
 import {
   WsMessageType,
   WsEventType,
@@ -14,7 +15,7 @@ import type {
 } from '@/types/websocket'
 import type { MessageVO } from '@/types/api'
 
-/** 内存中保留的最大消息条数，超出后丢弃最早的 */
+/** 内存中保留的最大消息条数，超出后丢弃最早的（已迁移到 store，此常量仅作向后兼容） */
 const MAX_MESSAGES = 200
 
 /**
@@ -108,6 +109,7 @@ interface RoomEventHandlers {
  */
 export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandlers = {}) {
   const authStore = useAuthStore()
+  const roomMessageStore = useRoomMessageStore()
 
   const roomState = ref<RoomWsState>({
     messages: [],
@@ -158,7 +160,13 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
           subscriptionError.value = error
           if (WS_FEATURES.debug) console.error(`❌ 房间WebSocket连接失败: ${roomId.value}`, error)
         },
-        onMessage: handleRoomMessage
+        onMessage: handleRoomMessage,
+        onReconnected: () => {
+          if (WS_FEATURES.debug) console.log(`📡 房间WebSocket重连成功，发送catch-up: ${roomId.value}`)
+          subscribed.value = false
+          subscribeToRoomEvents()
+          sendCatchUp()
+        }
       })
     } catch (error) {
       subscriptionError.value = error as Error
@@ -186,6 +194,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         WsEventType.MEMBER_TYPING,
         WsEventType.CALL_START,
         WsEventType.CALL_END,
+        WsEventType.SIGNALING,
         WsEventType.VOICE_ROSTER_UPDATE,
         WsEventType.ROOM_CLOSED,
         WsEventType.ROOM_RENEWED,
@@ -210,11 +219,29 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
     }
   }
 
+  /** 从 sessionStorage 读取 lastMessageId 并发送 catch-up 消息 */
+  const sendCatchUp = (): void => {
+    const lastMsgId = roomMessageStore.getLastMessageId()
+    if (lastMsgId == null) return
+    const msg = {
+      type: WsMessageType.CATCH_UP as any,
+      eventType: 'catch_up' as any,
+      data: {
+        payload: {
+          channel: `room:${roomId.value}`,
+          lastMessageId: lastMsgId
+        }
+      }
+    }
+    if (WS_FEATURES.debug) console.log(`[房间WebSocket] 发送catch-up: roomId=${roomId.value}, lastMessageId=${lastMsgId}`)
+    send(msg)
+  }
+
   const handleRoomMessage = (message: any): void => {
     const { eventType } = message
     // Backend sends payload field; fall back to data for forward compatibility
     const data = message.payload ?? message.data
-    if (WS_FEATURES.debug) console.log('🎯 [房间WebSocket] 收到消息:', { eventType, messageId: message.messageId, data })
+    console.log(`[useRoomWebSocket] 收到 WS 消息: eventType=${eventType}, messageId=${message.messageId}, hasData=${!!data}`)
 
     switch (eventType) {
       case WsEventType.MESSAGE_SEND: {
@@ -230,7 +257,8 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         if (enriched.messageType === 5) {
           spawnEmojiDOM(enriched.content, enriched.senderNickname)
         }
-        roomState.value.messages = [...roomState.value.messages, enriched].slice(-MAX_MESSAGES)
+        // 委托给 roomMessageStore 管理消息状态
+        roomMessageStore.appendMessage(enriched)
         handlers.onMessage?.(enriched)
         break
       }
@@ -247,13 +275,9 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       case WsEventType.MESSAGE_RECALL: {
         const recallMessageId = data?.messageId
         const recalledAt = data?.recalledAt
+        const recallerNickname = data?.recallerNickname
         if (recallMessageId) {
-          roomState.value.messages = roomState.value.messages.map(m => {
-            if (m.messageId === recallMessageId) {
-              return { ...m, isRecalled: true, recalledAt: recalledAt || new Date().toISOString() }
-            }
-            return m
-          })
+          roomMessageStore.recallMessage(recallMessageId, recalledAt, recallerNickname)
         }
         break
       }
@@ -310,6 +334,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       case WsEventType.CALL_START: {
         const callId = data?.callId
         const initiatorId = data?.initiatorId
+        console.log(`[useRoomWebSocket] 收到 CALL_START: callId=${callId}, initiatorId=${initiatorId}`)
         if (callId) {
           handlers.onCallStart?.(callId, initiatorId)
         }
@@ -318,6 +343,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
 
       case WsEventType.CALL_END: {
         const callId = data?.callId
+        console.log(`[useRoomWebSocket] 收到 CALL_END: callId=${callId}`)
         if (callId) {
           handlers.onCallEnd?.(callId)
         }
@@ -326,6 +352,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
 
       case WsEventType.VOICE_ROSTER_UPDATE: {
         const callId = data?.callId
+        console.log(`[useRoomWebSocket] 收到 VOICE_ROSTER_UPDATE: callId=${callId}`)
         if (callId) {
           handlers.onVoiceRosterUpdate?.(callId)
         }
@@ -333,6 +360,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       }
 
       case WsEventType.SIGNALING: {
+        console.log(`[useRoomWebSocket] 收到 SIGNALING: eventType=${eventType}, data.type=${data?.type}, data.fromUserId=${data?.fromUserId}, data.callId=${data?.callId}`)
         handlers.onSignaling?.(data)
         break
       }
@@ -349,6 +377,15 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
 
       case WsEventType.ROOM_REOPENED: {
         handlers.onRoomReopened?.(data)
+        break
+      }
+
+      case 'catch_up_result': {
+        if (WS_FEATURES.debug) console.log('[房间WebSocket] 收到catch_up_result: count=', data?.count, data?.messages?.length)
+        const msgs: any[] = data?.messages || []
+        for (const msg of msgs) {
+          roomMessageStore.appendMessage(msg)
+        }
         break
       }
 

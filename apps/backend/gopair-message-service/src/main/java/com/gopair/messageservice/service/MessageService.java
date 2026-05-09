@@ -6,6 +6,7 @@ import com.gopair.messageservice.domain.dto.SendMessageDto;
 import com.gopair.messageservice.domain.vo.MessageVO;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 消息服务接口
@@ -33,12 +34,22 @@ public interface MessageService {
 
     /**
      * 获取房间最新消息列表
-     * 
+     *
      * @param roomId 房间ID
      * @param limit 限制数量
      * @return 消息列表
      */
     List<MessageVO> getLatestMessages(Long roomId, Integer limit);
+
+    /**
+     * 游标分页查询房间历史消息。
+     *
+     * @param roomId 房间ID
+     * @param beforeMessageId 游标消息ID（查此 ID 之前的消息）
+     * @param pageSize 每页大小
+     * @return 消息列表（正序：旧→新）
+     */
+    List<MessageVO> getHistoryMessages(Long roomId, Long beforeMessageId, int pageSize);
 
     /**
      * 根据消息ID获取消息详情
@@ -94,6 +105,16 @@ public interface MessageService {
      * @return 是否撤回成功
      */
     Boolean recallMessage(Long messageId, Long userId);
+
+    /**
+     * 查询指定消息ID之后的房间消息（用于 WebSocket 离线补发）
+     *
+     * @param roomId 房间ID
+     * @param lastMessageId 最后已知消息ID
+     * @param limit 最大返回条数
+     * @return 消息Map列表
+     */
+    List<Map<String, Object>> queryMessagesAfter(Long roomId, Long lastMessageId, int limit);
 
     /**
      * 清理房间的所有消息

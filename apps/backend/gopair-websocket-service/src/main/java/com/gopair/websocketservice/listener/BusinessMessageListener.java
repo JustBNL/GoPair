@@ -60,8 +60,9 @@ public class BusinessMessageListener {
     @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_SIGNALING)
     public void handleSignalingMessage(WebSocketMessageDto messageDto, Message rawMessage) {
         tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
-            log.debug("[消息监听] 收到信令消息: messageId={}, channel={}, eventType={}",
-                    messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
+            log.info("[消息监听] 收到信令消息: messageId={}, channel={}, eventType={}, payloadKeys={}",
+                    messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType(),
+                    messageDto.getPayload() != null ? messageDto.getPayload().keySet() : "null");
             channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
         });
     }

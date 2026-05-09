@@ -308,14 +308,25 @@ public class VoiceCallServiceImpl implements VoiceCallService {
             return;
         }
 
-        wsProducer.sendSignalingMessage(dto.getTargetUserId(), Map.of(
+        // 通过 callId 反查出 roomId，改为向房间频道广播信令
+        // 原因：用户订阅的是 room:{roomId}，而非 user:{userId}；
+        // sendSignalingMessage 使用 user 频道导致消息无法投递，P2P 连接无法建立。
+        VoiceCall call = voiceCallMapper.selectById(dto.getCallId());
+        if (call == null) {
+            log.warn("[语音] 信令转发失败，通话不存在: callId={}", dto.getCallId());
+            return;
+        }
+
+        Map<String, Object> signalingPayload = Map.of(
                 "type", dto.getType(),
                 "callId", dto.getCallId(),
                 "fromUserId", fromUserId,
                 "data", dto.getData() != null ? dto.getData() : Map.of()
-        ));
-        log.info("[语音] 信令转发: type={}, callId={}, from={}, to={}",
-                dto.getType(), dto.getCallId(), fromUserId, dto.getTargetUserId());
+        );
+        wsProducer.sendSignalingMessageToRoom(call.getRoomId(), signalingPayload);
+        log.info("[语音] 信令转发（房间广播）: type={}, callId={}, roomId={}, from={}, payloadKeys={}",
+                dto.getType(), dto.getCallId(), call.getRoomId(), fromUserId,
+                signalingPayload.keySet());
     }
 
     @Override

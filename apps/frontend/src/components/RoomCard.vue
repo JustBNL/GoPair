@@ -205,6 +205,7 @@ const statusColor = computed(() => {
   if (s === ROOM_STATUS.CLOSED) return 'red'
   if (s === ROOM_STATUS.EXPIRED) return 'orange'
   if (s === ROOM_STATUS.ARCHIVED) return 'default'
+  if (s === ROOM_STATUS.DISABLED) return 'purple'
   return isExpiringSoon.value ? 'orange' : 'green'
 })
 const statusText = computed(() => {
@@ -212,6 +213,7 @@ const statusText = computed(() => {
   if (s === ROOM_STATUS.CLOSED) return '已关闭'
   if (s === ROOM_STATUS.EXPIRED) return '已过期'
   if (s === ROOM_STATUS.ARCHIVED) return '已归档'
+  if (s === ROOM_STATUS.DISABLED) return '已禁用'
   return isExpiringSoon.value ? '即将过期' : '活跃'
 })
 const expireText = computed(() => {

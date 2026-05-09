@@ -262,20 +262,24 @@ export function useVoiceCall(
   // ---------------------------------------------------------------------------
 
   async function setupWebRTCAndJoin(resolvedCallId: number): Promise<void> {
+    console.log(`[useVoiceCall] setupWebRTCAndJoin: callId=${resolvedCallId}, roomId=${roomId.value}`)
     webrtcManager = new WebRTCManager({}, {
       onError: (err) => {
-        console.error('[WebRTC] Error:', err)
+        console.error('[useVoiceCall] WebRTC Error:', err)
         antMessage.error('音频连接失败: ' + err.message)
       }
     })
     webrtcManager.setCurrentUserIdGetter(() => currentUserId.value)
     webrtcManager.setSignalingSender((msg: any) => {
+      console.log(`[useVoiceCall] >>> forwardSignaling: callId=${resolvedCallId}, type=${msg.type}, targetUserId=${msg.targetUserId}`)
       VoiceAPI.forwardSignaling({
         callId: resolvedCallId,
         type: msg.type,
         targetUserId: msg.targetUserId,
         data: msg.sdp ?? msg.candidate ?? msg
-      }).catch((e) => console.error('[WebRTC] Signaling send failed:', e))
+      }).then(() => {
+        console.log(`[useVoiceCall] forwardSignaling 成功: type=${msg.type}, targetUserId=${msg.targetUserId}`)
+      }).catch((e) => console.error('[useVoiceCall] forwardSignaling 失败:', e))
     })
 
     if (!window.isSecureContext) {
@@ -300,9 +304,13 @@ export function useVoiceCall(
 
     if (webrtcManager) {
       await webrtcManager.joinCall(resolvedCallId)
+      console.log(`[useVoiceCall] joinCall 成功`)
+    } else {
+      console.warn(`[useVoiceCall] joinCall: webrtcManager 为 null，跳过`)
     }
 
     callState.value = 'in-call'
+    console.log(`[useVoiceCall] callState 设为 in-call`)
     isMuted.value = false
     isSpeakerOff.value = false
 
@@ -355,6 +363,14 @@ export function useVoiceCall(
     }
 
     await drainPendingSignals()
+
+    // 补充拉取一次 roster，确保加入前已存在的参与者（如房主）被重新触发信令交换
+    // 原因：若信令（如 offer）在用户 join 之前就广播了，此时 callState=active 会丢弃信令，
+    // 导致双方都没有 pending buffer 来保存这些信令。主动拉取 roster 可以重新触发 addParticipant，
+    // 让较大 userId 的一方重新发出 offer。
+    if (webrtcManager) {
+      await handleRosterUpdate(resolvedCallId)
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -513,7 +529,10 @@ export function useVoiceCall(
   // ---------------------------------------------------------------------------
 
   async function handleSignalingInternal(data: any): Promise<void> {
+    console.log(`[useVoiceCall] handleSignalingInternal: type=${data?.type}, fromUserId=${data?.fromUserId ?? data?.userId}, webrtcManager=${!!webrtcManager}`)
     if (!webrtcManager) {
+      console.log(`[useVoiceCall] handleSignalingInternal: webrtcManager 不存在，加入 pendingSignals`)
+      pendingSignals.push(data)
       return
     }
 
@@ -558,6 +577,12 @@ export function useVoiceCall(
   }
 
   async function handleSignaling(data: any): Promise<void> {
+    const fromUserId = data?.fromUserId ?? data?.userId
+    if (fromUserId === currentUserId.value) {
+      // 后端 forwardSignaling 改为房间广播后，发送者会收到自己发出的信令
+      // 过滤 self-echo，避免房主错误缓冲自己发出的 offer/ICE 到不存在的 participant
+      return
+    }
     if (!webrtcManager || callState.value !== 'in-call') {
       return
     }

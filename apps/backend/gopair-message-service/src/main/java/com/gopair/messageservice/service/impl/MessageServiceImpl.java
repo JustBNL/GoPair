@@ -30,6 +30,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -212,6 +213,29 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     @Override
+    @LogRecord(operation = "游标分页查询房间历史消息", module = "消息管理")
+    public List<MessageVO> getHistoryMessages(Long roomId, Long beforeMessageId, int pageSize) {
+        log.info("查询房间历史消息, 房间ID: {}, 游标消息ID: {}, 每页大小: {}", roomId, beforeMessageId, pageSize);
+
+        List<MessageVO> messages = messageMapper.selectHistoryMessagesBefore(roomId, beforeMessageId, pageSize);
+
+        // SQL 层按 create_time DESC 取 pageSize 条，Service 层翻转回正序
+        if (!messages.isEmpty()) {
+            Collections.reverse(messages);
+            List<Long> replyToIds = collectReplyToIdsNeedingProfile(messages);
+            userProfileFallbackService.fillMissingProfiles(messages, replyToIds);
+        }
+
+        return messages;
+    }
+
+    @Override
+    public List<Map<String, Object>> queryMessagesAfter(Long roomId, Long lastMessageId, int limit) {
+        log.info("查询离线补发消息, roomId={}, afterMessageId={}, limit={}", roomId, lastMessageId, limit);
+        return messageMapper.selectMessagesAfter(roomId, lastMessageId, limit);
+    }
+
+    @Override
     @LogRecord(operation = "查询消息详情", module = "消息管理")
     public MessageVO getMessageById(Long messageId) {
         log.info("获取消息详情, 消息ID: {}", messageId);
@@ -277,6 +301,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         payload.put("messageId", messageId);
         payload.put("roomId", message.getRoomId());
         payload.put("recalledAt", update.getRecalledAt().toString());
+        payload.put("recallerNickname", com.gopair.framework.context.UserContextHolder.getCurrentNickname());
         webSocketMessageProducer.sendEventToRoom(
                 message.getRoomId(), "message_recall", payload);
 

@@ -67,7 +67,7 @@ export class WebRTCManager {
   constructor(config?: Partial<RTCConfig>, callbacks?: Partial<WebRTCCallbacks>) {
     this.config = { ...WebRTCManager.DEFAULT_CONFIG, ...config }
     this.callbacks = callbacks || {}
-    
+
     this.callState = {
       callId: null,
       isInCall: false,
@@ -94,12 +94,14 @@ export class WebRTCManager {
         video: false
       })
 
+      console.log(`[WebRTC] initializeLocalStream: 麦克风获取成功，trackCount=${stream.getAudioTracks().length}`)
       this.callState.localStream = stream
       await this.setupAudioAnalysis(stream)
-      
+
       return stream
     } catch (error) {
       const err = new Error(`获取麦克风权限失败: ${error}`)
+      console.error(`[WebRTC] initializeLocalStream: 麦克风获取失败`, error)
       this.callbacks.onError?.(err)
       throw err
     }
@@ -112,13 +114,13 @@ export class WebRTCManager {
     try {
       this.localAudioContext = new AudioContext()
       this.localAnalyser = this.localAudioContext.createAnalyser()
-      
+
       const source = this.localAudioContext.createMediaStreamSource(stream)
       source.connect(this.localAnalyser)
-      
+
       this.localAnalyser.fftSize = 256
       this.localAnalyser.smoothingTimeConstant = 0.8
-      
+
       this.startSpeakingDetection()
     } catch (error) {
       console.error('音频分析设置失败:', error)
@@ -138,15 +140,15 @@ export class WebRTCManager {
       if (!this.localAnalyser || !this.callState.isInCall) return
 
       this.localAnalyser.getByteFrequencyData(dataArray)
-      
+
       // 计算音频能量
       let total = 0
       for (let i = 0; i < dataArray.length; i++) total += dataArray[i]
       const average = total / dataArray.length
       const threshold = 30 // 说话检测阈值
-      
+
       const newIsSpeaking = average > threshold
-      
+
       if (newIsSpeaking !== isSpeaking) {
         isSpeaking = newIsSpeaking
         // 这里可以通过信令通知其他参与者
@@ -206,6 +208,7 @@ export class WebRTCManager {
     // 处理ICE候选
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`[WebRTC] onicecandidate: userId=${userId}, candidate=${event.candidate.candidate.substring(0, 60)}...`)
         this.sendSignalingMessage({
           type: 'ice-candidate',
           targetUserId: userId,
@@ -218,6 +221,7 @@ export class WebRTCManager {
     // [Bug Fix] event.streams 可能为空数组（某些浏览器在 unified-plan 下 track 先于 stream 到达）
     // 若 streams[0] 不存在，则用 event.track 手动构造 MediaStream
     peerConnection.ontrack = (event) => {
+      console.log(`[WebRTC] ontrack: userId=${userId}, streams=${event.streams?.length ?? 0}, track.kind=${event.track?.kind}`)
       const remoteStream = (event.streams && event.streams.length > 0)
         ? event.streams[0]
         : new MediaStream([event.track])
@@ -226,6 +230,7 @@ export class WebRTCManager {
 
     // 连接状态变化
     peerConnection.onconnectionstatechange = () => {
+      console.log(`[WebRTC] onconnectionstatechange: userId=${userId}, state=${peerConnection.connectionState}`)
       const participant = this.callState.participants.get(userId)
       if (participant) {
         participant.connectionState = peerConnection.connectionState
@@ -244,9 +249,14 @@ export class WebRTCManager {
    * 处理远程音频流
    */
   private handleRemoteStream(userId: number, stream: MediaStream): void {
+    console.log(`[WebRTC] handleRemoteStream: userId=${userId}, streamId=${stream.id}, trackCount=${stream.getTracks().length}`)
     const participant = this.callState.participants.get(userId)
-    if (!participant) return
+    if (!participant) {
+      console.warn(`[WebRTC] handleRemoteStream: participant=${userId} 不存在，忽略远程流`)
+      return
+    }
     if (!stream) {
+      console.warn(`[WebRTC] handleRemoteStream: stream 为空，忽略`)
       return
     }
 
@@ -260,7 +270,12 @@ export class WebRTCManager {
     audioElement.setAttribute('data-voice-user-id', String(userId))
     audioElement.style.display = 'none'
     document.body.appendChild(audioElement)
-    audioElement.play().catch(() => {})
+    console.log(`[WebRTC] handleRemoteStream: audioElement 已挂载到 DOM，userId=${userId}`)
+    audioElement.play().then(() => {
+      console.log(`[WebRTC] handleRemoteStream: play() 成功，userId=${userId}`)
+    }).catch((err) => {
+      console.warn(`[WebRTC] handleRemoteStream: play() 被浏览器阻止，userId=${userId}，err=${err}`)
+    })
     participant.audioElement = audioElement
 
     // 设置远程音频分析
@@ -317,7 +332,7 @@ export class WebRTCManager {
       }
 
       await this.initializeLocalStream()
-      
+
       this.callState.callId = callId
       this.callState.isInCall = true
       this.callState.isInitiator = true
@@ -360,8 +375,19 @@ export class WebRTCManager {
    * 添加参与者
    */
   async addParticipant(userId: number, nickname?: string): Promise<void> {
-    if (this.callState.participants.has(userId)) {
-      return
+    const existing = this.callState.participants.get(userId)
+    if (existing) {
+      // 若连接已失败或关闭，移除旧记录以允许重建
+      if (existing.peerConnection?.connectionState === 'failed' ||
+          existing.peerConnection?.connectionState === 'closed' ||
+          existing.peerConnection?.iceConnectionState === 'failed' ||
+          existing.peerConnection?.iceConnectionState === 'closed') {
+        console.log(`[WebRTC] addParticipant: userId=${userId} 连接已失败，移除旧记录并重建`)
+        this.removeParticipant(userId)
+      } else {
+        console.log(`[WebRTC] addParticipant: userId=${userId} 已存在且连接正常，跳过`)
+        return
+      }
     }
 
     const peerConnection = this.createPeerConnection(userId)
@@ -387,12 +413,15 @@ export class WebRTCManager {
     }
 
     this.callState.participants.set(userId, participant)
+    console.log(`[WebRTC] addParticipant: 成功，userId=${userId}, 当前 participants=${Array.from(this.callState.participants.keys()).join(',')}`)
 
     // Glare 解决方案：userId 较大的一方主动发 offer，较小的一方等待
     const currentUserId = this.getCurrentUserId()
     const shouldSendOffer = currentUserId !== null && currentUserId > userId
+    console.log(`[WebRTC] addParticipant: userId=${userId}, currentUserId=${currentUserId}, shouldSendOffer=${shouldSendOffer}`)
     if (shouldSendOffer) {
       if (!this.callState.localStream) {
+        console.warn(`[WebRTC] addParticipant: userId=${userId} - localStream 未就绪，跳过发 offer`)
       } else {
         try {
           const offer = await peerConnection.createOffer({
@@ -400,19 +429,21 @@ export class WebRTCManager {
             offerToReceiveVideo: false
           })
           await peerConnection.setLocalDescription(offer)
+          console.log(`[WebRTC] 发送 offer 给 userId=${userId}, sdp.type=${offer.type}, sdp.sdp长度=${offer.sdp?.length ?? 0}`)
           this.sendSignalingMessage({
             type: 'offer',
             targetUserId: userId,
             sdp: offer
           })
         } catch (err) {
+          console.error(`[WebRTC] addParticipant: 发送 offer 失败 userId=${userId}`, err)
         }
       }
     } else {
-      // 較小 userId 一方等待对方 offer。
-      // 若 offer 在 addParticipant 完成前已到达并被缓冲，在此处理它。
+      console.log(`[WebRTC] addParticipant: userId=${userId} - 等待对方 offer`)
       const bufferedOffer = this.pendingOffers.get(userId)
       if (bufferedOffer) {
+        console.log(`[WebRTC] addParticipant: 发现缓冲 offer，处理 userId=${userId}`)
         this.pendingOffers.delete(userId)
         await this.handleOffer(peerConnection, userId, bufferedOffer)
       }
@@ -443,15 +474,22 @@ export class WebRTCManager {
     this.callState.participants.delete(userId)
     this.pendingCandidates.delete(userId)
     this.pendingOffers.delete(userId)
+    console.log(`[WebRTC] removeParticipant: 成功，userId=${userId}`)
     this.callbacks.onParticipantLeft?.(userId)
   }
 
   async handleSignalingMessage(message: any): Promise<void> {
+    console.log(`[WebRTC] handleSignalingMessage: type=${message.type}, fromUserId=${message.fromUserId}, targetUserId=${message.targetUserId}`)
     try {
       const { type, fromUserId, targetUserId, sdp, candidate } = message
-      if (targetUserId && targetUserId !== this.getCurrentUserId()) return
+      const currentUserId = this.getCurrentUserId()
+      if (targetUserId && targetUserId !== currentUserId) {
+        console.log(`[WebRTC] handleSignalingMessage: 非目标用户，targetUserId=${targetUserId}, currentUserId=${currentUserId}，忽略`)
+        return
+      }
       const participant = this.callState.participants.get(fromUserId)
       if (!participant?.peerConnection) {
+        console.log(`[WebRTC] handleSignalingMessage: participant=${fromUserId} 不存在，缓冲 offer（type=${type}）`)
         if (type === 'offer') {
           this.pendingOffers.set(fromUserId, sdp)
           return
@@ -470,47 +508,60 @@ export class WebRTCManager {
         case 'ice-candidate':
           await this.handleIceCandidate(peerConnection, candidate, fromUserId)
           break
+        default:
+          console.warn(`[WebRTC] handleSignalingMessage: 未知 type=${type}`)
       }
     } catch (error) {
-      console.error('处理信令消息失败:', error)
+      console.error('[WebRTC] handleSignalingMessage: 处理失败', error)
       this.callbacks.onError?.(error as Error)
     }
   }
 
   private async handleOffer(peerConnection: RTCPeerConnection, fromUserId: number, offer: RTCSessionDescription): Promise<void> {
+    console.log(`[WebRTC] handleOffer: fromUserId=${fromUserId}, signalingState=${peerConnection.signalingState}, offer.type=${offer.type}`)
     if (peerConnection.signalingState === 'have-local-offer') {
+      console.log(`[WebRTC] handleOffer: signalingState=have-local-offer，执行 rollback`)
       await peerConnection.setLocalDescription({ type: 'rollback' })
     }
     await peerConnection.setRemoteDescription(offer)
+    console.log(`[WebRTC] handleOffer: setRemoteDescription 成功`)
     const answer = await peerConnection.createAnswer()
     await peerConnection.setLocalDescription(answer)
+    console.log(`[WebRTC] handleOffer: setLocalDescription(answer) 成功，发送 answer 给 fromUserId=${fromUserId}`)
     await this.flushPendingCandidates(peerConnection, fromUserId)
     this.sendSignalingMessage({ type: 'answer', targetUserId: fromUserId, sdp: answer })
   }
 
   private async handleAnswer(peerConnection: RTCPeerConnection, answer: RTCSessionDescription, fromUserId: number): Promise<void> {
+    console.log(`[WebRTC] handleAnswer: fromUserId=${fromUserId}, answer.type=${answer.type}, signalingState=${peerConnection.signalingState}`)
     await peerConnection.setRemoteDescription(answer)
+    console.log(`[WebRTC] handleAnswer: setRemoteDescription(answer) 成功`)
     await this.flushPendingCandidates(peerConnection, fromUserId)
   }
 
   private async handleIceCandidate(peerConnection: RTCPeerConnection, candidate: RTCIceCandidate, fromUserId: number): Promise<void> {
+    console.log(`[WebRTC] handleIceCandidate: fromUserId=${fromUserId}, candidate=${candidate?.candidate?.substring(0, 60) ?? 'null'}`)
     if (!peerConnection.remoteDescription) {
+      console.log(`[WebRTC] handleIceCandidate: remoteDescription 未就绪，缓冲 candidate`)
       const pending = this.pendingCandidates.get(fromUserId) ?? []
       pending.push(candidate)
       this.pendingCandidates.set(fromUserId, pending)
       return
     }
     await peerConnection.addIceCandidate(candidate)
+    console.log(`[WebRTC] handleIceCandidate: addIceCandidate 成功`)
   }
 
   private async flushPendingCandidates(peerConnection: RTCPeerConnection, userId: number): Promise<void> {
     const pending = this.pendingCandidates.get(userId)
     if (!pending || pending.length === 0) return
+    console.log(`[WebRTC] flushPendingCandidates: 刷新 ${pending.length} 个 buffered candidates`)
     this.pendingCandidates.delete(userId)
     for (const candidate of pending) {
       try {
         await peerConnection.addIceCandidate(candidate)
       } catch (e) {
+        console.warn(`[WebRTC] flushPendingCandidates: addIceCandidate 失败`, e)
       }
     }
   }
@@ -552,12 +603,11 @@ export class WebRTCManager {
   }
 
   private handleConnectionFailure(userId: number): void {
+    console.error(`[WebRTC] handleConnectionFailure: userId=${userId}`)
   }
 
   /**
-   * 发送信令消息。
-   * 初始为 no-op，等待外部通过 setSignalingSender 注入实际发送逻辑。
-   * 若未注入而调用，则发出开发期警告，防止消息静默丢失。
+   * 发送信令消息。初始为 no-op，等待外部通过 setSignalingSender 注入实际发送逻辑。
    */
   private sendSignalingMessage(message: any): void {
     if (process.env.NODE_ENV !== 'production') {
@@ -573,7 +623,11 @@ export class WebRTCManager {
   }
 
   setSignalingSender(sender: (message: any) => void): void {
-    this.sendSignalingMessage = sender
+    const wrappedSender = (message: any) => {
+      console.log(`[WebRTC] sendSignalingMessage: >>> 发送信令 type=${message.type}, targetUserId=${message.targetUserId}`)
+      sender(message)
+    }
+    this.sendSignalingMessage = wrappedSender
   }
 
   setCurrentUserIdGetter(getter: () => number): void {

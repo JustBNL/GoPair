@@ -28,7 +28,9 @@ export enum WsMessageType {
   ROOM_MESSAGE = 'room_message',
   ROOM_FILE = 'room_file',
   ROOM_MEMBER = 'room_member',
-  ROOM_SYSTEM = 'room_system'
+  ROOM_SYSTEM = 'room_system',
+  CATCH_UP = 'catch_up',
+  CATCH_UP_RESULT = 'catch_up_result'
 }
 
 /**
@@ -61,7 +63,11 @@ export enum WsEventType {
   // 房间状态事件
   ROOM_CLOSED = 'room_closed',
   ROOM_RENEWED = 'room_renewed',
-  ROOM_REOPENED = 'room_reopened'
+  ROOM_REOPENED = 'room_reopened',
+
+  // 离线补发事件
+  CATCH_UP = 'catch_up',
+  CATCH_UP_RESULT = 'catch_up_result'
 }
 
 /**
@@ -103,6 +109,8 @@ export interface WsEventCallbacks {
   onDisconnected?: (event: CloseEvent) => void
   onError?: (error: Error) => void
   onMessage?: (message: WsMessage) => void
+  /** WebSocket 重连成功后的回调（用于触发 catch-up） */
+  onReconnected?: () => void
 }
 
 /**

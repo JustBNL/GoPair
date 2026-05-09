@@ -5,16 +5,20 @@ import com.gopair.websocketservice.domain.payload.SubscriptionPayload;
 import com.gopair.websocketservice.exception.PayloadAdaptationException;
 import com.gopair.websocketservice.protocol.MessageType;
 import com.gopair.websocketservice.protocol.UnifiedWebSocketMessage;
-import com.gopair.websocketservice.service.SubscriptionManagerService;
 import com.gopair.websocketservice.service.ChannelMessageRouter;
 import com.gopair.websocketservice.service.ConnectionManagerService;
+import com.gopair.websocketservice.service.SubscriptionManagerService;
 import com.gopair.websocketservice.util.PayloadAdapter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -26,6 +30,7 @@ public class MessageHandler {
     private final ChannelMessageRouter channelMessageRouter;
     private final ConnectionManagerService connectionManager;
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
 
     @SuppressWarnings("unchecked")
     public boolean handleTextMessage(WebSocketSession session, TextMessage message) {
@@ -50,6 +55,7 @@ public class MessageHandler {
                 case SUBSCRIBE -> handleSubscriptionMessage(session, message);
                 case CHANNEL_MESSAGE -> handleChannelMessage(session, message);
                 case HEARTBEAT -> handleHeartbeatMessage(session, message);
+                case CATCH_UP -> handleCatchUpMessage(session, message);
                 default -> {
                     log.warn("[消息处理] 不支持的消息类型: sessionId={}, type={}",
                             session.getId(), message.getType());
@@ -117,6 +123,7 @@ public class MessageHandler {
             case "subscribe" -> MessageType.SUBSCRIBE;
             case "heartbeat" -> MessageType.HEARTBEAT;
             case "room_message" -> MessageType.CHAT;
+            case "catch_up" -> MessageType.CATCH_UP;
             default -> MessageType.fromValue(typeStr);
         };
     }
@@ -203,5 +210,105 @@ public class MessageHandler {
     private void sendResponse(WebSocketSession session, UnifiedWebSocketMessage response) throws Exception {
         String jsonMessage = objectMapper.writeValueAsString(response);
         session.sendMessage(new TextMessage(jsonMessage));
+    }
+
+    /**
+     * 处理离线消息补发请求（catch_up）。
+     * 客户端在 WebSocket 重连后发送此消息，携带离线前最后一条消息的 ID，
+     * 服务端查询该 ID 之后的所有消息，通过 WebSocket 通道推送回客户端。
+     *
+     * 支持两种频道：
+     * - room:{roomId}  → 查询 message-service（房间消息）
+     * - user:{userId}  → 查询 chat-service（私聊消息）
+     */
+    private boolean handleCatchUpMessage(WebSocketSession session, UnifiedWebSocketMessage message) {
+        try {
+            Map<String, Object> payload = message.getPayload();
+            if (payload == null) {
+                log.warn("[消息处理] catch_up 消息缺少 payload 字段: sessionId={}", session.getId());
+                return false;
+            }
+
+            String channel = (String) payload.get("channel");
+            Object lastMessageIdObj = payload.get("lastMessageId");
+
+            if (channel == null || lastMessageIdObj == null) {
+                log.warn("[消息处理] catch_up 参数不完整: sessionId={}, channel={}, lastMessageId={}",
+                        session.getId(), channel, lastMessageIdObj);
+                return false;
+            }
+
+            long lastMessageId;
+            try {
+                lastMessageId = ((Number) lastMessageIdObj).longValue();
+            } catch (Exception e) {
+                log.warn("[消息处理] catch_up lastMessageId 解析失败: {}", lastMessageIdObj);
+                return false;
+            }
+
+            log.info("[消息处理] 处理 catch_up: sessionId={}, channel={}, lastMessageId={}",
+                    session.getId(), channel, lastMessageId);
+
+            List<Map<String, Object>> missedMessages;
+
+            if (channel.startsWith("room:")) {
+                String roomIdStr = channel.substring("room:".length());
+                Long roomId = Long.parseLong(roomIdStr);
+                String serviceUrl = "http://message-service/message/room/" + roomId + "/history?beforeMessageId=" + lastMessageId + "&pageSize=200";
+                missedMessages = fetchMissedMessages(serviceUrl);
+            } else if (channel.startsWith("user:")) {
+                String userIdStr = channel.substring("user:".length());
+                Long userId = Long.parseLong(userIdStr);
+                String serviceUrl = "http://chat-service/chat/conversation/user/" + userId + "/missed?afterMessageId=" + lastMessageId + "&pageSize=200";
+                missedMessages = fetchMissedMessages(serviceUrl);
+            } else {
+                log.warn("[消息处理] catch_up 不支持的频道类型: {}", channel);
+                return false;
+            }
+
+            sendCatchUpResult(session, channel, missedMessages, lastMessageId);
+            return true;
+
+        } catch (Exception e) {
+            log.error("[消息处理] 处理 catch_up 消息异常: sessionId={}", session.getId(), e);
+            return false;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> fetchMissedMessages(String url) {
+        try {
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response != null && Boolean.TRUE.equals(response.get("success"))) {
+                Object data = response.get("data");
+                if (data instanceof List) {
+                    return (List<Map<String, Object>>) data;
+                }
+            }
+            return List.of();
+        } catch (Exception e) {
+            log.warn("[消息处理] 查询离线消息失败: url={}, error={}", url, e.getMessage());
+            return List.of();
+        }
+    }
+
+    private void sendCatchUpResult(WebSocketSession session, String channel, List<Map<String, Object>> messages, long lastMessageId) {
+        try {
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("type", "catch_up_result");
+            response.put("eventType", "catch_up_result");
+            response.put("channel", channel);
+            response.put("count", messages.size());
+            response.put("lastMessageId", lastMessageId);
+            response.put("messages", messages);
+            response.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+
+            String json = objectMapper.writeValueAsString(response);
+            session.sendMessage(new TextMessage(json));
+            log.info("[消息处理] 发送 catch_up_result: channel={}, count={}, sessionId={}",
+                    channel, messages.size(), session.getId());
+        } catch (Exception e) {
+            log.error("[消息处理] 发送 catch_up_result 失败: sessionId={}", session.getId(), e);
+        }
     }
 }
