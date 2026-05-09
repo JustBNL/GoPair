@@ -6,7 +6,6 @@ import com.gopair.roomservice.domain.event.MemberRemovalEvent;
 import com.gopair.roomservice.enums.LeaveTypeEnum;
 import com.gopair.roomservice.domain.po.Room;
 import com.gopair.roomservice.mapper.RoomMapper;
-import com.gopair.roomservice.service.MemberRemovalService;
 import com.gopair.roomservice.service.RoomMemberService;
 import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.framework.logging.annotation.LogRecord;
@@ -21,16 +20,15 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 成员移除事件消费者，leaveRoom / kickMember / closeRoom 共用。
+ * 成员移除事件消费者，leaveRoom / kickMember 共用。
  *
  * * [核心策略]
  * - 幂等：pending_removal 作为一次性令牌，只处理存在且匹配的事件。
- * - leaveType=ROOM_CLOSED 特殊处理：批量标记所有成员，不写 pending_removal（无特定 userId）。
+ * - leaveType=ROOM_CLOSED 由 RoomServiceImpl.closeRoom 同步处理，不在此消费。
  *
  * * [执行链路]
- * 1. ROOM_CLOSED：直接 markAllAsLeft + 自动关房检查。
- * 2. VOLUNTARY/KICKED：检查 pending_removal → markAsLeft → 递减人数 → 清理 pending → WebSocket。
- * 3. 若房间人数为 0 且状态仍为活跃，尝试关闭房间。
+ * 1. VOLUNTARY/KICKED：检查 pending_removal → markAsLeft → 递减人数 → 清理 pending → WebSocket。
+ * 2. 若房间人数为 0 且状态仍为活跃，尝试关闭房间。
  *
  * @param event 成员移除事件
  */
@@ -41,7 +39,6 @@ public class MemberRemovalConsumer {
 
     private final RoomMapper roomMapper;
     private final RoomMemberService roomMemberService;
-    private final MemberRemovalService memberRemovalService;
     private final StringRedisTemplate stringRedisTemplate;
     private final WebSocketMessageProducer wsProducer;
 
@@ -55,16 +52,9 @@ public class MemberRemovalConsumer {
                 roomId, event.getUserId(), leaveType);
 
         try {
-            if (leaveType == LeaveTypeEnum.ROOM_CLOSED) {
-                // ROOM_CLOSED：closeRoom 触发，批量标记所有成员被动离开
-                roomMemberService.markAllAsLeft(roomId, LeaveTypeEnum.ROOM_CLOSED.getValue());
-                checkAndCloseRoom(roomId);
-                return;
-            }
-
             Long userId = event.getUserId();
             if (userId == null) {
-                log.warn("[房间服务][removal] leaveType={} 但 userId 为 null，跳过 roomId={}", leaveType, roomId);
+                log.warn("[房间服务][removal] userId 为 null，跳过 roomId={}", roomId);
                 return;
             }
 

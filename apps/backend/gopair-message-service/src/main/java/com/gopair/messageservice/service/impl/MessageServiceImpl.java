@@ -80,8 +80,11 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             if (!checkUserInRoom(sendMessageDto.getRoomId(), senderId)) {
                 throw new MessageException(MessageErrorCode.USER_NOT_IN_ROOM);
             }
-            // 检查房间是否被禁用
-            if (checkRoomDisabled(sendMessageDto.getRoomId())) {
+            // 检查房间是否可写（仅 ACTIVE 和 EXPIRED 允许写入，CLOSED 和 DISABLED 拦截）
+            int writableStatus = checkRoomWritable(sendMessageDto.getRoomId());
+            if (writableStatus == 1) {
+                throw new MessageException(MessageErrorCode.ROOM_CLOSED);
+            } else if (writableStatus == 4) {
                 throw new MessageException(MessageErrorCode.ROOM_DISABLED);
             }
 
@@ -373,18 +376,28 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     /**
-     * 检查房间是否被禁用。
+     * 检查房间是否可写。
+     *
+     * @param roomId 房间ID
+     * @return 0=可写（ACTIVE/EXPIRED）；1=房间已关闭；4=房间已禁用；-1=查询失败（默认放行）
      */
-    private boolean checkRoomDisabled(Long roomId) {
+    private int checkRoomWritable(Long roomId) {
         try {
             String url = ROOM_SERVICE_URL + roomId + "/status";
             @SuppressWarnings("unchecked")
             R<Integer> response = restTemplate.getForObject(url, R.class);
             Integer status = (response != null) ? response.getData() : null;
-            return status != null && status == 4;
+            if (status == null) {
+                return -1;
+            }
+            // 仅 ACTIVE(0) 和 EXPIRED(2) 允许写入
+            if (status == 0 || status == 2) {
+                return 0;
+            }
+            return status;
         } catch (Exception e) {
             log.warn("房间状态查询接口调用失败, 房间ID: {}, 错误: {}", roomId, e.getMessage());
-            return false;
+            return -1;
         }
     }
 

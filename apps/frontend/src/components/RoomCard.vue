@@ -221,7 +221,7 @@ const expireText = computed(() => {
 
 function handleEnter() {
   if (props.room.status === ROOM_STATUS.ARCHIVED) { message.warning('房间已归档，无法进入'); return }
-  // CLOSED 状态：非房主禁止进入，房主允许进入（可重新开启）
+  // 非房主禁止进入已关闭房间
   if (props.room.status === ROOM_STATUS.CLOSED && !isOwner.value) {
     message.warning('房间已关闭，无法进入')
     return

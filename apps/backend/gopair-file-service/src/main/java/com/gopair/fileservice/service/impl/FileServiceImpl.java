@@ -115,8 +115,11 @@ public class FileServiceImpl implements FileService {
         long fs = file.getSize();
         log.info("[file-service] start op:uploadFile roomId:{} userId:{} file:{} size:{}B", roomId, userId, fn, fs);
         checkFileTypeAndSize(ft, fs);
-        // 检查房间是否被禁用
-        if (checkRoomDisabled(roomId)) {
+        // 检查房间是否可写（仅 ACTIVE 和 EXPIRED 允许写入，CLOSED 和 DISABLED 拦截）
+        int writableStatus = checkRoomWritable(roomId);
+        if (writableStatus == 1) {
+            throw new FileException(FileErrorCode.ROOM_CLOSED);
+        } else if (writableStatus == 4) {
             throw new FileException(FileErrorCode.ROOM_DISABLED);
         }
         String uuid = UUID.randomUUID().toString().replace("-", "");
@@ -504,16 +507,29 @@ public class FileServiceImpl implements FileService {
         }
     }
 
-    private boolean checkRoomDisabled(Long roomId) {
+    /**
+     * 检查房间是否可写。
+     *
+     * @param roomId 房间ID
+     * @return 0=可写（ACTIVE/EXPIRED）；1=房间已关闭；4=房间已禁用；-1=查询失败（默认放行）
+     */
+    private int checkRoomWritable(Long roomId) {
         try {
             String url = "http://room-service/room/" + roomId + "/status";
             @SuppressWarnings("unchecked")
             com.gopair.common.core.R<Integer> resp = restTemplate.getForObject(url, com.gopair.common.core.R.class);
             Integer status = (resp != null) ? resp.getData() : null;
-            return status != null && status == 4;
+            if (status == null) {
+                return -1;
+            }
+            // 仅 ACTIVE(0) 和 EXPIRED(2) 允许写入
+            if (status == 0 || status == 2) {
+                return 0;
+            }
+            return status;
         } catch (Exception e) {
-            log.warn("[file-service] checkRoomDisabled failed roomId:{} err:{}", roomId, e.getMessage());
-            return false;
+            log.warn("[file-service] checkRoomWritable failed roomId:{} err:{}", roomId, e.getMessage());
+            return -1;
         }
     }
 

@@ -631,6 +631,11 @@ const {
   onEmojiReceived: (emoji: string, senderNickname: string) => {
     spawnEmojiParticle(emoji, senderNickname)
   },
+  onRoomClosed: (data: { roomId: number; operatorId: number }) => {
+    if (currentRoom.value?.roomId === data.roomId) {
+      antMessage.warning('房间已关闭')
+    }
+  },
   onRoomRenewed: (data: { roomId: number; expireTime: string; status: number }) => {
     if (currentRoom.value?.roomId === data.roomId) {
       currentRoom.value = {

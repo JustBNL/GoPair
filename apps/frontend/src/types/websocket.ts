@@ -68,6 +68,7 @@ export enum WsEventType {
   VOICE_ROSTER_UPDATE = 'voice_roster_update',
 
   // 房间状态事件
+  ROOM_CLOSED = 'room_closed',
   ROOM_RENEWED = 'room_renewed',
   ROOM_REOPENED = 'room_reopened'
 }

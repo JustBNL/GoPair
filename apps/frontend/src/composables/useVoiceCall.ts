@@ -107,8 +107,10 @@ export function useVoiceCall(
           // 房间不可通话（过期/关闭/归档/禁用），强制锁定
           currentCall.value = null
           callState.value = 'locked'
+        } else {
+          // 房间 ACTIVE + 是房主 + 无活跃通话 → idle（可开启）
+          callState.value = 'idle'
         }
-        // canStartCall === true && no active call → stays idle (owner can start)
       }
     } catch {
       if (callState.value === 'locked' || callState.value === 'idle') {

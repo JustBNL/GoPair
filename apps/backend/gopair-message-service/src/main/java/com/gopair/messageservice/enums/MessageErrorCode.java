@@ -76,7 +76,12 @@ public enum MessageErrorCode implements ErrorCode {
     /**
      * 房间已被禁用
      */
-    ROOM_DISABLED(20411, "房间已被管理员禁用");
+    ROOM_DISABLED(20411, "房间已被管理员禁用"),
+
+    /**
+     * 房间已关闭
+     */
+    ROOM_CLOSED(20412, "房间已关闭");
 
     /**
      * 错误码

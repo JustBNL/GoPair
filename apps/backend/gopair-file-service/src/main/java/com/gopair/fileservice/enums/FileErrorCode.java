@@ -49,7 +49,12 @@ public enum FileErrorCode implements ErrorCode {
     /**
      * 房间已被禁用
      */
-    ROOM_DISABLED(50007, "房间已被管理员禁用");
+    ROOM_DISABLED(50007, "房间已被管理员禁用"),
+
+    /**
+     * 房间已关闭
+     */
+    ROOM_CLOSED(50008, "房间已关闭");
 
     private final int code;
     private final String message;
