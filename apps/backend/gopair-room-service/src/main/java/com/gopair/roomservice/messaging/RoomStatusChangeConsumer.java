@@ -6,6 +6,8 @@ import com.gopair.roomservice.constant.RoomConst;
 import com.gopair.roomservice.service.RoomCacheSyncService;
 import com.gopair.common.service.WebSocketMessageProducer;
 import com.gopair.framework.logging.annotation.LogRecord;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -33,6 +35,7 @@ public class RoomStatusChangeConsumer {
     private final RoomCacheSyncService roomCacheSyncService;
     private final WebSocketMessageProducer wsProducer;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     @Transactional(rollbackFor = Exception.class)
     @RabbitListener(queues = SystemConstants.QUEUE_ROOM_STATUS_CHANGE)
@@ -72,8 +75,13 @@ public class RoomStatusChangeConsumer {
         }
 
         try {
-            restTemplate.postForObject(
-                    RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, Integer.class);
+            String json = restTemplate.postForObject(
+                    RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, String.class);
+            if (json != null) {
+                try {
+                    objectMapper.readTree(json).path("data").asInt(0);
+                } catch (Exception ignored) {}
+            }
             log.info("[房间服务][status-change] 禁用房间{}语音通话已终止", roomId);
         } catch (Exception e) {
             log.warn("[房间服务][status-change] 禁用房间{}终止语音通话失败: {}", roomId, e.getMessage());

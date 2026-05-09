@@ -17,4 +17,10 @@ public interface FriendRequestMapper extends BaseMapper<FriendRequest> {
      * 检查是否存在待处理的申请记录（任意方向）。
      */
     boolean existsPending(@Param("userIdA") Long userIdA, @Param("userIdB") Long userIdB);
+
+    /**
+     * 删除两个用户之间所有方向的好友申请记录。
+     * 用于删除好友时的级联清理。
+     */
+    int deleteBetweenUsers(@Param("userIdA") Long userIdA, @Param("userIdB") Long userIdB);
 }

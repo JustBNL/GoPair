@@ -55,11 +55,11 @@
           <a-menu>
             <a-menu-item key="refresh" @click="handleRefresh"><ReloadOutlined /> 刷新信息</a-menu-item>
             <a-menu-item key="copy" @click="copyRoomCode"><CopyOutlined /> 复制房间码</a-menu-item>
-            <a-menu-divider v-if="isOwner" />
-            <a-menu-item key="password" @click="showPasswordModal" v-if="isOwner"><LockOutlined /> 设置密码</a-menu-item>
+            <a-menu-divider v-if="isOwner && (props.room.status === ROOM_STATUS.ACTIVE || props.room.status === ROOM_STATUS.EXPIRED || props.room.status === ROOM_STATUS.CLOSED)" />
+            <a-menu-item key="password" @click="showPasswordModal" v-if="isOwner && props.room.status !== ROOM_STATUS.CLOSED && props.room.status !== ROOM_STATUS.ARCHIVED && props.room.status !== ROOM_STATUS.DISABLED"><LockOutlined /> 设置密码</a-menu-item>
             <a-menu-item key="renew" @click="handleRenew" v-if="isOwner && props.room.status === ROOM_STATUS.EXPIRED" class="renew-item"><ReloadOutlined /> 续期房间</a-menu-item>
             <a-menu-item key="reopen" @click="handleReopen" v-if="isOwner && props.room.status === ROOM_STATUS.CLOSED" class="reopen-item"><ReloadOutlined /> 重新开启</a-menu-item>
-            <a-menu-item key="close" @click="handleClose" v-if="isOwner" class="danger-item"><CloseOutlined /> 关闭房间</a-menu-item>
+            <a-menu-item key="close" @click="handleClose" v-if="isOwner && (props.room.status === ROOM_STATUS.ACTIVE || props.room.status === ROOM_STATUS.EXPIRED)" class="danger-item"><CloseOutlined /> 关闭房间</a-menu-item>
             <a-menu-item key="leave" @click="handleLeave" v-if="!isOwner" class="danger-item"><LogoutOutlined /> 离开房间</a-menu-item>
           </a-menu>
         </template>

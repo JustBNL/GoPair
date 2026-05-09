@@ -12,4 +12,10 @@
           AND status = '0'
     </select>
 
+    <delete id="deleteBetweenUsers">
+        DELETE FROM friend_request
+        WHERE (from_user_id = #{userIdA} AND to_user_id = #{userIdB})
+           OR (from_user_id = #{userIdB} AND to_user_id = #{userIdA})
+    </delete>
+
 </mapper>

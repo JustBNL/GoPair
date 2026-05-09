@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS friend_request (
     message VARCHAR(100) DEFAULT NULL COMMENT '申请附言',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_request (from_user_id, to_user_id),
+    UNIQUE KEY uk_request (from_user_id, to_user_id),  -- 单向唯一：同一对用户不同方向视为不同记录
     INDEX idx_to_user (to_user_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='好友申请表';
 

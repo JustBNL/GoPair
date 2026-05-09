@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
@@ -78,7 +79,12 @@ public class FriendServiceImpl implements FriendService {
         request.setToUserId(toUserId);
         request.setStatus('0');
         request.setMessage(StringUtils.hasText(dto.getMessage()) ? dto.getMessage() : null);
-        friendRequestMapper.insert(request);
+        try {
+            friendRequestMapper.insert(request);
+        } catch (DuplicateKeyException e) {
+            log.warn("发送好友请求唯一键冲突: fromUserId={}, toUserId={}", fromUserId, toUserId);
+            throw new ChatException(com.gopair.chatservice.enums.ChatErrorCode.FRIEND_REQUEST_ALREADY_EXISTS);
+        }
 
         FriendRequestVO vo = toFriendRequestVO(request);
 
@@ -164,6 +170,8 @@ public class FriendServiceImpl implements FriendService {
         if (deleted == 0) {
             throw new ChatException(com.gopair.chatservice.enums.ChatErrorCode.FRIEND_NOT_FOUND);
         }
+
+        friendRequestMapper.deleteBetweenUsers(currentUserId, friendId);
 
         chatWebSocketProducer.sendFriendStatusNotification(friendId, Map.of(
             "action", "deleted",

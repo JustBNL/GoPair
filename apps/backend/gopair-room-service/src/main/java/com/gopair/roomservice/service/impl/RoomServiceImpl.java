@@ -2,6 +2,8 @@ package com.gopair.roomservice.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gopair.common.core.PageResult;
 
 import com.gopair.common.util.BeanCopyUtils;
@@ -78,6 +80,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     private final WebSocketMessageProducer wsProducer;
     private final RoomConfig roomConfig;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     /**
      * 创建房间
@@ -421,8 +424,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                     }
                     // 强制终止房间内所有语音通话
                     try {
-                        Integer count = restTemplate.postForObject(
-                                RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, Integer.class);
+                        String json = restTemplate.postForObject(
+                                RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, String.class);
+                        int count = 0;
+                        if (json != null) {
+                            try {
+                                count = objectMapper.readTree(json).path("data").asInt(0);
+                            } catch (Exception ignored) {}
+                        }
                         log.info("[房间服务] 房间{}关闭，语音通话终止完成，共终止{}个通话", roomId, count);
                     } catch (Exception e) {
                         log.warn("[房间服务] 房间{}关闭时终止语音通话失败", roomId, e);
@@ -587,6 +596,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * @return 重新开启后的房间信息
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "重新开启房间", module = "房间管理")
     public RoomVO reopenRoom(Long roomId, Long userId, Integer expireMinutes) {
         if (userId == null) {
@@ -696,10 +706,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 1. 清理消息
         try {
-            Integer count = restTemplate.postForObject(RoomConst.MESSAGE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
-            if (count != null) {
-                total += count;
+            String json = restTemplate.postForObject(RoomConst.MESSAGE_SERVICE_URL + roomId + "/cleanup", null, String.class);
+            int count = 0;
+            if (json != null) {
+                try {
+                    count = objectMapper.readTree(json).path("data").asInt(0);
+                } catch (Exception ignored) {}
             }
+            total += count;
             log.info("[房间服务] 消息清理完成 roomId={} count={}", roomId, count);
         } catch (Exception e) {
             log.warn("[房间服务] 清理房间{}消息失败: {}", roomId, e.getMessage());
@@ -707,10 +721,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 2. 清理文件
         try {
-            Integer count = restTemplate.postForObject(RoomConst.FILE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
-            if (count != null) {
-                total += count;
+            String json = restTemplate.postForObject(RoomConst.FILE_SERVICE_URL + roomId + "/cleanup", null, String.class);
+            int count = 0;
+            if (json != null) {
+                try {
+                    count = objectMapper.readTree(json).path("data").asInt(0);
+                } catch (Exception ignored) {}
             }
+            total += count;
             log.info("[房间服务] 文件清理完成 roomId={} count={}", roomId, count);
         } catch (Exception e) {
             log.warn("[房间服务] 清理房间{}文件失败: {}", roomId, e.getMessage());
@@ -718,10 +736,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         // 3. 清理语音通话
         try {
-            Integer count = restTemplate.postForObject(RoomConst.VOICE_SERVICE_URL + roomId + "/cleanup", null, Integer.class);
-            if (count != null) {
-                total += count;
+            String json = restTemplate.postForObject(RoomConst.VOICE_SERVICE_URL + roomId + "/cleanup", null, String.class);
+            int count = 0;
+            if (json != null) {
+                try {
+                    count = objectMapper.readTree(json).path("data").asInt(0);
+                } catch (Exception ignored) {}
             }
+            total += count;
             log.info("[房间服务] 语音通话清理完成 roomId={} count={}", roomId, count);
         } catch (Exception e) {
             log.warn("[房间服务] 清理房间{}语音通话失败: {}", roomId, e.getMessage());
