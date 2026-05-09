@@ -140,4 +140,17 @@ public interface RoomMapper extends BaseMapper<Room> {
     int updateExpireTimeAndStatus(@Param("roomId") Long roomId,
                                   @Param("expireTime") LocalDateTime expireTime,
                                   @Param("status") Integer status);
+
+    /**
+     * 更新房间过期时间和状态（用于重新开启）。
+     * WHERE status IN (1,2) 确保仅 CLOSED/EXPIRED 可重新开启。
+     *
+     * @param roomId     房间ID
+     * @param expireTime 新的过期时间
+     * @param status     目标状态（重新开启后固定为 ACTIVE，即0）
+     * @return 更新行数（0 表示房间不存在或状态不符合条件）
+     */
+    int updateExpireTimeAndStatusForReopen(@Param("roomId") Long roomId,
+                                           @Param("expireTime") LocalDateTime expireTime,
+                                           @Param("status") Integer status);
 }

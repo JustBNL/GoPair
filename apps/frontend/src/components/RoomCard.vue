@@ -58,7 +58,7 @@
             <a-menu-divider v-if="isOwner" />
             <a-menu-item key="password" @click="showPasswordModal" v-if="isOwner"><LockOutlined /> 设置密码</a-menu-item>
             <a-menu-item key="renew" @click="handleRenew" v-if="isOwner && props.room.status === ROOM_STATUS.EXPIRED" class="renew-item"><ReloadOutlined /> 续期房间</a-menu-item>
-            <a-menu-item key="reopen" @click="handleReopen" v-if="isOwner && props.room.status === ROOM_STATUS.CLOSED && !props.room.closedTime" class="reopen-item"><ReloadOutlined /> 重新开启</a-menu-item>
+            <a-menu-item key="reopen" @click="handleReopen" v-if="isOwner && props.room.status === ROOM_STATUS.CLOSED" class="reopen-item"><ReloadOutlined /> 重新开启</a-menu-item>
             <a-menu-item key="close" @click="handleClose" v-if="isOwner" class="danger-item"><CloseOutlined /> 关闭房间</a-menu-item>
             <a-menu-item key="leave" @click="handleLeave" v-if="!isOwner" class="danger-item"><LogoutOutlined /> 离开房间</a-menu-item>
           </a-menu>

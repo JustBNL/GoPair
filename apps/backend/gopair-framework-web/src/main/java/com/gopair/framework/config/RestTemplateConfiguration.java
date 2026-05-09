@@ -27,6 +27,10 @@ import java.io.IOException;
  *   保证服务间调用时 ContextInitFilter 能正确解析用户身份。
  * - 同时转发 Authorization header，使下游服务能验证当前登录用户身份。
  *
+ * 注意：服务发现能力由 spring-cloud-starter-loadbalancer 提供（传递依赖），
+ * 其 DiscoveryClientServiceInstanceListSupplier 会自动从 NacosDiscoveryClient 读取实例列表，
+ * 无需本配置类额外注册 Supplier Bean。
+ *
  * @author gopair
  */
 @Configuration

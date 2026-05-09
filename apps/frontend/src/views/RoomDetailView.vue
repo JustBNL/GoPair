@@ -32,7 +32,7 @@
             <ReloadOutlined />
             续期房间
           </a-button>
-          <a-button v-if="isOwner && currentRoom.status === ROOM_STATUS.CLOSED && !currentRoom.closedTime" type="primary" @click="showReopenModal = true">
+          <a-button v-if="isOwner && currentRoom.status === ROOM_STATUS.CLOSED" type="primary" @click="showReopenModal = true">
             <ReloadOutlined />
             重新开启
           </a-button>

@@ -143,16 +143,6 @@ public enum RoomErrorCode implements ErrorCode {
     ARCHIVED_CANNOT_REOPEN(20225, "已归档房间无法重新开启"),
 
     /**
-     * 已过期房间无法重新开启，请先续期
-     */
-    EXPIRED_CANNOT_REOPEN(20226, "已过期房间无法重新开启，请先续期"),
-
-    /**
-     * 系统自动关闭的房间已过期，无法重新开启
-     */
-    SYSTEM_CLOSED_CANNOT_REOPEN(20227, "系统自动关闭的房间已过期，无法重新开启"),
-
-    /**
      * 房间已被管理员禁用，无法操作
      */
     ROOM_DISABLED(20228, "房间已被管理员禁用"),

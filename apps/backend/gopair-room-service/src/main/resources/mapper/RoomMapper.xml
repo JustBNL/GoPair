@@ -31,17 +31,6 @@
         LIMIT 100
     </select>
 
-    <!-- 查询已过期且超过归档前置天数（30天）的房间，用于系统自动关闭 -->
-    <select id="selectExpiredRoomsToClose" resultType="com.gopair.roomservice.domain.po.Room">
-        SELECT
-            <include refid="Base_Column_List" />
-        FROM room
-        WHERE status = 2
-          AND expire_time <![CDATA[ < ]]> #{thresholdTime}
-        ORDER BY expire_time ASC
-        LIMIT 100
-    </select>
-
     <!-- 查询待归档房间：已关闭/过期/禁用超过归档阈值时间 -->
     <select id="selectRoomsToArchive" resultType="com.gopair.roomservice.domain.po.Room">
         SELECT
@@ -209,6 +198,18 @@
             update_time = NOW()
         WHERE room_id = #{roomId}
           AND status IN (0, 2)
+    </update>
+
+    <!-- 更新房间过期时间和状态（用于重新开启），乐观条件防止幽灵更新 -->
+    <!-- WHERE status IN (1,2) 确保仅 CLOSED/EXPIRED 可重新开启 -->
+    <update id="updateExpireTimeAndStatusForReopen">
+        UPDATE room
+        SET expire_time = #{expireTime},
+            status = #{status},
+            version = version + 1,
+            update_time = NOW()
+        WHERE room_id = #{roomId}
+          AND status IN (1, 2)
     </update>
 
 </mapper>

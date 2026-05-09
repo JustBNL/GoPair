@@ -410,11 +410,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                     } catch (Exception e) {
                         log.warn("[房间服务] Redis 更新房间状态失败 roomId={} 错误={}", roomId, e.getMessage());
                     }
-                    // 发 MemberRemovalEvent(leaveType=3)：Consumer 标记所有成员被动离开
-                    String correlationId = UUID.randomUUID().toString();
-                    MemberRemovalEvent evt = new MemberRemovalEvent(
-                            roomId, null, LeaveTypeEnum.ROOM_CLOSED, userId, correlationId, System.currentTimeMillis());
-                    memberRemovalProducer.sendRemoval(evt);
                     // 广播关闭事件，通知房间内所有成员
                     try {
                         wsProducer.sendEventToRoom(roomId, "room_closed", Map.of(
@@ -485,45 +480,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * 3. 同步 Redis status=1。
      * 4. 广播 room_closed WebSocket 事件。
      *
-     * @param roomId 房间ID
-     */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    @LogRecord(operation = "系统关闭房间", module = "定时任务")
-    public void systemCloseRoom(Long roomId) {
-        Room room = roomMapper.selectById(roomId);
-        if (room == null) {
-            log.warn("[房间服务][schedule] 房间{}不存在，跳过系统关闭", roomId);
-            return;
-        }
-        if (room.getStatus() == null || room.getStatus() != RoomConst.STATUS_EXPIRED) {
-            log.debug("[房间服务][schedule] 房间{}状态非EXPIRED(status={})，跳过系统关闭", roomId, room.getStatus());
-            return;
-        }
-
-        int updated = roomMapper.updateStatusAndClosedTime(roomId, RoomConst.STATUS_CLOSED, LocalDateTime.now());
-        if (updated > 0) {
-            log.info("[房间服务][schedule] 房间{}已超时，status 2 -> 1", roomId);
-            try {
-                roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_CLOSED);
-                wsProducer.sendEventToRoom(roomId, "room_closed", Map.of(
-                    "roomId", roomId,
-                    "operatorId", (Object) null
-                ));
-            } catch (Exception e) {
-                log.warn("[房间服务][schedule] 房间{}系统关闭事件发送失败", roomId, e);
-            }
-            // 强制终止房间内所有语音通话
-            try {
-                Integer count = restTemplate.postForObject(
-                        RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, Integer.class);
-                log.info("[房间服务][schedule] 房间{}系统关闭，语音通话终止完成，共终止{}个通话", roomId, count);
-            } catch (Exception e) {
-                log.warn("[房间服务][schedule] 房间{}系统关闭时终止语音通话失败: {}", roomId, e.getMessage());
-            }
-        }
-    }
-
     /**
      * 续期房间：将 ACTIVE 或 EXPIRED 房间的过期时间延长，并将状态恢复为 ACTIVE。
      *
@@ -611,21 +567,19 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     }
 
     /**
-     * 重新开启房间：将已关闭（手动关闭）房间恢复为 ACTIVE。
+     * 重新开启房间：将 CLOSED 或 EXPIRED 状态房间恢复为 ACTIVE。
      *
      * * [核心策略]
-     * - 关闭来源判断：closed_time == null 表示手动关闭（可重新开启），closed_time != null 表示定时任务关闭（不允许）。
      * - 权限控制：仅房主可操作。
      *
      * * [执行链路]
      * 1. 身份确权：userId 非空校验。
      * 2. 房间存在性校验：查 Room，不存在抛 ROOM_NOT_FOUND。
-     * 3. 状态前置校验链：ARCHIVED → 抛 ARCHIVED_CANNOT_REOPEN；EXPIRED → 抛 EXPIRED_CANNOT_REOPEN；非 CLOSED → 抛 ROOM_STATE_CHANGED。
-     * 4. 关闭来源校验：closed_time != null → 抛 SYSTEM_CLOSED_CANNOT_REOPEN。
-     * 5. 权限校验：ownerId != userId → 抛 NO_PERMISSION。
-     * 6. 更新状态：expire_time = now + expireMinutes，status → ACTIVE，closed_time 保持 null。
-     * 7. Redis 同步：setStatus + setExpireAt。
-     * 8. WS 广播：room_reopened 事件。
+     * 3. 状态前置校验链：ARCHIVED → 抛 ARCHIVED_CANNOT_REOPEN；DISABLED → 抛 DISABLED_CANNOT_REOPEN；其他状态 → 抛 ROOM_STATE_CHANGED。
+     * 4. 权限校验：ownerId != userId → 抛 NO_PERMISSION。
+     * 5. 更新状态：expire_time = now + expireMinutes，status → ACTIVE。
+     * 6. Redis 同步：setStatus + setExpireAt。
+     * 7. WS 广播：room_reopened 事件。
      *
      * @param roomId      房间ID
      * @param userId      操作用户ID（必须是房主）
@@ -651,18 +605,11 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (status != null && status == RoomConst.STATUS_ARCHIVED) {
             throw new RoomException(RoomErrorCode.ARCHIVED_CANNOT_REOPEN);
         }
-        if (status != null && status == RoomConst.STATUS_EXPIRED) {
-            throw new RoomException(RoomErrorCode.EXPIRED_CANNOT_REOPEN);
-        }
         if (status != null && status == RoomConst.STATUS_DISABLED) {
             throw new RoomException(RoomErrorCode.DISABLED_CANNOT_REOPEN);
         }
-        if (status != null && status != RoomConst.STATUS_CLOSED) {
+        if (status != null && status != RoomConst.STATUS_CLOSED && status != RoomConst.STATUS_EXPIRED) {
             throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
-        }
-
-        if (room.getClosedTime() != null) {
-            throw new RoomException(RoomErrorCode.SYSTEM_CLOSED_CANNOT_REOPEN);
         }
 
         if (!room.getOwnerId().equals(userId)) {
@@ -671,7 +618,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
 
         LocalDateTime newExpireTime = LocalDateTime.now().plusMinutes(expireMinutes);
 
-        int updated = roomMapper.updateExpireTimeAndStatus(roomId, newExpireTime, RoomConst.STATUS_ACTIVE);
+        int updated = roomMapper.updateExpireTimeAndStatusForReopen(roomId, newExpireTime, RoomConst.STATUS_ACTIVE);
         if (updated == 0) {
             throw new RoomException(RoomErrorCode.ROOM_STATE_CHANGED);
         }
