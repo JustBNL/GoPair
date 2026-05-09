@@ -91,6 +91,7 @@
             @close="handleCloseRoom"
             @renew="handleRenewRoom"
             @reopen="handleReopenRoom"
+            @refresh="handleRefreshRoom"
           />
         </div>
 
@@ -396,6 +397,12 @@ function handleReopenRoom(room: RoomInfo) {
 function handleReopenSuccess(_room: RoomInfo) {
   reopenModalVisible.value = false
   reopenTargetRoom.value = null
+}
+
+function handleRefreshRoom(room: RoomInfo) {
+  roomStore.refreshRoom(room.roomId).catch(() => {
+    message.error('刷新失败，请重试')
+  })
 }
 
 function handleOpenPrivateChat(friendId: number) {

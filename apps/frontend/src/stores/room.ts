@@ -79,6 +79,18 @@ export const useRoomStore = defineStore('room', () => {
     await fetchUserRooms(q && Object.keys(q).length > 0 ? q : { includeHistory: true })
   }
 
+  /**
+   * 刷新指定房间的信息。
+   * 复用当前查询条件拉取完整列表，Vue 响应式自动替换 roomList 中对应房间对象，
+   * 从而触发 RoomCard props 更新（status、currentMembers、expireTime 等字段）。
+   * @param roomId 要刷新的房间 ID
+   */
+  async function refreshRoom(roomId: number): Promise<void> {
+    await fetchUserRooms(currentQuery.value && Object.keys(currentQuery.value).length > 0
+      ? currentQuery.value
+      : { includeHistory: true })
+  }
+
   async function createRoom(roomData: CreateRoomRequest): Promise<RoomInfo | null> {
     createLoading.value = true
     try {
@@ -282,6 +294,7 @@ export const useRoomStore = defineStore('room', () => {
     // 方法
     fetchUserRooms,
     refreshWithCurrentQuery,
+    refreshRoom,
     createRoom,
     requestJoinRoomAsync,
     queryJoinResult,

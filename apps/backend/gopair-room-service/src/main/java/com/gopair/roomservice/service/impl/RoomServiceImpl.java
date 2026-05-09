@@ -704,6 +704,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      */
     @Override
     @LogRecord(operation = "清理房间资源", module = "定时任务", includeResult = true)
+    @Transactional(rollbackFor = Exception.class)
     public int cleanupRoomResources(Long roomId) {
         int total = 0;
 
