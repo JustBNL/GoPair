@@ -268,6 +268,7 @@
               :current-user-id="currentUser?.userId || 0"
               :call-state="callState"
               :is-owner="voiceIsOwner"
+              :can-start-call="canStartCall"
               :current-call="currentCall"
               :loading="voiceLoading"
               :action-loading="actionLoading"
@@ -739,6 +740,7 @@ const {
   actionLoading,
   isMuted,
   isSpeakerOff,
+  canStartCall,
   handleOpen,
   handleJoin,
   handleLeave,
@@ -750,7 +752,7 @@ const {
   handleSignaling,
   handleRosterUpdate,
   handleLeaveBeforeUnmount
-} = useVoiceCall(voiceRoomId, voiceCurrentUserId, voiceIsOwner)
+} = useVoiceCall(voiceRoomId, voiceCurrentUserId, voiceIsOwner, computed(() => currentRoom.value?.status ?? 0))
 
 // 成员相关状态
 const roomMembers = ref<RoomMember[]>([])

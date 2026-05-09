@@ -45,12 +45,18 @@ public class VoiceCallServiceImpl implements VoiceCallService {
     private final RestTemplate restTemplate;
 
     private static final String ROOM_SERVICE_URL = "http://room-service/room/";
-    private static final int ROOM_STATUS_DISABLED = 4;
+    private static final int ROOM_STATUS_ACTIVE    = 0;
+    private static final int ROOM_STATUS_CLOSED   = 1;
+    private static final int ROOM_STATUS_EXPIRED  = 2;
+    private static final int ROOM_STATUS_ARCHIVED = 3;
+    private static final int ROOM_STATUS_DISABLED  = 4;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "自动创建语音通话", module = "语音通话")
     public CallVO createAutoCall(Long roomId, Long roomOwnerId) {
+        validateRoomForCall(roomId);
+
         VoiceCall existing = voiceCallMapper.selectOne(
                 new LambdaQueryWrapper<VoiceCall>()
                         .eq(VoiceCall::getRoomId, roomId)
@@ -119,11 +125,7 @@ public class VoiceCallServiceImpl implements VoiceCallService {
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "创建或加入通话", module = "语音通话")
     public CallVO joinOrCreateCall(Long roomId, Long userId) {
-        // 检查房间是否被禁用
-        Integer roomStatus = getRoomStatus(roomId);
-        if (roomStatus != null && roomStatus == ROOM_STATUS_DISABLED) {
-            throw new IllegalStateException("房间已被管理员禁用");
-        }
+        validateRoomForCall(roomId);
 
         VoiceCall call = voiceCallMapper.selectOne(
                 new LambdaQueryWrapper<VoiceCall>()
@@ -465,6 +467,32 @@ public class VoiceCallServiceImpl implements VoiceCallService {
             log.warn("[语音] 获取房间状态失败 roomId={} err={}", roomId, e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * 前置校验：检查房间状态是否允许开启通话。
+     * 仅 ACTIVE 状态允许，其他状态均拒绝。
+     */
+    private void validateRoomForCall(Long roomId) {
+        Integer status = getRoomStatus(roomId);
+        if (status == null) {
+            throw new IllegalStateException("房间不存在");
+        }
+        switch (status) {
+            case ROOM_STATUS_ACTIVE:
+                break;
+            case ROOM_STATUS_DISABLED:
+                throw new IllegalStateException("房间已被管理员禁用");
+            case ROOM_STATUS_EXPIRED:
+                throw new IllegalStateException("房间已过期，无法开启通话");
+            case ROOM_STATUS_CLOSED:
+                throw new IllegalStateException("房间已关闭，无法开启通话");
+            case ROOM_STATUS_ARCHIVED:
+                throw new IllegalStateException("房间已归档，无法开启通话");
+            default:
+                log.warn("[语音] 未知房间状态 roomId={} status={}", roomId, status);
+                throw new IllegalStateException("房间状态异常，无法开启通话");
+        }
     }
 
     private CallVO buildCallVO(VoiceCall call) {

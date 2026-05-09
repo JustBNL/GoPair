@@ -1,8 +1,9 @@
-import { ref, watch, onBeforeUnmount, type Ref } from 'vue'
+import { ref, watch, onBeforeUnmount, computed, type Ref } from 'vue'
 import { message as antMessage, Modal } from 'ant-design-vue'
 import { VoiceAPI } from '@/api/voice'
 import { WebRTCManager } from '@/utils/webrtc/WebRTCManager'
 import type { CallVO } from '@/types/api'
+import { ROOM_STATUS } from '@/types/room'
 
 /**
  * 语音通话状态类型
@@ -20,6 +21,7 @@ export interface UseVoiceCallReturn {
   actionLoading: Ref<boolean>
   isMuted: Ref<boolean>
   isSpeakerOff: Ref<boolean>
+  canStartCall: Ref<boolean>
   handleOpen: () => Promise<void>
   handleJoin: () => Promise<void>
   handleLeave: () => Promise<void>
@@ -62,7 +64,8 @@ export interface UseVoiceCallReturn {
 export function useVoiceCall(
   roomId: Ref<number>,
   currentUserId: Ref<number>,
-  isOwner: Ref<boolean>
+  isOwner: Ref<boolean>,
+  roomStatus: Ref<number>
 ): UseVoiceCallReturn {
   const callState = ref<CallState>('locked')
   const currentCall = ref<CallVO | null>(null)
@@ -70,6 +73,9 @@ export function useVoiceCall(
   const actionLoading = ref(false)
   const isMuted = ref(false)
   const isSpeakerOff = ref(false)
+
+  /** 仅 ACTIVE 房间允许开启通话 */
+  const canStartCall = computed(() => isOwner.value && roomStatus.value === ROOM_STATUS.ACTIVE)
 
   let webrtcManager: WebRTCManager | null = null
   const pendingSignals: any[] = []
@@ -91,19 +97,26 @@ export function useVoiceCall(
     loading.value = true
     try {
       const res = await VoiceAPI.getActiveCall(rid)
-      // 若此时已因 WS 事件（notifyCallStart）驱动到 active/in-call，不覆盖
+      // 若此时已因 WS 事件驱动到 active/in-call，不覆盖
       if (callState.value === 'locked' || callState.value === 'idle') {
         if (res.data) {
           if (!Array.isArray(res.data.participants)) res.data.participants = []
           currentCall.value = res.data
           callState.value = 'active'
-        } else {
-          callState.value = isOwner.value ? 'idle' : 'locked'
+        } else if (!canStartCall.value) {
+          // 房间不可通话（过期/关闭/归档/禁用），强制锁定
+          currentCall.value = null
+          callState.value = 'locked'
         }
+        // canStartCall === true && no active call → stays idle (owner can start)
       }
     } catch {
       if (callState.value === 'locked' || callState.value === 'idle') {
-        callState.value = isOwner.value ? 'idle' : 'locked'
+        if (!canStartCall.value) {
+          currentCall.value = null
+          callState.value = 'locked'
+        }
+        // else: stays idle for owner
       }
     } finally {
       loading.value = false
@@ -640,6 +653,7 @@ export function useVoiceCall(
     actionLoading,
     isMuted,
     isSpeakerOff,
+    canStartCall,
     handleOpen,
     handleJoin,
     handleLeave,

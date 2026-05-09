@@ -91,6 +91,9 @@ export const useRoomStore = defineStore('room', () => {
         message.loading({ content: '加入中…', key: 'joinAsync', duration: 1 })
         return token
       }
+      if (resp.data.message) {
+        message.info({ content: resp.data.message, key: 'joinAsync' })
+      }
       return null
     } catch (e) {
       console.error('异步加入请求失败:', e)

@@ -16,14 +16,21 @@
       <p class="desc-sub">请联系房主开启语音通话</p>
     </div>
 
-    <!-- 空闲状态：房主视角，可开启 -->
+    <!-- 空闲状态：房主视角，非过期房间可开启 -->
     <div v-else-if="callState === 'idle'" class="state-center">
       <div class="voice-icon idle">
         <PhoneOutlined />
       </div>
       <h3>语音频道</h3>
-      <p class="desc">语音频道已准备就绪</p>
-      <a-button type="primary" size="large" :loading="actionLoading" @click="emit('open')">
+      <p class="desc">{{ canStartCall ? '语音频道已准备就绪' : expiredHint }}</p>
+      <a-tooltip v-if="!canStartCall" :title="expiredHint" placement="bottom">
+        <span>
+          <a-button type="primary" size="large" disabled>
+            <PhoneOutlined /> 开启语音通话
+          </a-button>
+        </span>
+      </a-tooltip>
+      <a-button v-else type="primary" size="large" :loading="actionLoading" @click="emit('open')">
         <PhoneOutlined /> 开启语音通话
       </a-button>
     </div>
@@ -104,6 +111,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   PhoneOutlined,
   AudioOutlined,
@@ -117,6 +125,7 @@ import type { CallState } from '@/composables/useVoiceCall'
 interface Props {
   callState: CallState
   isOwner: boolean
+  canStartCall: boolean
   currentCall: CallVO | null
   loading: boolean
   actionLoading: boolean
@@ -142,6 +151,12 @@ function resolveNickname(p: { userId: number; nickname?: string }): string {
   if (props.memberNicknames?.[p.userId]) return props.memberNicknames[p.userId]
   return `用户 ${p.userId}`
 }
+
+const expiredHint = computed(() => {
+  if (!props.isOwner) return '语音功能未开启'
+  if (!props.canStartCall) return '房间已过期或已关闭，无法开启通话'
+  return ''
+})
 </script>
 
 <style scoped lang="scss">
