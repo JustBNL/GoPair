@@ -55,17 +55,12 @@
         </div>
 
         <!-- 图片消息 -->
-        <div v-else-if="message.messageType === MessageType.IMAGE" class="image-message">
-          <a-image
-            :src="message.fileUrl"
-            :alt="message.fileName"
-            :preview="{ src: message.content || message.fileUrl }"
-            class="message-image"
-          />
-          <div v-if="message.fileName" class="image-caption">
-            {{ message.fileName }}
-          </div>
-        </div>
+        <ImageMessageBubble
+          v-else-if="message.messageType === MessageType.IMAGE"
+          :file-url="message.fileUrl"
+          :file-name="message.fileName"
+          :content="message.content"
+        />
 
         <!-- 文件消息 -->
         <div v-else-if="message.messageType === MessageType.FILE" class="file-message">
@@ -107,11 +102,6 @@
           </div>
         </div>
 
-        <!-- Emoji 互动消息（正常不在气泡列表中展示，此处为防御性兜底） -->
-        <div v-else-if="message.messageType === 5" class="emoji-inline-message">
-          <span class="emoji-char">{{ message.content }}</span>
-          <span class="emoji-label">发送了一个Emoji互动</span>
-        </div>
       </div>
 
       <!-- 统一的消息时间与状态（右下角显示时间） -->
@@ -177,6 +167,7 @@ import { MessageType, type MessageVO } from '@/types/api'
 import { formatTime } from '@/utils/format'
 import { renderEmojiContent } from '@/utils/emoji'
 import UserAvatar from '@/components/UserAvatar.vue'
+import ImageMessageBubble from './ImageMessageBubble.vue'
 
 interface Props {
   message: MessageVO
@@ -427,26 +418,6 @@ const onDelete = () => {
     }
   }
 
-  &.message-type-2 {
-    // 图片消息
-    padding: 4px;
-    
-    .image-message {
-      .message-image {
-        max-width: 200px;
-        max-height: 200px;
-        border-radius: 4px;
-      }
-
-      .image-caption {
-        padding: 4px 8px;
-        font-size: 12px;
-        color: var(--text-muted);
-        text-align: center;
-      }
-    }
-  }
-
   &.message-type-3 {
     // 文件消息
     padding: 8px;
@@ -540,26 +511,6 @@ const onDelete = () => {
   }
 
   .message-body {
-    &.message-type-2 {
-      .image-message {
-        .message-image {
-          max-width: 150px;
-          max-height: 150px;
-        }
-      }
-    }
-  }
-}
-
-.emoji-inline-message {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-muted);
-
-  .emoji-char {
-    font-size: 20px;
   }
 }
 </style>

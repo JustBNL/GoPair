@@ -96,11 +96,10 @@
 
                   <!-- 图片消息 -->
                   <div v-else-if="msg.messageType === PrivateMessageType.IMAGE" class="image-message">
-                    <img
-                      :src="msg.fileUrl"
-                      :alt="msg.fileName"
-                      class="image-preview"
-                      @click="previewImage(msg.fileUrl!)"
+                    <ImageMessageBubble
+                      :file-url="msg.fileUrl"
+                      :file-name="msg.fileName"
+                      :content="msg.content"
                     />
                   </div>
 
@@ -186,14 +185,6 @@
     </div>
   </a-modal>
 
-  <!-- 图片预览 -->
-  <a-image-viewer
-    v-if="previewVisible"
-    :visible="previewVisible"
-    :src="previewImageUrl"
-    @close="previewVisible = false"
-  />
-
   <!-- 用户资料弹窗 -->
   <MemberProfileModal
     v-model:visible="profileVisible"
@@ -220,6 +211,7 @@ import { PrivateMessageType } from '@/types/chat'
 import type { PrivateMessageVO, ConversationVO, FriendVO } from '@/types/chat'
 import MemberProfileModal from '@/components/MemberProfileModal.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
+import ImageMessageBubble from '@/components/chat/ImageMessageBubble.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -237,8 +229,6 @@ const authStore = useAuthStore()
 const inputText = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 const uploading = ref(false)
-const previewVisible = ref(false)
-const previewImageUrl = ref('')
 
 const profileVisible = ref(false)
 
@@ -345,10 +335,10 @@ async function uploadFile(file: File, messageType: PrivateMessageType) {
       await chatStore.sendMessage({
         receiverId: props.friendId,
         messageType,
-        fileUrl: res.data.downloadUrl,
+        fileUrl: res.data.previewUrl,  // 缩略图 URL 供聊天界面显示
+        content: res.data.downloadUrl,  // 原图 URL 供点击预览
         fileName: file.name,
-        fileSize: file.size,
-        content: ''
+        fileSize: file.size
       })
       scrollToBottom()
     } else {
@@ -359,11 +349,6 @@ async function uploadFile(file: File, messageType: PrivateMessageType) {
   } finally {
     uploading.value = false
   }
-}
-
-function previewImage(url: string) {
-  previewImageUrl.value = url
-  previewVisible.value = true
 }
 
 async function handleDeleteFriend() {

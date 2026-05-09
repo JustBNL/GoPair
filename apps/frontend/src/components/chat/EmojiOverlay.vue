@@ -5,7 +5,7 @@
       :key="p.id"
       class="emoji-particle"
       :style="{
-        left: p.x + 'vw',
+        top: p.y + 'vh',
         fontSize: p.size + 'px',
         animationDuration: p.duration + 'ms'
       }"
@@ -38,23 +38,20 @@ defineEmits<{
 
 .emoji-particle {
   position: absolute;
-  bottom: -60px;
+  top: 0;
   line-height: 1;
   user-select: none;
-  animation: emoji-float-up linear forwards;
+  animation: emoji-slide-left linear forwards;
   will-change: transform, opacity;
 }
 
-@keyframes emoji-float-up {
+@keyframes emoji-slide-left {
   0% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-  75% {
+    transform: translateX(0) scale(1);
     opacity: 1;
   }
   100% {
-    transform: translateY(-110vh) scale(0.5);
+    transform: translateX(-110vw) scale(0.6);
     opacity: 0;
   }
 }

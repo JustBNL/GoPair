@@ -314,7 +314,24 @@ public class FileServiceImpl implements FileService {
         log.info("[file-service] success op:deleteByObjectKey key:{}", objectKey);
     }
 
-    /** @FileServiceImpl.java (287) uploadPrivateFile */
+    /**
+     * 上传私有文件（用于私聊场景，不关联房间）。
+     *
+     * * [核心策略]
+     * - 图片类型自动生成缩略图（200x200，保持宽高比），与房间文件上传一致。
+     * - 原图和缩略图分别存储在 MinIO 的 /original/ 和 /thumbnail/ 路径下。
+     * - 返回 Presigned URL：downloadUrl = 原图，previewUrl = 缩略图。
+     *
+     * * [执行链路]
+     * 1. 类型校验：checkFileTypeAndSize 拦截非法格式和超大文件。
+     * 2. 图片分支：生成 uuid，上传原图至 /original/，生成缩略图上传至 /thumbnail/。
+     * 3. 非图片分支：直接上传原图，previewUrl 与 downloadUrl 指向同一 URL。
+     * 4. 组装 FileVO：downloadUrl 为原图 Presigned URL，previewUrl 为缩略图 Presigned URL。
+     *
+     * @param file 上传的文件
+     * @param userId 上传者用户 ID
+     * @return 文件视图对象（含两个独立 URL）
+     */
     @Override
     @LogRecord(operation = "上传私有文件", module = "文件管理", includeResult = true)
     public FileVO uploadPrivateFile(MultipartFile file, Long userId) {
@@ -324,26 +341,41 @@ public class FileServiceImpl implements FileService {
         log.info("[file-service] start op:uploadPrivateFile userId:{} file:{} size:{}B", userId, fn, fs);
         checkFileTypeAndSize(ft, fs);
         String uuid = UUID.randomUUID().toString().replace("-", "");
-        String key = PRIVATE_PATH_PREFIX + userId + "/" + uuid + "." + ft;
+        String ok = buildPrivateObjectKey(userId, "original", uuid, ft);
+        String tk = null;
+        long thumbnailBytes = 0;
         try {
             byte[] rawBytes = file.getBytes();
-            uploadToMinio(new ByteArrayInputStream(rawBytes), key, file.getContentType(), fs);
-            String url = minioProperties.getEndpoint() + "/" + minioProperties.getBucketName() + "/" + key;
-            log.info("[file-service] success op:uploadPrivateFile userId:{} url:{}", userId, url);
+            if (IMAGE_TYPES.contains(ft)) {
+                tk = buildPrivateThumbnailObjectKey(ok);
+                byte[] tb = generateThumbnail(new ByteArrayInputStream(rawBytes), ft);
+                thumbnailBytes = tb.length;
+                uploadToMinio(new ByteArrayInputStream(rawBytes), ok, file.getContentType(), fs);
+                uploadToMinio(new ByteArrayInputStream(tb), tk, file.getContentType(), thumbnailBytes);
+            } else {
+                uploadToMinio(new ByteArrayInputStream(rawBytes), ok, file.getContentType(), fs);
+            }
+            log.info("[file-service] success op:uploadPrivateFile userId:{} url:{}", userId, ok);
             FileVO vo = new FileVO();
             vo.setFileName(fn);
             vo.setFileSize(fs);
             vo.setFileSizeFormatted(FileVO.formatFileSize(fs));
             vo.setFileType(ft);
             vo.setContentType(file.getContentType());
-            vo.setDownloadUrl(url);
-            vo.setPreviewUrl(url);
+            vo.setThumbnailSize(thumbnailBytes);
             vo.setPreviewable(IMAGE_TYPES.contains(ft));
             vo.setIconType(FileVO.resolveIconType(ft));
+            vo.setDownloadUrl(buildPresignedUrl(ok));
+            if (IMAGE_TYPES.contains(ft) && tk != null) {
+                vo.setPreviewUrl(buildPresignedUrl(tk));
+            } else {
+                vo.setPreviewUrl(buildPresignedUrl(ok));
+            }
             return vo;
         } catch (Exception e) {
             log.error("[file-service] failed op:uploadPrivateFile err:{}", e.getMessage(), e);
-            silentDeleteFromMinio(key);
+            silentDeleteFromMinio(ok);
+            silentDeleteFromMinio(tk);
             throw new FileException(FileErrorCode.FILE_UPLOAD_FAILED, e.getMessage());
         }
     }
@@ -405,9 +437,17 @@ public class FileServiceImpl implements FileService {
         return String.format("room/%d/%s/%s.%s", roomId, cat, name, ext);
     }
 
+    private String buildPrivateObjectKey(Long userId, String cat, String name, String ext) {
+        return String.format("private/%d/%s/%s.%s", userId, cat, name, ext);
+    }
+
     private String buildThumbnailObjectKey(String filePath) {
         if (filePath == null || !filePath.contains("/original/")) return filePath;
         return filePath.replace("/original/", "/thumbnail/").replaceFirst("(\\.[^.]+)$", "_thumb$1");
+    }
+
+    private String buildPrivateThumbnailObjectKey(String filePath) {
+        return buildThumbnailObjectKey(filePath);
     }
 
     private void silentDeleteThumbnail(String filePath) {

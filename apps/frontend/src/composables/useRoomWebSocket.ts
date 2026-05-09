@@ -14,6 +14,9 @@ import type {
 } from '@/types/websocket'
 import type { MessageVO } from '@/types/api'
 
+/** 内存中保留的最大消息条数，超出后丢弃最早的 */
+const MAX_MESSAGES = 200
+
 /**
  * 房间WebSocket事件处理器接口
  */
@@ -175,7 +178,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         if (enriched.messageType === 5) {
           handlers.onEmojiReceived?.(enriched.content, enriched.senderNickname)
         }
-        roomState.value.messages = [...roomState.value.messages, enriched]
+        roomState.value.messages = [...roomState.value.messages, enriched].slice(-MAX_MESSAGES)
         handlers.onMessage?.(enriched)
         break
       }

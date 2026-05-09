@@ -36,10 +36,6 @@
             <ReloadOutlined />
             重新开启
           </a-button>
-          <a-button @click="copyRoomCode" aria-label="复制房间码">
-            <CopyOutlined />
-            复制房间码
-          </a-button>
           <FriendsDropdown @open-chat="handleOpenPrivateChat" />
           <ThemeToggle />
         </div>
@@ -676,7 +672,7 @@ async function handlePasswordUpdateSuccess() {
 
 // Emoji 漂浮动画状态
 const emojiParticles = ref<EmojiParticle[]>([])
-const MAX_PARTICLES = 15
+const MAX_PARTICLES = 10
 
 // 语音通话状态 - 通过 useVoiceCall composable 管理
 const voiceRoomId = computed(() => currentRoom.value?.roomId ?? 0)
@@ -1243,9 +1239,10 @@ function spawnEmojiParticle(emoji: string, senderNickname: string) {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     emoji,
     senderNickname,
-    x: Math.random() * 80 + 5,
+    x: 100,
+    y: Math.random() * 92 + 4,
     size: Math.floor(Math.random() * 24) + 32,
-    duration: Math.floor(Math.random() * 1500) + 2500
+    duration: Math.floor(Math.random() * 3000) + 3000
   }]
 }
 
@@ -1278,7 +1275,7 @@ async function sendEmoji(emoji: string) {
 const scrollToBottom = () => {
   requestAnimationFrame(() => {
     nextTick(() => {
-      const messageContainer = document.querySelector('.message-list-container')
+      const messageContainer = document.querySelector('.message-list-wrapper')
       if (messageContainer) {
         messageContainer.scrollTop = messageContainer.scrollHeight
       }

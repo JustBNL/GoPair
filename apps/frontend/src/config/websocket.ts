@@ -65,7 +65,7 @@ export const WS_FEATURES = {
   // 调试日志开关
   debug: import.meta.env.VITE_WS_DEBUG === 'true' || getCurrentEnv() === 'development',
   // 是否在登录/恢复时建立全局WS连接
-  enableGlobal: import.meta.env.VITE_WS_ENABLE_GLOBAL === 'true' || false
+  enableGlobal: import.meta.env.VITE_WS_ENABLE_GLOBAL === 'true' || true
 } as const
 
 export const isDebug = (): boolean => WS_FEATURES.debug
