@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
-import { useWebSocket } from '@/composables/useWebSocket'
+import { useWebSocket, buildSubscribeMessage } from '@/composables/useWebSocket'
 import { WS_ENDPOINTS } from '@/config/websocket'
 import { ConnectionState } from '@/types/websocket'
+import { useChatStore } from '@/stores/chat'
 
 /**
  * WebSocket全局状态管理Store
@@ -90,6 +91,9 @@ export const useWebSocketStore = defineStore('websocket', () => {
           globalConnectionState.value = ConnectionState.CONNECTED
           lastConnectTime.value = new Date()
           activeConnections.value.add('global')
+          // 订阅私聊消息频道
+          const channel = `user:${currentUserId.value}`
+          globalWs!.send(buildSubscribeMessage(channel, ['message_send', 'friend_request', 'friend_status']))
         },
         onDisconnected: (event) => {
           globalConnectionState.value = ConnectionState.DISCONNECTED
@@ -99,6 +103,11 @@ export const useWebSocketStore = defineStore('websocket', () => {
           globalConnectionState.value = ConnectionState.ERROR
           lastConnectionError.value = error
           console.error(`❌ 全局WebSocket连接失败:`, error)
+        },
+        onMessage: (msg: any) => {
+          // 转发消息到 chatStore
+          const chatStore = useChatStore()
+          chatStore.handleWebSocketMessage(msg)
         }
       })
 

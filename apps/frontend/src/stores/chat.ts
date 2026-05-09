@@ -9,6 +9,7 @@ import type {
   UserSearchResultVO
 } from '@/types/chat'
 import { ChatAPI } from '@/api/chat'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * 聊天状态管理（好友 + 私聊）
@@ -49,6 +50,10 @@ export const useChatStore = defineStore('chat', () => {
   // 当前私聊的消息列表
   const currentMessages = ref<PrivateMessageVO[]>([])
   const messagesLoading = ref(false)
+
+  // 未读消息计数
+  const unreadMessageCount = ref(0)
+  const hasUnread = computed(() => unreadMessageCount.value > 0)
 
   // ==================== 加载操作 ====================
 
@@ -205,9 +210,52 @@ export const useChatStore = defineStore('chat', () => {
       if (!exists) {
         currentMessages.value = [...currentMessages.value, msg]
       }
+    } else {
+      unreadMessageCount.value++
     }
     // 刷新会话列表
     fetchConversations()
+  }
+
+  /** 清空未读消息计数（下拉打开时调用） */
+  function clearUnread() {
+    unreadMessageCount.value = 0
+  }
+
+  /** 处理 WebSocket 推送消息（统一入口） */
+  function handleWebSocketMessage(message: any) {
+    const payload = message.payload || message.data
+    if (!payload) return
+
+    if (message.eventType === 'message_send' && payload.chatType === 'private') {
+      const authStore = useAuthStore()
+      const msg: PrivateMessageVO = {
+        messageId: payload.messageId,
+        conversationId: payload.conversationId,
+        senderId: payload.senderId,
+        receiverId: payload.receiverId,
+        senderNickname: payload.senderNickname || '未知用户',
+        senderAvatar: payload.senderAvatar,
+        messageType: payload.messageType,
+        messageTypeDesc: payload.messageTypeDesc || '',
+        content: payload.content,
+        fileUrl: payload.fileUrl,
+        fileName: payload.fileName,
+        fileSize: payload.fileSize,
+        isRecalled: false,
+        isOwn: payload.senderId === authStore.user?.userId,
+        createTime: payload.createTime || new Date().toISOString()
+      }
+      appendMessage(msg)
+    }
+
+    if (message.eventType === 'friend_request') {
+      fetchIncomingRequests()
+    }
+
+    if (message.eventType === 'friend_status') {
+      onFriendStatusChanged()
+    }
   }
 
   function onFriendStatusChanged() {
@@ -237,6 +285,7 @@ export const useChatStore = defineStore('chat', () => {
     conversations, conversationsLoading,
     currentFriendId, currentConversationId,
     currentMessages, messagesLoading,
+    unreadMessageCount, hasUnread,
 
     // Friend actions
     fetchFriends, fetchIncomingRequests, fetchOutgoingRequests,
@@ -247,7 +296,7 @@ export const useChatStore = defineStore('chat', () => {
     // Chat actions
     fetchConversations, fetchMessages,
     openChat, closeCurrentChat, sendMessage,
-    appendMessage, onFriendStatusChanged,
+    appendMessage, clearUnread, handleWebSocketMessage, onFriendStatusChanged,
 
     // Init
     initChat

@@ -265,6 +265,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
+        // 仅活跃房间允许离开操作
+        Room room = roomMapper.selectById(roomId);
+        if (room == null) {
+            throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        if (room.getStatus() != RoomConst.STATUS_ACTIVE) {
+            throw new RoomException(RoomErrorCode.ROOM_EXPIRED);
+        }
         if (!roomMemberService.isMemberInRoom(roomId, userId)) {
             throw new RoomException(RoomErrorCode.NOT_IN_ROOM);
         }
@@ -1006,6 +1014,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * @param targetUserId 被踢用户 ID
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "踢出房间成员", module = "房间管理")
     public void kickMember(Long roomId, Long operatorId, Long targetUserId) {
         if (operatorId == null) {
@@ -1014,6 +1023,10 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
+        }
+        // 仅活跃房间允许踢人操作
+        if (room.getStatus() != RoomConst.STATUS_ACTIVE) {
+            throw new RoomException(RoomErrorCode.ROOM_EXPIRED);
         }
         // 房主才可踢人，且不能踢自己
         if (!room.getOwnerId().equals(operatorId)) {

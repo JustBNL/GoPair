@@ -178,7 +178,6 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import { useChatStore } from '@/stores/chat'
-import { usePrivateChatWebSocket } from '@/composables/usePrivateChatWebSocket'
 import type { RoomInfo } from '@/types/room'
 import type { BaseQuery } from '@/types/api'
 import CreateRoomModal from '@/components/CreateRoomModal.vue'
@@ -199,7 +198,6 @@ const router = useRouter()
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
 const chatStore = useChatStore()
-const { connect: connectPrivateChat } = usePrivateChatWebSocket()
 
 // 模态框状态
 const createModalVisible = ref(false)
@@ -463,9 +461,6 @@ async function handlePageChange(page: number) {
 
 onMounted(async () => {
   await roomStore.fetchUserRooms(buildFullQuery(1))
-  if (authStore.user) {
-    connectPrivateChat()
-  }
 })
 </script>
 

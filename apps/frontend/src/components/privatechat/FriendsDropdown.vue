@@ -3,8 +3,8 @@
     <div class="friends-trigger" @click="dropdownOpen = !dropdownOpen">
       <div class="friends-btn">
         <ContactsOutlined class="friends-icon" />
-        <span v-if="chatStore.incomingCount > 0" class="friends-badge">
-          {{ chatStore.incomingCount > 99 ? '99+' : chatStore.incomingCount }}
+        <span v-if="chatStore.incomingCount + chatStore.unreadMessageCount > 0" class="friends-badge">
+          {{ (chatStore.incomingCount + chatStore.unreadMessageCount) > 99 ? '99+' : (chatStore.incomingCount + chatStore.unreadMessageCount) }}
         </span>
       </div>
     </div>
@@ -491,12 +491,15 @@ watch(dropdownOpen, (open) => {
     searchKeyword.value = ''
     chatStore.clearSearchResults()
     chatStore.clearFriendSearchResults()
-  } else if (chatStore.friends.length === 0) {
-    Promise.all([
-      chatStore.fetchFriends(),
-      chatStore.fetchIncomingRequests(),
-      chatStore.fetchOutgoingRequests()
-    ])
+  } else {
+    chatStore.clearUnread()
+    if (chatStore.friends.length === 0) {
+      Promise.all([
+        chatStore.fetchFriends(),
+        chatStore.fetchIncomingRequests(),
+        chatStore.fetchOutgoingRequests()
+      ])
+    }
   }
 })
 </script>
