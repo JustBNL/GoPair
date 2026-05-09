@@ -77,11 +77,15 @@ export class ChatAPI {
 
   static async getMessages(
     conversationId: number,
-    pageNum = 1,
-    pageSize = 20
+    beforeMessageId?: number,
+    pageSize = 50
   ): Promise<ApiResponse<PageResult<PrivateMessageVO>>> {
+    const params = new URLSearchParams({ pageSize: String(pageSize) })
+    if (beforeMessageId != null) {
+      params.set('beforeMessageId', String(beforeMessageId))
+    }
     return http.get<PageResult<PrivateMessageVO>>(
-      `/chat/conversation/${conversationId}/message?pageNum=${pageNum}&pageSize=${pageSize}`
+      `/chat/conversation/${conversationId}/message?${params.toString()}`
     )
   }
 

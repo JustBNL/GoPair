@@ -60,6 +60,9 @@ export const useChatStore = defineStore('chat', () => {
   const currentMessages = ref<PrivateMessageVO[]>([])
   const messagesLoading = ref(false)
 
+  // 是否有更多历史消息可加载（cursor 分页）
+  const hasMoreHistory = ref(true)
+
   // 未读消息计数
   const unreadMessageCount = ref(0)
   const hasUnread = computed(() => unreadMessageCount.value > 0)
@@ -101,11 +104,23 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function fetchMessages(conversationId: number) {
+  async function fetchMessages(conversationId: number, beforeMessageId?: number) {
+    if (!hasMoreHistory.value && beforeMessageId != null) return
     messagesLoading.value = true
     try {
-      const res = await ChatAPI.getMessages(conversationId, 1, 50)
-      currentMessages.value = res.data?.records || []
+      const res = await ChatAPI.getMessages(conversationId, beforeMessageId, 50)
+      const records = res.data?.records || []
+
+      if (beforeMessageId == null) {
+        // 首次加载：清空后直接赋值
+        currentMessages.value = records
+      } else {
+        // 上拉加载：将更早的消息头插到数组前面，保持正序（旧→新）
+        currentMessages.value = [...records, ...currentMessages.value]
+      }
+
+      // 判断是否还有更多：返回条数 < pageSize 说明没有更多了
+      hasMoreHistory.value = records.length >= 50
     } finally {
       messagesLoading.value = false
     }
@@ -203,6 +218,7 @@ export const useChatStore = defineStore('chat', () => {
     currentFriendId.value = null
     currentConversationId.value = null
     currentMessages.value = []
+    hasMoreHistory.value = true
   }
 
   /**
@@ -305,7 +321,7 @@ export const useChatStore = defineStore('chat', () => {
     friendSearchResults, friendSearchLoading,
     conversations, conversationsLoading,
     currentFriendId, currentConversationId,
-    currentMessages, messagesLoading,
+    currentMessages, messagesLoading, hasMoreHistory,
     unreadMessageCount, hasUnread,
 
     // Friend actions

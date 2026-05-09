@@ -219,7 +219,7 @@
               <div v-else class="message-items">
                 <message-bubble
                   v-for="message in messages"
-                  v-memo="[message.messageId, message.content, message.messageType, message.isOwn, message.senderNickname]"
+                  v-memo="[message.messageId, message.content, message.messageType, message.isOwn, message.senderNickname, message.isRecalled]"
                   :key="message.messageId"
                   :message="message"
                   :show-sender-info="true"
@@ -390,9 +390,6 @@
     </div>
 
     <!-- 全屏 Emoji 漂浮层 -->
-    <emoji-overlay
-      :particles="emojiParticles"
-    />
 
     <!-- 私聊模态框 -->
     <PrivateChatModal
@@ -480,8 +477,6 @@ import type { MessageVO, FileVO, MessageQueryDto } from '@/types/api'
 
 // 组件导入
 import MessageBubble from '@/components/chat/MessageBubble.vue'
-import EmojiOverlay from '@/components/chat/EmojiOverlay.vue'
-import type { EmojiParticle } from '@/types/api'
 import MessageInput from '@/components/chat/MessageInput.vue'
 import FileList from '@/components/file/FileList.vue'
 import VoiceCallPanel from '@/components/voice/VoiceCallPanel.vue'
@@ -570,9 +565,6 @@ const {
   },
   onVoiceRosterUpdate: (callId: number) => {
     handleRosterUpdate(callId)
-  },
-  onEmojiReceived: (emoji: string, senderNickname: string) => {
-    spawnEmojiParticle(emoji, senderNickname)
   },
   onRoomClosed: (data: { roomId: number; operatorId: number }) => {
     if (currentRoom.value?.roomId === data.roomId) {
@@ -668,10 +660,6 @@ async function handlePasswordUpdateSuccess() {
   await loadRoomInfo()
   resetPasswordState()
 }
-
-// Emoji 漂浮动画状态
-const emojiParticles = ref<EmojiParticle[]>([])
-const MAX_PARTICLES = 10
 
 // 语音通话状态 - 通过 useVoiceCall composable 管理
 const voiceRoomId = computed(() => currentRoom.value?.roomId ?? 0)
@@ -1220,34 +1208,6 @@ const getStatusText = (status: string): string => {
     away: '离开'
   }
   return statusMap[status] || status
-}
-
-/**
- * 滚动到底部
- */
-/**
- * 生成一个 Emoji 漂浮粒子
- */
-function spawnEmojiParticle(emoji: string, senderNickname: string) {
-  if (emojiParticles.value.length >= MAX_PARTICLES) {
-    emojiParticles.value = emojiParticles.value.slice(1)
-  }
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  const duration = Math.floor(Math.random() * 1000) + 2500
-  emojiParticles.value = [...emojiParticles.value, {
-    id,
-    emoji,
-    senderNickname,
-    x: 100,
-    y: Math.random() * 92 + 4,
-    size: Math.floor(Math.random() * 24) + 32,
-    duration
-  }]
-  setTimeout(() => removeParticle(id), duration)
-}
-
-function removeParticle(id: string) {
-  emojiParticles.value = emojiParticles.value.filter(p => p.id !== id)
 }
 
 /**

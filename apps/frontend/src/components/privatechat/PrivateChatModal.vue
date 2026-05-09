@@ -65,8 +65,13 @@
       <!-- 右侧：聊天区域 -->
       <div class="chat-main">
         <!-- 消息列表 -->
-        <div class="message-list" ref="messageListRef">
-          <div v-if="chatStore.messagesLoading" class="loading-messages">
+        <div class="message-list" ref="messageListRef" @scroll="handleScroll">
+          <!-- 顶部加载更多提示 -->
+          <div v-if="chatStore.hasMoreHistory && chatStore.currentMessages.length > 0" class="load-more-hint">
+            <a-spin v-if="isLoadingMore" size="small" />
+            <span v-else>上拉加载更多</span>
+          </div>
+          <div v-if="chatStore.messagesLoading && chatStore.currentMessages.length === 0" class="loading-messages">
             <a-spin />
           </div>
           <template v-else>
@@ -226,6 +231,7 @@ const authStore = useAuthStore()
 const inputText = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 const uploading = ref(false)
+const isLoadingMore = ref(false)
 
 const profileVisible = ref(false)
 
@@ -366,6 +372,32 @@ function scrollToBottom() {
       messageListRef.value.scrollTop = messageListRef.value.scrollHeight
     }
   })
+}
+
+// 上拉加载更多历史消息（滚动位置保持）
+async function handleScroll() {
+  const el = messageListRef.value
+  if (!el) return
+
+  if (el.scrollTop <= 10 && !chatStore.messagesLoading && chatStore.hasMoreHistory) {
+    isLoadingMore.value = true
+
+    // 保存当前滚动状态以便加载后恢复
+    const savedScrollHeight = el.scrollHeight
+    const savedScrollTop = el.scrollTop
+
+    const oldestId = chatStore.currentMessages[0]?.messageId
+    if (oldestId) {
+      await chatStore.fetchMessages(chatStore.currentConversationId!, oldestId)
+      nextTick(() => {
+        if (messageListRef.value) {
+          const newScrollHeight = messageListRef.value.scrollHeight
+          messageListRef.value.scrollTop = savedScrollTop + (newScrollHeight - savedScrollHeight)
+        }
+      })
+    }
+    isLoadingMore.value = false
+  }
 }
 
 function handleClose() {
@@ -546,6 +578,15 @@ function formatFileSize(bytes?: number): string {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* 加载更多提示 */
+.load-more-hint {
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--text-muted, #999);
+  flex-shrink: 0;
 }
 
 .loading-messages,

@@ -194,26 +194,6 @@ export enum MessageType {
 }
 
 /**
- * Emoji 漂浮粒子接口
- */
-export interface EmojiParticle {
-  /** 唯一标识，格式：${timestamp}-${random} */
-  id: string
-  /** Emoji 字符 */
-  emoji: string
-  /** 发送者昵称 */
-  senderNickname: string
-  /** 水平起始位置，固定 100vw（从右侧入场） */
-  x: number
-  /** 垂直位置，单位 vh，范围 4~96 */
-  y: number
-  /** 字体大小 px，范围 32~56 */
-  size: number
-  /** 动画时长 ms，范围 3000~6000 */
-  duration: number
-}
-
-/**
  * 消息VO接口
  */
 export interface MessageVO {

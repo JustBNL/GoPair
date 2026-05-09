@@ -18,6 +18,70 @@ import type { MessageVO } from '@/types/api'
 const MAX_MESSAGES = 200
 
 /**
+ * 纯JS DOM实现emoji弹幕：从屏幕右侧飘向左侧，动画结束后自动移除DOM
+ * 不依赖Vue组件、CSS动画或任何前端框架，确保100%可靠
+ */
+function spawnEmojiDOM(emoji: string, senderNickname: string): void {
+  const el = document.createElement('div')
+  el.textContent = emoji
+  el.style.cssText = [
+    'position:fixed',
+    'top:' + (Math.random() * 88 + 6) + 'vh',
+    'left:100vw',
+    'font-size:' + (Math.floor(Math.random() * 28) + 32) + 'px',
+    'z-index:99999',
+    'pointer-events:none',
+    'user-select:none',
+    'transform-origin:center center',
+    'transition:transform 0.15s ease-out',
+    'opacity:0',
+  ].join(';')
+
+  document.body.appendChild(el)
+
+  // 触发入场缩放动画
+  requestAnimationFrame(() => {
+    el.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out'
+    el.style.transform = 'translateX(-5vw) scale(1.4)'
+    el.style.opacity = '1'
+
+    // 2.5秒横穿整个屏幕
+    const duration = 2500 + Math.random() * 500
+    let startTime: number | null = null
+
+    function animate(ts: number) {
+      if (!startTime) startTime = ts
+      const elapsed = ts - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // ease-in-out 缓动
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2
+      const scale = progress < 0.15
+        ? 0.3 + (progress / 0.15) * 1.1
+        : progress > 0.85
+          ? 0.6 + ((1 - progress) / 0.15) * 0.4
+          : 1.0
+      const opacity = progress < 0.1
+        ? progress / 0.1
+        : progress > 0.85
+          ? (1 - progress) / 0.15
+          : 1
+      el.style.left = (100 - progress * 115) + 'vw'
+      el.style.transform = 'translateX(0) scale(' + scale + ')'
+      el.style.opacity = String(opacity)
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        el.remove()
+      }
+    }
+
+    requestAnimationFrame(animate)
+  })
+}
+
+/**
  * 房间WebSocket事件处理器接口
  */
 interface RoomEventHandlers {
@@ -33,7 +97,6 @@ interface RoomEventHandlers {
   onCallEnd?: (callId: number) => void
   onSignaling?: (data: any) => void
   onVoiceRosterUpdate?: (callId: number) => void
-  onEmojiReceived?: (emoji: string, senderNickname: string) => void
   onRoomClosed?: (data: { roomId: number; operatorId: number }) => void
   onRoomRenewed?: (data: { roomId: number; expireTime: string; status: number }) => void
   onRoomReopened?: (data: { roomId: number; expireTime: string; status: number }) => void
@@ -165,7 +228,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
           enriched.isOwn = (uid != null) && (enriched.senderId === uid)
         }
         if (enriched.messageType === 5) {
-          handlers.onEmojiReceived?.(enriched.content, enriched.senderNickname)
+          spawnEmojiDOM(enriched.content, enriched.senderNickname)
         }
         roomState.value.messages = [...roomState.value.messages, enriched].slice(-MAX_MESSAGES)
         handlers.onMessage?.(enriched)

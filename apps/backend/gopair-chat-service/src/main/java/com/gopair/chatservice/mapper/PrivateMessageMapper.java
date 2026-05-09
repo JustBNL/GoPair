@@ -28,6 +28,19 @@ public interface PrivateMessageMapper extends BaseMapper<PrivateMessage> {
     );
 
     /**
+     * Cursor 分页查询会话消息（基于 beforeMessageId 获取更早消息）。
+     *
+     * @param conversationId 会话ID
+     * @param beforeMessageId 游标：消息ID，查此 ID 之前的消息，传 null 表示首次加载最新消息
+     * @param pageSize 每页大小
+     */
+    List<PrivateMessageVO> selectMessageVOPageBefore(
+        @Param("conversationId") Long conversationId,
+        @Param("beforeMessageId") Long beforeMessageId,
+        @Param("pageSize") Integer pageSize
+    );
+
+    /**
      * 查询会话最新一条消息。
      */
     PrivateMessageVO selectLatestMessageByConversation(@Param("conversationId") Long conversationId);

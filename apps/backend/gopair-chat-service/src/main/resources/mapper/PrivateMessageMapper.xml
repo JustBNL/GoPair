@@ -3,7 +3,7 @@
 <mapper namespace="com.gopair.chatservice.mapper.PrivateMessageMapper">
 
     <resultMap id="PrivateMessageVOMap" type="com.gopair.chatservice.domain.vo.PrivateMessageVO">
-        <id column="id" property="id"/>
+        <id column="id" property="messageId"/>
         <result column="conversation_id" property="conversationId"/>
         <result column="sender_id" property="senderId"/>
         <result column="receiver_id" property="receiverId"/>
@@ -111,6 +111,19 @@
         ) latest ON latest.conversation_id = conv.conversation_id
         LEFT JOIN user u ON u.user_id = CASE WHEN latest.sender_id = #{userId} THEN latest.receiver_id ELSE latest.sender_id END
         ORDER BY latest.create_time DESC
+    </select>
+
+    <select id="selectMessageVOPageBefore" resultMap="PrivateMessageVOMap">
+        SELECT <include refid="PrivateMessageVOColumns"/>
+        FROM private_message pm
+        LEFT JOIN user u ON pm.sender_id = u.user_id
+        WHERE pm.conversation_id = #{conversationId}
+          AND pm.is_recalled = 0
+          <if test="beforeMessageId != null">
+              AND (pm.create_time, pm.id) &lt; (SELECT create_time, id FROM private_message WHERE id = #{beforeMessageId})
+          </if>
+        ORDER BY pm.create_time DESC, pm.id DESC
+        LIMIT #{pageSize}
     </select>
 
 </mapper>

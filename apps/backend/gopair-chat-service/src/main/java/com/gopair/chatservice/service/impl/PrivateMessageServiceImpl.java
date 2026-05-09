@@ -1,7 +1,6 @@
 package com.gopair.chatservice.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.chatservice.config.ChatProperties;
 import com.gopair.chatservice.config.ChatWebSocketProducer;
@@ -30,6 +29,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -142,21 +142,21 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
 
     @Override
     @LogRecord(operation = "获取会话消息历史", module = "私聊消息")
-    public PageResult<PrivateMessageVO> getMessages(Long conversationId, int pageNum, int pageSize, Long currentUserId) {
+    public PageResult<PrivateMessageVO> getMessages(Long conversationId, Long beforeMessageId, int pageSize, Long currentUserId) {
         if (pageSize > chatProperties.getMaxMessagePageSize()) {
             pageSize = chatProperties.getMaxMessagePageSize();
         }
 
-        Page<PrivateMessageVO> page = new Page<>(pageNum, pageSize);
-        var result = privateMessageMapper.selectMessageVOPage(page, conversationId);
+        var result = privateMessageMapper.selectMessageVOPageBefore(conversationId, beforeMessageId, pageSize);
+        Collections.reverse(result);
 
-        result.getRecords().forEach(vo -> vo.setIsOwn(vo.getSenderId().equals(currentUserId)));
+        result.forEach(vo -> vo.setIsOwn(vo.getSenderId().equals(currentUserId)));
 
         return new PageResult<>(
-                result.getRecords(),
-                result.getTotal(),
-                result.getCurrent(),
-                result.getSize()
+                result,
+                (long) result.size(),
+                1L,
+                (long) pageSize
         );
     }
 

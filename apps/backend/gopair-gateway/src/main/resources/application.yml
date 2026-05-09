@@ -46,7 +46,7 @@ spring:
           filters:
             - StripPrefix=0
         - id: file-service-avatar
-          uri: lb://file-service
+          uri: lb://file-relay-service
           predicates:
             - Path=/file/avatar/**
           filters:

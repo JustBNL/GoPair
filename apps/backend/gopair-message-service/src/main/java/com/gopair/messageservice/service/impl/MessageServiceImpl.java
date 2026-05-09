@@ -130,7 +130,16 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             if (result.getFileSize() != null) {
                 payload.put("fileSize", result.getFileSize());
             }
-            
+            if (result.getReplyToId() != null) {
+                payload.put("replyToId", result.getReplyToId());
+            }
+            if (result.getReplyToContent() != null) {
+                payload.put("replyToContent", result.getReplyToContent());
+            }
+            if (result.getReplyToSenderNickname() != null) {
+                payload.put("replyToSenderNickname", result.getReplyToSenderNickname());
+            }
+
             webSocketMessageProducer.sendChatMessageToRoom(sendMessageDto.getRoomId(), payload);
 
             // 发布消息发送事件

@@ -32,15 +32,15 @@ public interface PrivateMessageService {
     List<ConversationVO> getConversations(Long userId);
 
     /**
-     * 获取会话消息历史。
+     * 获取会话消息历史（Cursor 分页）。
      *
      * @param conversationId 会话ID
-     * @param pageNum 页码
+     * @param beforeMessageId 游标：消息ID，查此 ID 之前的消息，传 null 表示首次加载最新消息
      * @param pageSize 每页条数
      * @param currentUserId 当前用户ID
      * @return 分页消息列表
      */
-    PageResult<PrivateMessageVO> getMessages(Long conversationId, int pageNum, int pageSize, Long currentUserId);
+    PageResult<PrivateMessageVO> getMessages(Long conversationId, Long beforeMessageId, int pageSize, Long currentUserId);
 
     /**
      * 删除私聊消息。

@@ -48,11 +48,11 @@ public class PrivateMessageController {
     public R<PageResult<PrivateMessageVO>> getMessages(
             @Parameter(description = "会话ID", required = true)
             @PathVariable Long conversationId,
-            @Parameter(description = "页码", example = "1")
-            @RequestParam(defaultValue = "1") int pageNum,
-            @Parameter(description = "每页条数", example = "20")
-            @RequestParam(defaultValue = "20") int pageSize) {
-        return R.ok(privateMessageService.getMessages(conversationId, pageNum, pageSize, getCurrentUserId()));
+            @Parameter(description = "游标：消息ID，查此 ID 之前的消息。传空表示首次加载最新消息")
+            @RequestParam(required = false) Long beforeMessageId,
+            @Parameter(description = "每页条数", example = "50")
+            @RequestParam(defaultValue = "50") int pageSize) {
+        return R.ok(privateMessageService.getMessages(conversationId, beforeMessageId, pageSize, getCurrentUserId()));
     }
 
     @Operation(summary = "删除私聊消息")
