@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.chatservice.config.ChatProperties;
 import com.gopair.chatservice.config.ChatWebSocketProducer;
 import com.gopair.chatservice.domain.dto.SendPrivateMessageDto;
+import com.gopair.chatservice.domain.dto.UserPublicProfileDto;
 import com.gopair.chatservice.domain.po.PrivateMessage;
 import com.gopair.chatservice.domain.vo.ConversationDetailVO;
 import com.gopair.chatservice.domain.vo.ConversationVO;
@@ -15,6 +16,7 @@ import com.gopair.chatservice.enums.PrivateMessageType;
 import com.gopair.chatservice.exception.ChatException;
 import com.gopair.chatservice.mapper.FriendMapper;
 import com.gopair.chatservice.mapper.PrivateMessageMapper;
+import com.gopair.chatservice.mapper.UserPublicMapper;
 import com.gopair.chatservice.service.PrivateMessageService;
 import com.gopair.chatservice.service.UserProfileFallbackService;
 import com.gopair.common.core.PageResult;
@@ -44,6 +46,7 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
 
     private final PrivateMessageMapper privateMessageMapper;
     private final FriendMapper friendMapper;
+    private final UserPublicMapper userPublicMapper;
     private final ChatWebSocketProducer chatWebSocketProducer;
     private final UserProfileFallbackService userProfileFallbackService;
     private final ChatProperties chatProperties;
@@ -91,6 +94,10 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
 
         PrivateMessageVO vo = toVO(message, senderId);
 
+        List<UserPublicProfileDto> profiles = userPublicMapper.selectByUserIds(List.of(senderId));
+        String senderNickname = profiles.isEmpty() ? null : profiles.get(0).getNickname();
+        String senderAvatar = profiles.isEmpty() ? null : profiles.get(0).getAvatar();
+
         Map<String, Object> payload = new HashMap<>();
         payload.put("messageId", message.getId());
         payload.put("conversationId", conversationId);
@@ -102,6 +109,8 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
         payload.put("fileName", dto.getFileName());
         payload.put("fileSize", dto.getFileSize());
         payload.put("createTime", message.getCreateTime() != null ? message.getCreateTime().format(DF) : null);
+        payload.put("senderNickname", senderNickname);
+        payload.put("senderAvatar", senderAvatar);
 
         chatWebSocketProducer.sendPrivateMessage(receiverId, payload);
         chatWebSocketProducer.sendPrivateMessage(senderId, payload);

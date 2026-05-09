@@ -555,7 +555,15 @@ public class FileServiceImpl implements FileService {
         vo.setIconType(FileVO.resolveIconType(r.getFileType()));
         vo.setPreviewable(FileVO.isPreviewable(r.getFileType()));
         vo.setDownloadUrl(buildPresignedUrl(r.getFilePath()));
-        vo.setPreviewUrl(buildPresignedUrl(buildThumbnailObjectKey(r.getFilePath())));
+
+        // 图片类型使用缩略图 URL；语音/文件等非图片类型回退到原文件路径
+        String previewKey;
+        if (r.getFileType() != null && IMAGE_TYPES.contains(r.getFileType())) {
+            previewKey = buildThumbnailObjectKey(r.getFilePath());
+        } else {
+            previewKey = r.getFilePath();
+        }
+        vo.setPreviewUrl(buildPresignedUrl(previewKey));
         return vo;
     }
 }

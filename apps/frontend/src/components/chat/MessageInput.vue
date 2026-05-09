@@ -466,7 +466,7 @@ const startRecording = async () => {
 
         emit('send-message', {
           messageType: MessageType.VOICE,
-          fileUrl: fileVO.previewUrl,
+          fileUrl: fileVO.downloadUrl,
           content: fileVO.downloadUrl,
           fileName: file.name,
           fileSize: audioBlob.size,

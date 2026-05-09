@@ -51,7 +51,7 @@ public class ChatWebSocketProducer {
 
         rabbitTemplate.convertAndSend(
             SystemConstants.WEBSOCKET_EXCHANGE,
-            SystemConstants.ROUTING_KEY_CHAT_ROOM,
+            SystemConstants.ROUTING_KEY_SYSTEM_USER,
             message
         );
         log.debug("发送私聊消息到用户: userId={}, messageId={}", userId, message.messageId);
