@@ -30,13 +30,17 @@ public class SubscriptionManagerService {
     /** sessionId → userId 映射，用于在路由时从 sessionId 反查 userId，精确匹配订阅的 eventTypes */
     private final Map<String, Long> sessionUserMap = new ConcurrentHashMap<>();
 
-    public boolean subscribeChannel(String sessionId, Long userId, String channel, 
+    public boolean subscribeChannel(String sessionId, Long userId, String channel,
                                   Set<String> eventTypes, String source) {
         try {
             if (!validateChannelPermission(userId, channel)) {
                 log.warn("[订阅管理] 用户权限验证失败: userId={}, channel={}", userId, channel);
                 return false;
             }
+
+            Set<ChannelSubscription> userSubs = userSubscriptions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet());
+            // 先移除同频道的旧订阅（以旧换新），避免 Set.add() 对已存在 channel 的旧订阅无能为力
+            userSubs.removeIf(sub -> channel.equals(sub.getChannel()));
 
             ChannelSubscription subscription = ChannelSubscription.builder()
                     .channel(channel)
@@ -48,7 +52,7 @@ public class SubscriptionManagerService {
                     .source(source)
                     .build();
 
-            userSubscriptions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(subscription);
+            userSubs.add(subscription);
             channelSessions.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet()).add(sessionId);
             sessionSubscriptions.computeIfAbsent(sessionId, k -> ConcurrentHashMap.newKeySet()).add(channel);
             sessionUserMap.put(sessionId, userId);

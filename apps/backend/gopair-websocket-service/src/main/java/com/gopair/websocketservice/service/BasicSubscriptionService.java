@@ -37,9 +37,8 @@ public class BasicSubscriptionService {
         }
 
         try {
-            // 用户个人频道，例如 user:{userId}
-            String userChannel = WebSocketConstants.CHANNEL_PREFIX_USER + userId;
-            subscribeSilently(sessionId, userId, userChannel, Collections.emptySet(), "auto");
+            // 用户个人频道 user:{userId} 由前端通过 WebSocket 手动订阅控制，后端不再自动订阅，
+            // 以避免同一用户多端登录时产生重复订阅导致消息被投递给多个 session。
 
             // 系统广播频道，例如 system:global
             String systemGlobalChannel = WebSocketConstants.CHANNEL_PREFIX_SYSTEM + "global";

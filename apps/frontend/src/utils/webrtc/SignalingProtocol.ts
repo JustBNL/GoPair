@@ -2,9 +2,6 @@
  * WebRTC信令协议处理器
  */
 
-// 注意: VoiceSignalingClient已迁移到新的Composable架构  
-// import type { VoiceSignalingClient } from '@/composables/useVoiceWebSocket'
-
 export interface SignalingMessage {
   type: 'offer' | 'answer' | 'ice-candidate' | 'call-invite' | 'call-accept' | 'call-reject' | 'call-end' | 'participant-join' | 'participant-leave' | 'mute-status' | 'speaking-status'
   callId: number

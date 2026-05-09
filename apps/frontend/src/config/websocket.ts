@@ -11,7 +11,6 @@ export interface WebSocketConfig {
   endpoints: {
     connect: string
     room: string
-    voice: string
   }
   options: {
     autoReconnect: boolean
@@ -49,8 +48,7 @@ export const WS_CONFIG: WebSocketConfig = {
   base: ENV_CONFIG[getCurrentEnv()].base,
   endpoints: {
     connect: '/connect',
-    room: '/room',
-    voice: '/voice'
+    room: '/room'
   },
   options: {
     autoReconnect: true,
@@ -104,8 +102,4 @@ export const WS_ENDPOINTS = {
    */
   room: (roomId: number) => buildWebSocketUrl(WS_CONFIG.endpoints.room + `/${roomId}`),
   
-  /**
-   * 语音端点
-   */
-  voice: (callId: number) => buildWebSocketUrl(WS_CONFIG.endpoints.voice + `/${callId}`)
 } as const 

@@ -113,7 +113,6 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
         payload.put("senderAvatar", senderAvatar);
 
         chatWebSocketProducer.sendPrivateMessage(receiverId, payload);
-        chatWebSocketProducer.sendPrivateMessage(senderId, payload);
 
         log.info("[ChatService] 私聊消息发送完成: senderId={}, receiverId={}, messageId={}, conversationId={}", senderId, receiverId, message.getId(), conversationId);
         return vo;
@@ -230,6 +229,7 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
 
     private PrivateMessageVO toVO(PrivateMessage msg, Long currentUserId) {
         PrivateMessageVO vo = BeanCopyUtils.copyBean(msg, PrivateMessageVO.class);
+        vo.setMessageId(msg.getId());
         vo.setIsOwn(msg.getSenderId().equals(currentUserId));
         PrivateMessageType t = PrivateMessageType.fromCode(msg.getMessageType());
         vo.setMessageTypeDesc(t != null ? t.getDescription() : "未知类型");

@@ -136,18 +136,6 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       subscribed.value = true
     } else {
     }
-
-    // 额外订阅 user:{userId} 频道的信令消息
-    const signalingUserId = currentUser.userId
-    const signalingSubscribeMsg = buildSubscribeMessage(
-      `user:${signalingUserId}`,
-      [WsEventType.SIGNALING],
-      signalingUserId
-    )
-    console.log(`✅ [WS] 连接成功，准备发送订阅消息: channel=room:${roomId.value}, eventTypes=[全部15种]`)
-    console.log(`✅ [WS] 信令订阅消息: userId=${signalingUserId}, channel=user:${signalingUserId}, eventTypes=[signaling]`)
-    send(signalingSubscribeMsg)
-    if (WS_FEATURES.debug) console.log(`✅ 信令频道订阅: user:${signalingUserId}`)
   }
 
   const unsubscribeFromRoom = (): void => {
@@ -177,10 +165,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
           enriched.isOwn = (uid != null) && (enriched.senderId === uid)
         }
         if (enriched.messageType === 5) {
-          console.log('[DEBUG] useRoomWebSocket: messageType === 5, calling onEmojiReceived', enriched.content, enriched.senderNickname)
           handlers.onEmojiReceived?.(enriched.content, enriched.senderNickname)
-        } else {
-          console.log('[DEBUG] useRoomWebSocket: messageType !== 5, actual type:', enriched.messageType, typeof enriched.messageType)
         }
         roomState.value.messages = [...roomState.value.messages, enriched].slice(-MAX_MESSAGES)
         handlers.onMessage?.(enriched)

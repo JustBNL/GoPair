@@ -62,11 +62,11 @@ const columns = [
   { title: '消息ID',     dataIndex: 'messageId',      key: 'messageId',      width: 90 },
   { title: '房间号',     dataIndex: 'roomId',          key: 'roomId',          width: 90 },
   { title: '房间名称',   dataIndex: 'roomName',        key: 'roomName',        width: 130, ellipsis: true },
+  { title: '房主ID',    dataIndex: 'ownerId',          key: 'ownerId',         width: 90 },
   { title: '发送者ID',   dataIndex: 'senderId',        key: 'senderId',        width: 90 },
   { title: '发送者昵称', dataIndex: 'senderNickname',  key: 'senderNickname',  width: 110, ellipsis: true },
   { title: '类型',       dataIndex: 'messageType',    key: 'messageType',     width: 90 },
   { title: '内容',       dataIndex: 'content',         key: 'content',          ellipsis: true },
-  { title: '房主',       dataIndex: 'ownerId',         key: 'ownerId',         width: 90 },
   { title: '是否撤回',   dataIndex: 'isRecalled',      key: 'isRecalled',      width: 80 },
   { title: '发送时间',   dataIndex: 'createTime',      key: 'createTime',      width: 170 },
 ]
@@ -77,19 +77,13 @@ const onPageChange: TableProps['onChange'] = (pag) => {
   loadMessages()
 }
 
-let searchTimer: ReturnType<typeof setTimeout>
-function onSearch(value: string) {
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    searchKw.value = value
-    pagination.current = 1
-    loadMessages()
-  }, 350)
+function onKeywordChange(value: string) {
+  searchKw.value = value
+  pagination.current = 1
 }
 
 function onFilterChange() {
   pagination.current = 1
-  loadMessages()
 }
 
 function onReset() {
@@ -155,14 +149,15 @@ loadMessages()
         class="message-manage-view__date-range"
         @change="onFilterChange"
       />
-      <a-input-search
+      <a-input
         v-model:value="searchKw"
         aria-label="搜索消息内容"
         placeholder="搜索消息内容"
-        @search="onSearch"
-        @change="() => { pagination.current = 1; loadMessages() }"
+        @change="onKeywordChange"
         class="message-manage-view__search"
+        allow-clear
       />
+      <a-button type="primary" @click="loadMessages">查询</a-button>
       <a-button @click="onReset">重置</a-button>
     </div>
 

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import { useWebSocket, buildSubscribeMessage } from '@/composables/useWebSocket'
-import { WS_ENDPOINTS } from '@/config/websocket'
+import { WS_ENDPOINTS, WS_FEATURES } from '@/config/websocket'
 import { ConnectionState } from '@/types/websocket'
 import { useChatStore } from '@/stores/chat'
 
@@ -66,12 +66,15 @@ export const useWebSocketStore = defineStore('websocket', () => {
    * 建立全局WebSocket连接（单例：多次调用复用同一实例）
    */
   async function connectGlobal(userId: number): Promise<void> {
+    console.log(`[WS-Store] 📞 connectGlobal 被调用, userId=${userId}, globalWs=${globalWs ? '存在' : 'null'}, isConnected=${globalWs?.isConnected.value ?? 'N/A'}`)
     // 已存在且处于连接/连接中状态，直接返回
     if (globalWs && globalWs.isConnected.value) {
+      console.log(`[WS-Store] ⚠️ connectGlobal: 已存在连接且 isConnected=true，跳过, userId=${userId}`)
       return
     }
 
     connectionAttempts.value++
+    console.log(`[WS-Store] 🔗 connectGlobal: 开始建立连接, userId=${userId}, attempts=${connectionAttempts.value}`)
     currentUserId.value = userId
     lastConnectionError.value = null
 
@@ -80,20 +83,25 @@ export const useWebSocketStore = defineStore('websocket', () => {
 
       // 使用全局连接端点
       const globalUrl = WS_ENDPOINTS.connect()
+      console.log(`[WS-Store] 🔗 connectGlobal: 准备连接 URL=${globalUrl}`)
 
       // 单例：仅在 globalWs 不存在时创建一次
       if (!globalWs) {
         globalWs = useWebSocket()
+        console.log(`[WS-Store] 🔗 connectGlobal: 创建新的 WebSocket 实例`)
+      } else {
+        console.log(`[WS-Store] 🔗 connectGlobal: 复用现有 WebSocket 实例, isConnected=${globalWs.isConnected.value}`)
       }
 
       await globalWs.connect(globalUrl, {
         onConnected: () => {
+          console.log(`[WS-Store] ✅ connectGlobal: WebSocket 连接成功`)
           globalConnectionState.value = ConnectionState.CONNECTED
           lastConnectTime.value = new Date()
           activeConnections.value.add('global')
           // 订阅私聊消息频道
           const channel = `user:${currentUserId.value}`
-          globalWs!.send(buildSubscribeMessage(channel, ['message_send', 'friend_request', 'friend_status']))
+          globalWs!.send(buildSubscribeMessage(channel, ['message_send', 'friend_request', 'friend_status'], currentUserId.value))
         },
         onDisconnected: (event) => {
           globalConnectionState.value = ConnectionState.DISCONNECTED

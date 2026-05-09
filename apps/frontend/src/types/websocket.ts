@@ -28,14 +28,7 @@ export enum WsMessageType {
   ROOM_MESSAGE = 'room_message',
   ROOM_FILE = 'room_file',
   ROOM_MEMBER = 'room_member',
-  ROOM_SYSTEM = 'room_system',
-  
-  // 语音消息
-  VOICE_INVITE = 'voice_invite',
-  VOICE_ACCEPT = 'voice_accept',
-  VOICE_REJECT = 'voice_reject',
-  VOICE_END = 'voice_end',
-  VOICE_SIGNALING = 'voice_signaling'
+  ROOM_SYSTEM = 'room_system'
 }
 
 /**
@@ -62,8 +55,6 @@ export enum WsEventType {
   // 语音事件
   CALL_START = 'call_start',
   CALL_END = 'call_end',
-  PARTICIPANT_JOIN = 'participant_join',
-  PARTICIPANT_LEAVE = 'participant_leave',
   SIGNALING = 'signaling',
   VOICE_ROSTER_UPDATE = 'voice_roster_update',
 
@@ -94,16 +85,6 @@ export interface RoomMessage extends WsMessage {
 }
 
 /**
- * 语音信令消息
- */
-export interface VoiceMessage extends WsMessage {
-  callId: number
-  fromUserId: number
-  toUserId?: number
-  signaling?: any
-}
-
-/**
  * WebSocket连接选项
  */
 export interface WsConnectionOptions {
@@ -129,7 +110,6 @@ export interface WsEventCallbacks {
  */
 export interface SubscriptionConfig {
   roomId?: number
-  callId?: number
   events: WsEventType[]
   autoCleanup?: boolean
 }
@@ -143,14 +123,4 @@ export interface RoomWsState {
   members: any[]
   isTyping: Record<number, boolean>
   onlineCount: number
-}
-
-/**
- * 语音WebSocket状态
- */
-export interface VoiceWsState {
-  callState: 'idle' | 'ringing' | 'connected' | 'ended'
-  participants: any[]
-  isInitiator: boolean
-  isMuted: boolean
 } 

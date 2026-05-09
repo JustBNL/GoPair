@@ -9,31 +9,18 @@
         left: p.x + 'vw',
         fontSize: p.size + 'px'
       }"
-      @animationend="onParticleDone(p.id)"
     >{{ p.emoji }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
 import type { EmojiParticle } from '@/types/api'
 
 interface Props {
   particles: EmojiParticle[]
 }
 
-const props = defineProps<Props>()
-watch(() => props.particles, (newVal) => {
-  console.log('[DEBUG] EmojiOverlay particles updated, count:', newVal.length, 'emojis:', newVal.map(p => p.emoji))
-}, { deep: true })
-
-const emit = defineEmits<{
-  (e: 'particle-done', id: string): void
-}>()
-
-function onParticleDone(id: string) {
-  emit('particle-done', id)
-}
+defineProps<Props>()
 </script>
 
 <style scoped lang="scss">
@@ -48,8 +35,13 @@ function onParticleDone(id: string) {
 .emoji-particle {
   position: absolute;
   top: 0;
-  line-height: 1;
+  left: 0;
+  width: 60px;
+  height: 60px;
+  line-height: 60px;
+  text-align: center;
   user-select: none;
+  background: rgba(255, 0, 0, 0.5);
   animation: emoji-slide-left 2.5s linear forwards;
   will-change: transform, opacity;
 }

@@ -130,19 +130,19 @@ public class MessageHandler {
                 try {
                     SubscriptionPayload subPayload = PayloadAdapter.forSubscription(payload);
                     if (!subPayload.isValid()) {
-                        log.warn("[消息处理] 无效的订阅载荷: sessionId={}", session.getId());
+                        log.warn("[消息处理] 无效的订阅载荷: sessionId={}, payload={}", session.getId(), payload);
                         yield false;
                     }
-                    
+
                     boolean result = subscriptionManager.subscribeChannel(
                             session.getId(), subPayload.getUserId(), subPayload.getChannel(),
                             subPayload.getEventTypes(), subPayload.getSource());
-                    
-                    log.info("[消息处理] 用户订阅频道成功: sessionId={}, userId={}, channel={}", 
-                            session.getId(), subPayload.getUserId(), subPayload.getChannel());
                     yield result;
                 } catch (PayloadAdaptationException e) {
-                    log.error("[消息处理] 订阅载荷适配失败: sessionId={}", session.getId(), e);
+                    log.error("[消息处理] 订阅载荷适配失败: sessionId={}, payload={}", session.getId(), payload, e);
+                    yield false;
+                } catch (Exception e) {
+                    log.error("[消息处理] 订阅处理异常: sessionId={}, payload={}", session.getId(), payload, e);
                     yield false;
                 }
             }

@@ -41,6 +41,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
 
   // 私有状态
   let ws: WebSocket | null = null
+  let wsUrl: string = ''
   let reconnectTimer: number | null = null
   let heartbeatTimer: number | null = null
   let callbacks: WsEventCallbacks = {}
@@ -66,7 +67,8 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
       return
     }
 
-    const wsUrl = url || (endpoint ? buildWebSocketUrl(endpoint) : '')
+    const resolvedUrl = url || (endpoint ? buildWebSocketUrl(endpoint) : '')
+    wsUrl = resolvedUrl
     if (!wsUrl) {
       throw new Error('WebSocket URL未指定')
     }
@@ -102,9 +104,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
           connectionState.value = ConnectionState.CONNECTED
           reconnectAttempts.value = 0
           startHeartbeat()
-          console.log(`[WS] onopen触发，wsUrl=${wsUrl}, 调用onConnected回调前`)
           callbacks.onConnected?.()
-          console.log(`[WS] onConnected回调执行完成`)
           resolve()
         }
 
@@ -119,7 +119,12 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
             console.log('[WS] ⬇️ 收到消息, endpoint={}, type={}, channel={}, eventType={}, payloadKeys={}', endpoint || 'unknown', message.type, message.channel, message.eventType, message.payload ? Object.keys(message.payload) : 'none')
             callbacks.onMessage?.(message)
           } catch (error) {
-            if (WS_FEATURES.debug) console.error('WebSocket消息解析失败:', error)
+            const msg = error instanceof Error ? error.message : String(error)
+            if (msg.includes('消息处理失败')) {
+              console.error('WebSocket消息处理回调抛出异常:', error)
+            } else {
+              if (WS_FEATURES.debug) console.error('WebSocket消息解析失败:', error)
+            }
           }
         }
 
@@ -156,7 +161,6 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
    */
   const send = (message: Partial<WsMessage>): boolean => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.log(`[WS] ⬆️ 发送失败，连接未就绪: wsUrl=${wsUrl}, readyState=${ws?.readyState}`)
       return false
     }
 
@@ -168,7 +172,6 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
         ...message
       }
       ws.send(JSON.stringify(wsMessage))
-      console.log(`[WS] ⬆️ 发送消息: endpoint=${endpoint || 'unknown'}, type=${message.type}, channel=${message.channel}, eventType=${message.eventType}`)
       return true
     } catch (error) {
       console.error('WebSocket发送消息失败:', error)
@@ -199,12 +202,22 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
     if (message.type === WsMessageType.HEARTBEAT) {
       return
     }
-    
-    // 处理错误消息
+
+    // 处理错误消息：区分连接级错误和应用级错误
     if (message.type === WsMessageType.ERROR) {
-      const error = new Error(message.data?.errorMessage || message.data?.message || 'WebSocket服务器错误')
-      lastError.value = error
-      callbacks.onError?.(error)
+      // 后端错误响应的结构: { type: "error", eventType: "error", payload: { errorCode, errorMessage, timestamp } }
+      const errorPayload = message.payload || message.data
+      const errorCode = errorPayload?.errorCode
+      // 只有连接级错误才触发 onError（会导致连接关闭）
+      // 20500=用户信息缺失, 20501=用户信息格式错误
+      // 其他应用级错误（订阅失败、频率限制等）静默处理，不中断连接
+      if (errorCode === 20500 || errorCode === 20501) {
+        const error = new Error(errorPayload?.errorMessage || 'WebSocket服务器错误')
+        lastError.value = error
+        callbacks.onError?.(error)
+      } else {
+        console.warn(`[WS] 应用级错误，静默处理: errorCode=${errorCode}, errorMessage=${errorPayload?.errorMessage}`)
+      }
     }
   }
 

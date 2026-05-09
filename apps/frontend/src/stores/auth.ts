@@ -6,7 +6,7 @@ import type { FormMode } from '@/types/auth'
 import { AuthAPI } from '@/api/auth'
 import { Storage } from '@/utils/storage'
 import { useWebSocketStore } from './websocket'
-import { WS_FEATURES } from '@/config/websocket'
+import { WS_FEATURES, WS_ENDPOINTS } from '@/config/websocket'
 
 /**
  * 认证状态管理Store
@@ -76,11 +76,17 @@ export const useAuthStore = defineStore('auth', () => {
       // 登录成功后是否建立全局WebSocket连接（由开关控制）
         //todo 后续需要关注是否需要优化
       if (WS_FEATURES.enableGlobal) {
+        console.log(`[WS-Store] 🔗 开始建立全局WebSocket连接, userId=${currentUser.userId}, enableGlobal=${WS_FEATURES.enableGlobal}`)
         try {
           const wsStore = useWebSocketStore()
+          console.log(`[WS-Store] 🔗 调用 connectGlobal, URL=${WS_ENDPOINTS.connect()}`)
           await wsStore.connectGlobal(currentUser.userId)
+          console.log(`[WS-Store] ✅ connectGlobal 完成`)
         } catch (error) {
+          console.error(`[WS-Store] ❌ connectGlobal 失败:`, error)
         }
+      } else {
+        console.log(`[WS-Store] ⚠️ 全局WebSocket连接已禁用, enableGlobal=${WS_FEATURES.enableGlobal}`)
       }
 
       message.success('登录成功')
@@ -190,12 +196,19 @@ export const useAuthStore = defineStore('auth', () => {
 
       // 根据开关决定是否建立全局WebSocket连接
       if (WS_FEATURES.enableGlobal) {
+        console.log(`[WS-Store] 🔗 restoreSession: 开始建立全局WebSocket连接, userId=${storedUser.userId}, enableGlobal=${WS_FEATURES.enableGlobal}`)
         setTimeout(async () => {
           try {
             const wsStore = useWebSocketStore()
+            console.log(`[WS-Store] 🔗 restoreSession: 调用 connectGlobal, URL=${WS_ENDPOINTS.connect()}`)
             await wsStore.connectGlobal(storedUser.userId)
-          } catch {}
+            console.log(`[WS-Store] ✅ restoreSession: connectGlobal 完成`)
+          } catch (error) {
+            console.error(`[WS-Store] ❌ restoreSession: connectGlobal 失败:`, error)
+          }
         }, 100)
+      } else {
+        console.log(`[WS-Store] ⚠️ restoreSession: 全局WebSocket连接已禁用`)
       }
     }
 

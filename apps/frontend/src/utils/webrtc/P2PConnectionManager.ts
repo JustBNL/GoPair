@@ -5,8 +5,6 @@
 import { WebRTCManager, type CallState, type CallParticipant, type WebRTCCallbacks } from './WebRTCManager'
 import { AudioDeviceManager, type AudioDevice, type AudioTestResult, type AudioQuality, type AudioDeviceCallbacks } from './AudioDeviceManager'
 import { SignalingProtocol, type SignalingCallbacks, type CallInviteData } from './SignalingProtocol'
-// 注意: VoiceSignalingClient已迁移到新的Composable架构
-// import type { VoiceSignalingClient } from '@/composables/useVoiceWebSocket'
 
 export interface P2PCallState {
   // 通话基本信息

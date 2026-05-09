@@ -47,12 +47,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
         // 房间专用端点
         registry.addHandler(globalWebSocketHandler, "/api/ws/room/*")
                 .setAllowedOrigins(origins);
-                
-        // 语音专用端点  
-        registry.addHandler(globalWebSocketHandler, "/api/ws/voice/*")
-                .setAllowedOrigins(origins);
-                
-        log.info("[WebSocket服务] 已注册新架构WebSocket端点: /api/ws/connect, /api/ws/room/*, /api/ws/voice/*，origins={}", (Object) origins);
+
+        log.info("[WebSocket服务] 已注册新架构WebSocket端点: /api/ws/connect, /api/ws/room/*，origins={}", (Object) origins);
     }
 
     private String[] parseAllowedOrigins(String origins) {

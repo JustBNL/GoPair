@@ -205,19 +205,25 @@ export const useChatStore = defineStore('chat', () => {
     currentMessages.value = []
   }
 
+  /**
+   * 发送私聊消息。
+   *
+   * * [执行策略]
+   * - HTTP 请求仅负责将消息写入数据库，不在 UI 中追加消息。
+   * - 消息的 UI 展示统一由 WebSocket 推送（appendMessage）驱动，保证幂等。
+   * - 这样可以避免 HTTP 响应和 WebSocket 推送竞争追加顺序导致的重复气泡问题。
+   */
   async function sendMessage(dto: Parameters<typeof ChatAPI.sendMessage>[0]) {
     const res = await ChatAPI.sendMessage(dto)
-    const msg = res.data
-    if (msg) {
-      currentMessages.value = [...currentMessages.value, msg]
-    }
-    return msg
+    // 不在这里追加消息，WebSocket 推送会统一处理
+    return res.data
   }
 
   /** 通过 WebSocket 推送追加消息（供 composable 调用） */
   function appendMessage(msg: PrivateMessageVO) {
     if (msg.conversationId === currentConversationId.value) {
       const exists = currentMessages.value.some(m => m.messageId === msg.messageId)
+      console.log('[ChatStore] appendMessage WebSocket 收到, messageId=', msg.messageId, 'exists=', exists, 'content=', msg.content)
       if (!exists) {
         currentMessages.value = [...currentMessages.value, msg]
       }
@@ -235,37 +241,41 @@ export const useChatStore = defineStore('chat', () => {
 
   /** 处理 WebSocket 推送消息（统一入口） */
   function handleWebSocketMessage(message: any) {
-    const payload = message.payload || message.data
-    if (!payload) return
+    try {
+      const payload = message.payload || message.data
+      if (!payload) return
 
-    if (message.eventType === 'message_send' && payload.chatType === 'private') {
-      const authStore = useAuthStore()
-      const msg: PrivateMessageVO = {
-        messageId: payload.messageId,
-        conversationId: payload.conversationId,
-        senderId: payload.senderId,
-        receiverId: payload.receiverId,
-        senderNickname: payload.senderNickname || '未知用户',
-        senderAvatar: payload.senderAvatar,
-        messageType: payload.messageType,
-        messageTypeDesc: payload.messageTypeDesc || '',
-        content: payload.content,
-        fileUrl: payload.fileUrl,
-        fileName: payload.fileName,
-        fileSize: payload.fileSize,
-        isRecalled: false,
-        isOwn: payload.senderId === authStore.user?.userId,
-        createTime: payload.createTime || new Date().toISOString()
+      if (message.eventType === 'message_send' && payload.chatType === 'private') {
+        const authStore = useAuthStore()
+        const msg: PrivateMessageVO = {
+          messageId: payload.messageId,
+          conversationId: payload.conversationId,
+          senderId: payload.senderId,
+          receiverId: payload.receiverId,
+          senderNickname: payload.senderNickname || '未知用户',
+          senderAvatar: payload.senderAvatar,
+          messageType: payload.messageType,
+          messageTypeDesc: payload.messageTypeDesc || '',
+          content: payload.content,
+          fileUrl: payload.fileUrl,
+          fileName: payload.fileName,
+          fileSize: payload.fileSize,
+          isRecalled: false,
+          isOwn: payload.senderId === authStore.user?.userId,
+          createTime: payload.createTime || new Date().toISOString()
+        }
+        appendMessage(msg)
       }
-      appendMessage(msg)
-    }
 
-    if (message.eventType === 'friend_request') {
-      fetchIncomingRequests()
-    }
+      if (message.eventType === 'friend_request') {
+        fetchIncomingRequests()
+      }
 
-    if (message.eventType === 'friend_status') {
-      onFriendStatusChanged()
+      if (message.eventType === 'friend_status') {
+        onFriendStatusChanged()
+      }
+    } catch (error) {
+      console.error('[ChatStore] handleWebSocketMessage 处理消息异常:', error, 'message=', message)
     }
   }
 

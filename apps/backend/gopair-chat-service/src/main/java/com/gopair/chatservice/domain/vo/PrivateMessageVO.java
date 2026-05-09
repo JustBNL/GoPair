@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class PrivateMessageVO {
 
     @Schema(description = "消息ID", example = "1")
-    private Long id;
+    private Long messageId;
 
     @Schema(description = "会话ID", example = "10000000002")
     private Long conversationId;

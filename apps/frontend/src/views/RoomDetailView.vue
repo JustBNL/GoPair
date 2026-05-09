@@ -392,7 +392,6 @@
     <!-- 全屏 Emoji 漂浮层 -->
     <emoji-overlay
       :particles="emojiParticles"
-      @particle-done="removeParticle"
     />
 
     <!-- 私聊模态框 -->
@@ -573,7 +572,6 @@ const {
     handleRosterUpdate(callId)
   },
   onEmojiReceived: (emoji: string, senderNickname: string) => {
-    console.log('[DEBUG] onEmojiReceived called', { emoji, senderNickname })
     spawnEmojiParticle(emoji, senderNickname)
   },
   onRoomClosed: (data: { roomId: number; operatorId: number }) => {
@@ -1231,24 +1229,23 @@ const getStatusText = (status: string): string => {
  * 生成一个 Emoji 漂浮粒子
  */
 function spawnEmojiParticle(emoji: string, senderNickname: string) {
-  console.log('[DEBUG] spawnEmojiParticle called', { emoji, senderNickname, currentLength: emojiParticles.value.length })
   if (emojiParticles.value.length >= MAX_PARTICLES) {
     emojiParticles.value = emojiParticles.value.slice(1)
   }
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const duration = Math.floor(Math.random() * 1000) + 2500
   emojiParticles.value = [...emojiParticles.value, {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id,
     emoji,
     senderNickname,
     x: 100,
     y: Math.random() * 92 + 4,
     size: Math.floor(Math.random() * 24) + 32,
-    duration: Math.floor(Math.random() * 1000) + 2500
+    duration
   }]
+  setTimeout(() => removeParticle(id), duration)
 }
 
-/**
- * 移除已完成动画的粒子
- */
 function removeParticle(id: string) {
   emojiParticles.value = emojiParticles.value.filter(p => p.id !== id)
 }
