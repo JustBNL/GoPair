@@ -105,7 +105,7 @@ public class RoomController {
         // 权限检查：仅房间成员可查询成员列表
         if (!roomService.isMemberInRoom(roomId, userId)) {
             throw new com.gopair.roomservice.exception.RoomException(
-                    com.gopair.roomservice.enums.RoomErrorCode.NO_PERMISSION);
+                    com.gopair.roomservice.enums.RoomErrorCode.NOT_MEMBER);
         }
         List<RoomMemberVO> members = roomService.getRoomMembers(roomId);
         return R.ok(members);

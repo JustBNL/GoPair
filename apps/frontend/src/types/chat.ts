@@ -38,6 +38,7 @@ export interface FriendRequestVO {
   fromNickname: string
   fromAvatar?: string
   toUserId: number
+  toNickname?: string
   message?: string
   status: 'pending' | 'accepted' | 'rejected'
   createdAt: string

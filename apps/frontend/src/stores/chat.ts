@@ -24,6 +24,10 @@ export const useChatStore = defineStore('chat', () => {
     () => incomingRequests.value.filter(r => r.status === 'pending').length
   )
 
+  // 发出的申请
+  const outgoingRequests = ref<FriendRequestVO[]>([])
+  const requestsLoading = ref(false)
+
   // ==================== 用户搜索状态 ====================
   const searchResults = ref<UserSearchResultVO[]>([])
   const searchLoading = ref(false)
@@ -63,6 +67,16 @@ export const useChatStore = defineStore('chat', () => {
     incomingRequests.value = res.data || []
   }
 
+  async function fetchOutgoingRequests() {
+    requestsLoading.value = true
+    try {
+      const res = await ChatAPI.getOutgoingRequests()
+      outgoingRequests.value = res.data || []
+    } finally {
+      requestsLoading.value = false
+    }
+  }
+
   async function fetchConversations() {
     conversationsLoading.value = true
     try {
@@ -91,12 +105,12 @@ export const useChatStore = defineStore('chat', () => {
 
   async function acceptRequest(requestId: number) {
     await ChatAPI.acceptFriendRequest(requestId)
-    await Promise.all([fetchIncomingRequests(), fetchFriends()])
+    await Promise.all([fetchIncomingRequests(), fetchOutgoingRequests(), fetchFriends()])
   }
 
   async function rejectRequest(requestId: number) {
     await ChatAPI.rejectFriendRequest(requestId)
-    await fetchIncomingRequests()
+    await Promise.all([fetchIncomingRequests(), fetchOutgoingRequests()])
   }
 
   async function removeFriend(friendId: number) {
@@ -196,10 +210,10 @@ export const useChatStore = defineStore('chat', () => {
     fetchConversations()
   }
 
-  /** 收到好友状态变更通知时刷新列表 */
   function onFriendStatusChanged() {
     fetchFriends()
     fetchIncomingRequests()
+    fetchOutgoingRequests()
   }
 
   // ==================== 初始化 ====================
@@ -208,6 +222,7 @@ export const useChatStore = defineStore('chat', () => {
     await Promise.all([
       fetchFriends(),
       fetchIncomingRequests(),
+      fetchOutgoingRequests(),
       fetchConversations()
     ])
   }
@@ -216,6 +231,7 @@ export const useChatStore = defineStore('chat', () => {
     // State
     friends, friendsLoading,
     incomingRequests, incomingCount,
+    outgoingRequests, requestsLoading,
     searchResults, searchLoading, searchTotal, searchError,
     friendSearchResults, friendSearchLoading,
     conversations, conversationsLoading,
@@ -223,7 +239,7 @@ export const useChatStore = defineStore('chat', () => {
     currentMessages, messagesLoading,
 
     // Friend actions
-    fetchFriends, fetchIncomingRequests,
+    fetchFriends, fetchIncomingRequests, fetchOutgoingRequests,
     sendRequest, acceptRequest, rejectRequest, removeFriend, checkFriendStatus,
     fetchSearchResults, clearSearchResults,
     fetchFriendSearchResults, clearFriendSearchResults,

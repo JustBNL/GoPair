@@ -23,24 +23,30 @@
             </button>
             <button
               class="tab-btn"
+              :class="{ active: activeTab === 'requests' }"
+              @click="switchTab('requests')"
+            >
+              好友申请
+              <span
+                v-if="chatStore.incomingCount > 0"
+                class="tab-badge"
+              >
+                {{ chatStore.incomingCount > 99 ? '99+' : chatStore.incomingCount }}
+              </span>
+            </button>
+            <button
+              class="tab-btn"
               :class="{ active: activeTab === 'search' }"
               @click="switchTab('search')"
             >
               添加朋友
             </button>
           </div>
-          <span
-            v-if="activeTab === 'friends' && chatStore.incomingCount > 0"
-            class="request-count"
-            @click="showRequestDrawer = true; dropdownOpen = false"
-          >
-            {{ chatStore.incomingCount }} 条待处理
-          </span>
         </div>
 
         <!-- ===== Tab: 好友列表 ===== -->
         <template v-if="activeTab === 'friends'">
-          <!-- 搜索（过滤已有好友） -->
+          <!-- 搜索 -->
           <div class="search-area">
             <a-input
               v-model:value="friendSearchKeyword"
@@ -60,17 +66,6 @@
                 </a-button>
               </template>
             </a-input>
-          </div>
-
-          <!-- 待处理申请入口 -->
-          <div
-            v-if="chatStore.incomingCount > 0"
-            class="pending-requests"
-            @click="showRequestDrawer = true; dropdownOpen = false"
-          >
-            <BellOutlined class="pending-icon" />
-            <span>{{ chatStore.incomingCount }} 条好友申请待处理</span>
-            <RightOutlined class="arrow-icon" />
           </div>
 
           <!-- 好友列表 -->
@@ -110,6 +105,92 @@
           <div v-if="chatStore.friendsLoading || chatStore.friendSearchLoading" class="loading-state">
             <a-spin size="small" />
             <span>加载中...</span>
+          </div>
+        </template>
+
+        <!-- ===== Tab: 好友申请 ===== -->
+        <template v-else-if="activeTab === 'requests'">
+          <!-- 收到的申请 -->
+          <div class="requests-section">
+            <div class="section-label">收到的申请</div>
+            <div v-if="chatStore.requestsLoading" class="loading-state">
+              <a-spin size="small" />
+              <span>加载中...</span>
+            </div>
+            <div v-else-if="pendingIncoming.length > 0" class="requests-list">
+              <div
+                v-for="req in pendingIncoming"
+                :key="req.requestId"
+                class="request-item"
+              >
+                <UserAvatar
+                  :user-id="req.fromUserId"
+                  :nickname="req.fromNickname"
+                  :avatar="req.fromAvatar"
+                  :size="40"
+                />
+                <div class="request-info">
+                  <div class="request-name">{{ req.fromNickname }}</div>
+                  <div v-if="req.message" class="request-message">{{ req.message }}</div>
+                  <div class="request-time">{{ formatTime(req.createdAt) }}</div>
+                </div>
+                <div class="request-actions">
+                  <a-button
+                    type="primary"
+                    size="small"
+                    :loading="acceptingId === req.requestId"
+                    @click="handleAccept(req.requestId)"
+                  >
+                    同意
+                  </a-button>
+                  <a-button
+                    size="small"
+                    :loading="rejectingId === req.requestId"
+                    @click="handleReject(req.requestId)"
+                  >
+                    拒绝
+                  </a-button>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-state small">
+              <p class="empty-text">暂无收到的申请</p>
+            </div>
+          </div>
+
+          <!-- 发出的申请 -->
+          <div class="requests-section">
+            <div class="section-label">发出的申请</div>
+            <div v-if="chatStore.requestsLoading" class="loading-state">
+              <a-spin size="small" />
+              <span>加载中...</span>
+            </div>
+            <div v-else-if="outgoingRequests.length > 0" class="requests-list">
+              <div
+                v-for="req in outgoingRequests"
+                :key="req.requestId"
+                class="request-item outgoing"
+              >
+                <UserAvatar
+                  :user-id="req.toUserId"
+                  :nickname="req.toNickname || '用户'"
+                  :size="40"
+                />
+                <div class="request-info">
+                  <div class="request-name">{{ req.toNickname || '用户' }}</div>
+                  <div v-if="req.message" class="request-message">{{ req.message }}</div>
+                  <div class="request-time">{{ formatTime(req.createdAt) }}</div>
+                </div>
+                <div class="request-status">
+                  <a-tag :color="statusTagColor(req.status)">
+                    {{ statusLabel(req.status) }}
+                  </a-tag>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-state small">
+              <p class="empty-text">暂无发出的申请</p>
+            </div>
           </div>
         </template>
 
@@ -178,7 +259,7 @@
                     type="primary"
                     size="small"
                     class="action-btn"
-                    @click.stop="handleReplyRequest(user.friendStatus?.requestId)"
+                    @click.stop="switchToRequests"
                   >
                     回复
                   </a-button>
@@ -225,44 +306,6 @@
       </div>
     </template>
   </a-dropdown>
-
-  <!-- 好友申请抽屉 -->
-  <a-drawer
-    v-model:open="showRequestDrawer"
-    title="好友申请"
-    placement="right"
-    :width="360"
-  >
-    <div v-if="pendingIncoming.length === 0" class="no-requests">
-      <p>暂无待处理的好友申请</p>
-    </div>
-    <div v-else class="request-list">
-      <div
-        v-for="req in pendingIncoming"
-        :key="req.requestId"
-        class="request-item"
-      >
-        <a-avatar :size="40" :src="req.fromAvatar">
-          <template v-if="!req.fromAvatar">
-            {{ getInitial(req.fromNickname) }}
-          </template>
-        </a-avatar>
-        <div class="request-info">
-          <div class="request-name">{{ req.fromNickname }}</div>
-          <div v-if="req.message" class="request-message">{{ req.message }}</div>
-          <div class="request-time">{{ formatTime(req.createdAt) }}</div>
-        </div>
-        <div class="request-actions">
-          <a-button type="primary" size="small" @click="handleAccept(req.requestId)">
-            同意
-          </a-button>
-          <a-button size="small" @click="handleReject(req.requestId)">
-            拒绝
-          </a-button>
-        </div>
-      </div>
-    </div>
-  </a-drawer>
 </template>
 
 <script setup lang="ts">
@@ -270,9 +313,7 @@ import { ref, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import {
   ContactsOutlined,
-  SearchOutlined,
-  BellOutlined,
-  RightOutlined
+  SearchOutlined
 } from '@ant-design/icons-vue'
 import { useChatStore } from '@/stores/chat'
 import type { FriendVO } from '@/types/chat'
@@ -285,8 +326,7 @@ const emit = defineEmits<{
 const chatStore = useChatStore()
 
 const dropdownOpen = ref(false)
-const showRequestDrawer = ref(false)
-const activeTab = ref<'friends' | 'search'>('friends')
+const activeTab = ref<'friends' | 'requests' | 'search'>('friends')
 
 // 好友 Tab 搜索
 const friendSearchKeyword = ref('')
@@ -294,6 +334,10 @@ const friendSearchKeyword = ref('')
 // 添加朋友 Tab 搜索
 const searchKeyword = ref('')
 const addingUserId = ref<number | null>(null)
+
+// 操作级 loading
+const acceptingId = ref<number | null>(null)
+const rejectingId = ref<number | null>(null)
 
 // 防抖定时器
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -309,15 +353,25 @@ const pendingIncoming = computed(() =>
   chatStore.incomingRequests.filter(r => r.status === 'pending')
 )
 
-function switchTab(tab: 'friends' | 'search') {
+const outgoingRequests = computed(() => chatStore.outgoingRequests)
+
+function switchTab(tab: 'friends' | 'requests' | 'search') {
   activeTab.value = tab
-  if (tab === 'search') {
-    friendSearchKeyword.value = ''
-  } else {
+  if (tab === 'friends') {
     searchKeyword.value = ''
     chatStore.clearSearchResults()
+  } else if (tab === 'search') {
+    friendSearchKeyword.value = ''
     chatStore.clearFriendSearchResults()
+  } else if (tab === 'requests') {
+    // 切换到申请 Tab 时刷新数据
+    chatStore.fetchIncomingRequests()
+    chatStore.fetchOutgoingRequests()
   }
+}
+
+function switchToRequests() {
+  activeTab.value = 'requests'
 }
 
 function handleFriendSearch() {
@@ -351,43 +405,57 @@ async function handleAddFriend(userId: number) {
   try {
     await chatStore.sendRequest(userId)
     message.success('申请已发送')
-    // 刷新搜索结果，更新关系状态
     if (searchKeyword.value.trim()) {
       await chatStore.fetchSearchResults(searchKeyword.value.trim())
     }
+    await chatStore.fetchOutgoingRequests()
   } catch {
-    // 错误已在 API 层处理（axios 拦截器会弹 message）
+    // 错误已在 API 层处理
   } finally {
     addingUserId.value = null
   }
 }
 
-function handleReplyRequest(requestId?: number) {
-  if (!requestId) return
-  dropdownOpen.value = false
-  showRequestDrawer.value = true
-}
-
 async function handleAccept(requestId: number) {
+  acceptingId.value = requestId
   try {
     await chatStore.acceptRequest(requestId)
     message.success('已同意好友申请')
   } catch {
     // 错误已在 API 层处理
+  } finally {
+    acceptingId.value = null
   }
 }
 
 async function handleReject(requestId: number) {
+  rejectingId.value = requestId
   try {
     await chatStore.rejectRequest(requestId)
     message.success('已拒绝好友申请')
   } catch {
     // 错误已在 API 层处理
+  } finally {
+    rejectingId.value = null
   }
 }
 
-function getInitial(name: string): string {
-  return (name || 'U').charAt(0).toUpperCase()
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    pending: '待回复',
+    accepted: '已同意',
+    rejected: '已拒绝'
+  }
+  return map[status] || status
+}
+
+function statusTagColor(status: string): string {
+  const map: Record<string, string> = {
+    pending: 'orange',
+    accepted: 'green',
+    rejected: 'default'
+  }
+  return map[status] || 'default'
 }
 
 function formatTime(timeStr: string): string {
@@ -418,9 +486,11 @@ watch(dropdownOpen, (open) => {
     chatStore.clearSearchResults()
     chatStore.clearFriendSearchResults()
   } else if (chatStore.friends.length === 0) {
-    // 惰性加载：首次展开下拉时拉取好友列表和申请列表
-    chatStore.fetchFriends()
-    chatStore.fetchIncomingRequests()
+    Promise.all([
+      chatStore.fetchFriends(),
+      chatStore.fetchIncomingRequests(),
+      chatStore.fetchOutgoingRequests()
+    ])
   }
 })
 </script>
@@ -479,7 +549,7 @@ watch(dropdownOpen, (open) => {
 
 .friends-dropdown-panel {
   width: 320px;
-  max-height: 480px;
+  max-height: 520px;
   background: var(--surface-bg, #fff);
   border-radius: 12px;
   box-shadow: 0 6px 24px rgba(0,0,0,0.12);
@@ -489,9 +559,6 @@ watch(dropdownOpen, (open) => {
 }
 
 .panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   padding: 14px 16px 10px;
   border-bottom: 1px solid var(--border-light, #f0f0f0);
 }
@@ -506,7 +573,7 @@ watch(dropdownOpen, (open) => {
 
 .tab-btn {
   flex: 1;
-  padding: 4px 12px;
+  padding: 4px 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary, #666);
@@ -516,6 +583,10 @@ watch(dropdownOpen, (open) => {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .tab-btn:hover {
@@ -528,14 +599,20 @@ watch(dropdownOpen, (open) => {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-.request-count {
-  font-size: 12px;
-  color: var(--brand-accent, #E07850);
-  cursor: pointer;
-}
-
-.request-count:hover {
-  text-decoration: underline;
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  background: var(--color-error, #e74c3c);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0 4px;
 }
 
 .search-area {
@@ -545,33 +622,6 @@ watch(dropdownOpen, (open) => {
 .search-icon {
   color: var(--text-muted, #999);
   font-size: 14px;
-}
-
-.pending-requests {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 12px 8px;
-  padding: 10px 12px;
-  background: rgba(224, 120, 80, 0.08);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--brand-accent, #E07850);
-  transition: background 0.2s;
-}
-
-.pending-requests:hover {
-  background: rgba(224, 120, 80, 0.15);
-}
-
-.pending-icon {
-  font-size: 16px;
-}
-
-.arrow-icon {
-  margin-left: auto;
-  font-size: 12px;
 }
 
 .friends-list {
@@ -661,6 +711,10 @@ watch(dropdownOpen, (open) => {
   text-align: center;
 }
 
+.empty-state.small {
+  padding: 20px 16px;
+}
+
 .empty-text {
   font-size: 14px;
   color: var(--text-secondary, #666);
@@ -694,25 +748,41 @@ watch(dropdownOpen, (open) => {
   font-size: 13px;
 }
 
-.no-requests {
-  text-align: center;
-  padding: 40px 16px;
-  color: var(--text-muted, #999);
+.requests-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
 }
 
-.request-list {
+.requests-section:last-child {
+  border-bottom: none;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+  padding: 4px 16px 8px;
+}
+
+.requests-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .request-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px;
-  background: var(--surface-bg, #f9f9f9);
-  border-radius: 8px;
+  padding: 10px 16px;
+  transition: background 0.15s;
+}
+
+.request-item:hover {
+  background: var(--border-light, #f5f5f5);
+}
+
+.request-item.outgoing {
+  opacity: 0.85;
 }
 
 .request-info {
@@ -742,5 +812,12 @@ watch(dropdownOpen, (open) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-shrink: 0;
+}
+
+.request-status {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 </style>

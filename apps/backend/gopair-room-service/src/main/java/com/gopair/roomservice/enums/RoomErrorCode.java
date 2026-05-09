@@ -98,6 +98,11 @@ public enum RoomErrorCode implements ErrorCode {
     ROOM_ALREADY_CLOSED(20216, "房间已关闭，无需重复操作"),
 
     /**
+     * 您不在此房间中
+     */
+    NOT_MEMBER(20226, "您不在此房间中"),
+
+    /**
      * 参数无效
      */
     PARAM_INVALID(20217, "参数无效"),

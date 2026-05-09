@@ -220,10 +220,14 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
                 return true;
             }
             if (Boolean.FALSE.equals(exists)) {
-                Boolean hasMeta = redisTemplate.hasKey(RoomConst.metaKey(roomId));
-                if (Boolean.TRUE.equals(hasMeta)) {
+                // 显式检查 membersKey 是否存在：若 key 不存在说明缓存被清理（如关闭房间时删除 key）
+                // 或从未初始化，改为降级查 DB 以确保不因缓存漂移而漏掉真实成员
+                Boolean membersKeyExists = redisTemplate.hasKey(RoomConst.membersKey(roomId));
+                if (Boolean.TRUE.equals(membersKeyExists)) {
+                    // membersKey 存在，缓存已初始化，用户真的不在房间
                     return false;
                 }
+                // membersKey 不存在：缓存被清理或从未初始化，降级查 DB
             }
         } catch (Exception e) {
             log.warn("[房间成员] Redis 查询成员失败，降级查 DB roomId={} userId={} 错误={}",

@@ -401,12 +401,6 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    // 删除 Redis 成员列表缓存（已在 leaveRoom/kickMember 的 Lua 中逐个移除，此处兜底清理）
-                    try {
-                        stringRedisTemplate.delete(RoomConst.membersKey(roomId));
-                    } catch (Exception e) {
-                        log.warn("[房间服务] Redis 删除房间成员失败 roomId={} 错误={}", roomId, e.getMessage());
-                    }
                     // 更新 Redis 缓存中的房间状态
                     try {
                         roomCacheSyncService.setStatus(roomId, RoomConst.STATUS_CLOSED);
@@ -748,6 +742,21 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         } catch (Exception e) {
             log.warn("[房间服务] 清理房间{}语音通话失败: {}", roomId, e.getMessage());
         }
+
+        // 归档终态：统一清理 Redis 缓存（meta/members/pending）
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    stringRedisTemplate.delete(RoomConst.metaKey(roomId));
+                    stringRedisTemplate.delete(RoomConst.membersKey(roomId));
+                    stringRedisTemplate.delete(RoomConst.pendingKey(roomId));
+                    log.info("[房间服务] 归档清理 Redis 缓存 roomId={}", roomId);
+                } catch (Exception e) {
+                    log.warn("[房间服务] 归档清理 Redis 缓存失败 roomId={} 错误={}", roomId, e.getMessage());
+                }
+            }
+        });
 
         return total;
     }
