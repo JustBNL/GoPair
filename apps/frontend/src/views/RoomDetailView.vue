@@ -425,61 +425,20 @@
       @success="handlePasswordUpdateSuccess"
     />
 
-    <!-- 续期房间弹窗（仅房主 + EXPIRED 状态可见） -->
-    <a-modal
-      v-model:open="showRenewModal"
-      title="续期房间"
-      :confirm-loading="renewLoading"
-      :width="400"
-      centered
-      @ok="handleRenewConfirm"
-      @cancel="showRenewModal = false"
-      ok-text="确认续期"
-      cancel-text="取消"
-    >
-      <div class="renew-modal-content" v-if="currentRoom">
-        <p class="renew-tip">续期后房间将恢复正常使用。选择续期时长：</p>
-        <div class="renew-room-name">
-          <span class="label">房间名称：</span>
-          <span class="value">{{ currentRoom.roomName }}</span>
-        </div>
-        <div class="renew-hours-selector">
-          <a-radio-group v-model:value="renewHours">
-            <a-radio-button v-for="opt in renewHoursOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </a-radio-button>
-          </a-radio-group>
-        </div>
-      </div>
-    </a-modal>
+    <!-- 续期/重新开启房间弹窗 -->
+    <RoomDurationModal
+      v-model:visible="showRenewModal"
+      mode="renew"
+      :room="currentRoom"
+      @success="handleRenewSuccessInDetail"
+    />
 
-    <!-- 重新开启房间弹窗（仅房主 + CLOSED 状态 + closedTime=null 可见） -->
-    <a-modal
-      v-model:open="showReopenModal"
-      title="重新开启房间"
-      :confirm-loading="reopenLoading"
-      :width="400"
-      centered
-      @ok="handleReopenConfirm"
-      @cancel="showReopenModal = false"
-      ok-text="确认开启"
-      cancel-text="取消"
-    >
-      <div class="renew-modal-content" v-if="currentRoom">
-        <p class="renew-tip">重新开启后房间将恢复正常使用。选择过期时长：</p>
-        <div class="renew-room-name">
-          <span class="label">房间名称：</span>
-          <span class="value">{{ currentRoom.roomName }}</span>
-        </div>
-        <div class="renew-hours-selector">
-          <a-radio-group v-model:value="reopenHours">
-            <a-radio-button v-for="opt in renewHoursOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </a-radio-button>
-          </a-radio-group>
-        </div>
-      </div>
-    </a-modal>
+    <RoomDurationModal
+      v-model:visible="showReopenModal"
+      mode="reopen"
+      :room="currentRoom"
+      @success="handleReopenSuccessInDetail"
+    />
   </div>
 </template>
 
@@ -537,6 +496,7 @@ import MemberProfileModal from '@/components/MemberProfileModal.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import RoomPasswordDrawer from '@/components/RoomPasswordDrawer.vue'
+import RoomDurationModal from '@/components/RoomDurationModal.vue'
 import { useVoiceCall } from '@/composables/useVoiceCall'
 import { useRoomPassword } from '@/composables/useRoomPassword'
 
@@ -559,21 +519,9 @@ const privateChatFriendId = ref<number | null>(null)
 const memberProfileVisible = ref(false)
 const memberProfileUserId = ref<number | null>(null)
 
-// 续期状态
+// 续期/重新开启状态
 const showRenewModal = ref(false)
-const renewHours = ref(24)
-const renewHoursOptions = [
-  { value: 1, label: '1小时' },
-  { value: 24, label: '1天' },
-  { value: 72, label: '3天' },
-  { value: 168, label: '7天' }
-]
-const renewLoading = ref(false)
-
-// 重新开启状态
 const showReopenModal = ref(false)
-const reopenHours = ref(24)
-const reopenLoading = ref(false)
 const roomId = computed(() => currentRoom.value?.roomId || 0)
 const { 
   roomState,
@@ -1219,39 +1167,16 @@ const copyRoomCode = async () => {
   }
 }
 
-async function handleRenewConfirm() {
-  if (!currentRoom.value) return
-  renewLoading.value = true
-  try {
-    await roomStore.renewRoom(currentRoom.value.roomId, renewHours.value)
-    currentRoom.value = { ...currentRoom.value, status: ROOM_STATUS.ACTIVE }
-    showRenewModal.value = false
-    antMessage.success('续期成功，房间已恢复正常')
-  } catch (e: any) {
-    antMessage.error(e?.response?.data?.msg || e?.message || '续期失败，请重试')
-  } finally {
-    renewLoading.value = false
-  }
+function handleRenewSuccessInDetail(room: RoomInfo) {
+  showRenewModal.value = false
+  currentRoom.value = room
 }
 
-async function handleReopenConfirm() {
-  if (!currentRoom.value) return
-  reopenLoading.value = true
-  try {
-    await roomStore.reopenRoom(currentRoom.value.roomId, reopenHours.value)
-    currentRoom.value = { ...currentRoom.value, status: ROOM_STATUS.ACTIVE }
-    showReopenModal.value = false
-    antMessage.success('房间已重新开启')
-  } catch (e: any) {
-    antMessage.error(e?.response?.data?.msg || e?.message || '重新开启失败，请重试')
-  } finally {
-    reopenLoading.value = false
-  }
+function handleReopenSuccessInDetail(room: RoomInfo) {
+  showReopenModal.value = false
+  currentRoom.value = room
 }
 
-/**
- * 返回上一页
- */
 /**
  * 返回大厅：若正在通话则先退出通话，再导航
  */
@@ -2067,49 +1992,5 @@ onMounted(async () => {
       animation: none;
     }
   }
-}
-
-/* 续期弹窗样式 */
-.renew-modal-content {
-  padding: 8px 0;
-}
-
-.renew-tip {
-  margin: 0 0 16px;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.renew-room-name {
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: var(--surface-bg);
-  border-radius: 6px;
-}
-
-.renew-room-name .label {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.renew-room-name .value {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.renew-hours-selector {
-  margin-top: 8px;
-}
-
-.renew-hours-selector :deep(.ant-radio-group) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.renew-hours-selector :deep(.ant-radio-button-wrapper) {
-  flex: 1;
-  text-align: center;
-  min-width: 70px;
 }
 </style>

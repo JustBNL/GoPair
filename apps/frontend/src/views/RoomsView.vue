@@ -138,15 +138,17 @@
       @success="handleJoinSuccess"
     />
 
-    <!-- 续期房间模态框 -->
-    <RenewRoomModal
+    <!-- 房间时长操作模态框 -->
+    <RoomDurationModal
       v-model:visible="renewModalVisible"
+      mode="renew"
       :room="renewTargetRoom"
       @success="handleRenewSuccess"
     />
 
-    <ReopenRoomModal
+    <RoomDurationModal
       v-model:visible="reopenModalVisible"
+      mode="reopen"
       :room="reopenTargetRoom"
       @success="handleReopenSuccess"
     />
@@ -182,9 +184,8 @@ import type { RoomInfo } from '@/types/room'
 import type { BaseQuery } from '@/types/api'
 import CreateRoomModal from '@/components/CreateRoomModal.vue'
 import JoinRoomModal from '@/components/JoinRoomModal.vue'
-import RenewRoomModal from '@/components/RenewRoomModal.vue'
-import ReopenRoomModal from '@/components/ReopenRoomModal.vue'
 import RoomCard from '@/components/RoomCard.vue'
+import RoomDurationModal from '@/components/RoomDurationModal.vue'
 import UserProfileModal from '@/components/UserProfileModal.vue'
 import FriendsDropdown from '@/components/privatechat/FriendsDropdown.vue'
 import PrivateChatModal from '@/components/privatechat/PrivateChatModal.vue'
@@ -376,10 +377,9 @@ function handleRenewRoom(room: RoomInfo) {
 /**
  * 续期成功
  */
-function handleRenewSuccess(room: RoomInfo) {
+function handleRenewSuccess(_room: RoomInfo) {
   renewModalVisible.value = false
   renewTargetRoom.value = null
-  message.success(`房间 "${room.roomName}" 续期成功！`)
 }
 
 /**
@@ -393,10 +393,9 @@ function handleReopenRoom(room: RoomInfo) {
 /**
  * 重新开启成功
  */
-function handleReopenSuccess(room: RoomInfo) {
+function handleReopenSuccess(_room: RoomInfo) {
   reopenModalVisible.value = false
   reopenTargetRoom.value = null
-  message.success(`房间 "${room.roomName}" 已重新开启！`)
 }
 
 function handleOpenPrivateChat(friendId: number) {

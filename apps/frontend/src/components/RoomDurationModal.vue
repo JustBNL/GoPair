@@ -1,22 +1,22 @@
 <template>
   <a-modal
     :open="visible"
-    title="续期房间"
-    :confirm-loading="renewLoading"
+    :title="modalTitle"
+    :confirm-loading="loading"
     :width="440"
     centered
     @ok="handleConfirm"
     @cancel="handleCancel"
-    ok-text="确认续期"
+    :ok-text="okText"
     cancel-text="取消"
   >
-    <div class="renew-info" v-if="room">
-      <p class="renew-tip">续期后房间将恢复正常使用。选择续期时长：</p>
-      <div class="renew-room-name">
+    <div class="duration-info" v-if="room">
+      <p class="duration-tip">{{ durationTip }}</p>
+      <div class="duration-room-name">
         <span class="label">房间名称：</span>
         <span class="value">{{ room.roomName }}</span>
       </div>
-      <div class="renew-hours-selector">
+      <div class="duration-selector">
         <a-radio-group v-model:value="selectedPreset">
           <a-radio-button v-for="opt in RENEW_MINUTES_OPTIONS" :key="opt.value" :value="opt.value">
             {{ opt.label }}
@@ -59,6 +59,8 @@ import type { RoomInfo } from '@/types/room'
 interface Props {
   visible: boolean
   room: RoomInfo | null
+  /** 'renew' = 续期房间, 'reopen' = 重新开启 */
+  mode: 'renew' | 'reopen'
 }
 
 const props = defineProps<Props>()
@@ -74,7 +76,7 @@ const roomStore = useRoomStore()
 const selectedPreset = ref<number>(1440)
 const customValue = ref<number>(1)
 const customUnit = ref<TimeUnit>(TimeUnit.DAYS)
-const renewLoading = ref(false)
+const loading = ref(false)
 
 const customMinutes = computed(() => {
   if (customValue.value <= 0) return 0
@@ -98,6 +100,24 @@ const unitLabel = computed(() => {
   return map[customUnit.value]
 })
 
+const modalTitle = computed(() =>
+  props.mode === 'renew' ? '续期房间' : '重新开启房间'
+)
+
+const durationTip = computed(() =>
+  props.mode === 'renew'
+    ? '续期后房间将恢复正常使用。选择续期时长：'
+    : '重新开启后房间将恢复正常使用。选择过期时长：'
+)
+
+const okText = computed(() =>
+  props.mode === 'renew' ? '确认续期' : '确认开启'
+)
+
+const successMessage = computed(() =>
+  props.mode === 'renew' ? '续期成功，房间已恢复正常' : '房间已重新开启'
+)
+
 watch(() => props.visible, (newVal) => {
   if (newVal) {
     selectedPreset.value = 1440
@@ -114,16 +134,20 @@ async function handleConfirm() {
   } else {
     extendMinutes = selectedPreset.value
   }
-  renewLoading.value = true
+  loading.value = true
   try {
-    await roomStore.renewRoom(props.room.roomId, extendMinutes)
+    if (props.mode === 'renew') {
+      await roomStore.renewRoom(props.room.roomId, extendMinutes)
+    } else {
+      await roomStore.reopenRoom(props.room.roomId, extendMinutes)
+    }
     emit('update:visible', false)
     emit('success', roomStore.currentRoom || props.room)
-    message.success('续期成功，房间已恢复正常')
+    message.success(successMessage.value)
   } catch (e: any) {
-    message.error(e?.response?.data?.msg || e?.message || '续期失败，请重试')
+    message.error(e?.response?.data?.msg || e?.message || '操作失败，请重试')
   } finally {
-    renewLoading.value = false
+    loading.value = false
   }
 }
 
@@ -133,44 +157,44 @@ function handleCancel() {
 </script>
 
 <style scoped>
-.renew-info {
+.duration-info {
   padding: 8px 0;
 }
 
-.renew-tip {
+.duration-tip {
   margin: 0 0 16px;
   color: var(--text-secondary);
   font-size: 14px;
 }
 
-.renew-room-name {
+.duration-room-name {
   margin-bottom: 16px;
   padding: 8px 12px;
   background: var(--surface-bg);
   border-radius: 6px;
 }
 
-.renew-room-name .label {
+.duration-room-name .label {
   color: var(--text-muted);
   font-size: 13px;
 }
 
-.renew-room-name .value {
+.duration-room-name .value {
   color: var(--text-primary);
   font-weight: 500;
 }
 
-.renew-hours-selector {
+.duration-selector {
   margin-top: 8px;
 }
 
-.renew-hours-selector :deep(.ant-radio-group) {
+.duration-selector :deep(.ant-radio-group) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.renew-hours-selector :deep(.ant-radio-button-wrapper) {
+.duration-selector :deep(.ant-radio-button-wrapper) {
   flex: 1;
   text-align: center;
   min-width: 70px;

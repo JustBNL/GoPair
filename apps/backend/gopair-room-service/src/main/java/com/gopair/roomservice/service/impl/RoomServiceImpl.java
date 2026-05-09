@@ -247,6 +247,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * - 原子保障：Lua 脚本保证 members 移除、confirmed--、pending_removal 写入原子执行。
      * - 幂等：pending_removal 作为一次性令牌，MQ 重复消费不产生副作用。
      * - 降级：MQ 发送失败时回滚 Lua，恢复 Redis 状态。
+     * - 状态无关：任意房间状态（除 ARCHIVED 外）均可退出，允许成员清理其参与记录。
      *
      * * [执行链路]
      * 1. 权限校验：userId 非空、用户在房间内（isMemberInRoom 查 Redis members set）。
@@ -265,13 +266,13 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
-        // 仅活跃房间允许离开操作
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
             throw new RoomException(RoomErrorCode.ROOM_NOT_FOUND);
         }
-        if (room.getStatus() != RoomConst.STATUS_ACTIVE) {
-            throw new RoomException(RoomErrorCode.ROOM_EXPIRED);
+        // 已归档房间禁止退出（资源已清理，数据无意义）
+        if (room.getStatus() != null && room.getStatus() == RoomConst.STATUS_ARCHIVED) {
+            throw new RoomException(RoomErrorCode.ROOM_ARCHIVED);
         }
         if (!roomMemberService.isMemberInRoom(roomId, userId)) {
             throw new RoomException(RoomErrorCode.NOT_IN_ROOM);
