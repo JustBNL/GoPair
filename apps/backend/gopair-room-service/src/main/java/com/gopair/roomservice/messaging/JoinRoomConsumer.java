@@ -71,6 +71,7 @@ public class JoinRoomConsumer {
         try {
             boolean inserted = false;
             boolean incOk = false;
+            boolean fromHistory = false;
 
             // 幂等处理：分三种情况
             // 1. 活跃成员（leave_time IS NULL）→ 幂等成功，直接返回
@@ -105,6 +106,7 @@ public class JoinRoomConsumer {
                         java.time.LocalDateTime.now(),
                         java.time.LocalDateTime.now());
                 inserted = updated == 1;
+                fromHistory = updated == 1;
             } else {
                 // 插入新成员（唯一键兜底，可能因并发重试而抛异常）
                 RoomMember member = new RoomMember();
@@ -150,14 +152,16 @@ public class JoinRoomConsumer {
                             stringRedisTemplate.opsForSet().size(RoomConst.membersKey(roomId)));
                 }
             } else {
-                // 补偿删除：精确按 roomId + userId 删除，不依赖 leave_time IS NULL 条件
-                // 因为 reactivateMember 已确保 leave_time 正确清空，此处无需额外条件过滤
-                try {
-                    LambdaQueryWrapper<RoomMember> del = new LambdaQueryWrapper<>();
-                    del.eq(RoomMember::getRoomId, roomId)
-                       .eq(RoomMember::getUserId, userId);
-                    roomMemberMapper.delete(del);
-                } catch (Exception ignore) {}
+                // 补偿删除：仅在本次 insert 分支插入记录时执行（fromHistory=false）
+                // fromHistory=true 时，reactivateMember 已更新历史记录 leave_time 已清空，无需删除
+                if (!fromHistory) {
+                    try {
+                        LambdaQueryWrapper<RoomMember> del = new LambdaQueryWrapper<>();
+                        del.eq(RoomMember::getRoomId, roomId)
+                           .eq(RoomMember::getUserId, userId);
+                        roomMemberMapper.delete(del);
+                    } catch (Exception ignore) {}
+                }
                 stringRedisTemplate.opsForValue().set(RoomConst.joinTokenKey(token),
                         roomId + ":" + userId + ":" + RoomConst.JOIN_RESULT_FAILED, joinResultTtlSeconds, TimeUnit.SECONDS);
                 log.warn("[房间服务][join-async] 消费补偿 房间={} 用户={} token={} inserted={} incOk={}", roomId, userId, token, inserted, incOk);

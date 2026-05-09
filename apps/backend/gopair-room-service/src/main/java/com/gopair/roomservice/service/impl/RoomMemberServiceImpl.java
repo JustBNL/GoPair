@@ -133,12 +133,12 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
                 .isNotNull(RoomMember::getLeaveTime);
         RoomMember history = roomMemberMapper.selectOne(historyQ);
         if (history != null) {
-            history.setLeaveTime(null);
-            history.setLeaveType(null);
-            history.setStatus(RoomConst.MEMBER_STATUS_ONLINE);
-            history.setJoinTime(LocalDateTime.now());
-            history.setLastActiveTime(LocalDateTime.now());
-            roomMemberMapper.updateById(history);
+            // 复用历史记录：使用显式 SQL 清空 leave_time/leave_type，绕过 MyBatis-Plus null 字段忽略策略
+            roomMemberMapper.reactivateMember(
+                    roomId, userId,
+                    RoomConst.MEMBER_STATUS_ONLINE,
+                    java.time.LocalDateTime.now(),
+                    java.time.LocalDateTime.now());
             log.info("[房间服务] 用户{}重新加入房间{}成功（复用历史记录），角色={}", userId, roomId, role);
             return true;
         }
