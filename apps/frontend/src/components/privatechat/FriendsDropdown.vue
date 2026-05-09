@@ -417,6 +417,10 @@ watch(dropdownOpen, (open) => {
     searchKeyword.value = ''
     chatStore.clearSearchResults()
     chatStore.clearFriendSearchResults()
+  } else if (chatStore.friends.length === 0) {
+    // 惰性加载：首次展开下拉时拉取好友列表和申请列表
+    chatStore.fetchFriends()
+    chatStore.fetchIncomingRequests()
   }
 })
 </script>

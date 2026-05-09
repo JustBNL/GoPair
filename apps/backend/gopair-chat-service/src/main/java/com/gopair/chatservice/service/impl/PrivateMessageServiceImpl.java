@@ -1,11 +1,13 @@
 package com.gopair.chatservice.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.chatservice.config.ChatProperties;
 import com.gopair.chatservice.config.ChatWebSocketProducer;
 import com.gopair.chatservice.domain.dto.SendPrivateMessageDto;
 import com.gopair.chatservice.domain.po.PrivateMessage;
+import com.gopair.chatservice.domain.vo.ConversationDetailVO;
 import com.gopair.chatservice.domain.vo.ConversationVO;
 import com.gopair.chatservice.domain.vo.PrivateMessageVO;
 import com.gopair.chatservice.enums.ChatErrorCode;
@@ -111,33 +113,23 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
     @Override
     @LogRecord(operation = "获取会话列表", module = "私聊消息")
     public List<ConversationVO> getConversations(Long userId) {
-        List<Long> conversationIds = privateMessageMapper.selectConversationIdsByUser(userId);
-        if (conversationIds.isEmpty()) {
+        List<ConversationDetailVO> details = privateMessageMapper.selectConversationDetailsBatch(userId);
+        if (details.isEmpty()) {
             return java.util.Collections.emptyList();
         }
 
-        return conversationIds.stream().map(convId -> {
-            PrivateMessageVO latest = privateMessageMapper.selectLatestMessageByConversation(convId);
-            if (latest == null) {
-                return null;
-            }
-
-            Long friendId = latest.getSenderId().equals(userId) ? latest.getReceiverId() : latest.getSenderId();
-
+        return details.stream().map(d -> {
             ConversationVO vo = new ConversationVO();
-            vo.setConversationId(convId);
-            vo.setFriendId(friendId);
-            vo.setLastMessageType(latest.getMessageType());
-            vo.setLastMessageContent(truncate(latest.getContent(), 30));
-            vo.setLastMessageTime(latest.getCreateTime() != null ? latest.getCreateTime().format(DF) : null);
-            vo.setMessageCount(privateMessageMapper.countByConversation(convId));
-
-            List<Long> ids = List.of(friendId);
-            List<com.gopair.chatservice.domain.vo.FriendVO> fakeList = List.of(new com.gopair.chatservice.domain.vo.FriendVO());
-            userProfileFallbackService.fillMissingFriendProfiles(fakeList, ids);
-
+            vo.setConversationId(d.getConversationId());
+            vo.setFriendId(d.getFriendId());
+            vo.setFriendNickname(d.getFriendNickname());
+            vo.setFriendAvatar(d.getFriendAvatar());
+            vo.setLastMessageType(d.getLastMessageType());
+            vo.setLastMessageContent(truncate(d.getLastMessageContent(), 30));
+            vo.setLastMessageTime(d.getLastMessageTime());
+            vo.setMessageCount(d.getMessageCount());
             return vo;
-        }).filter(java.util.Objects::nonNull).toList();
+        }).toList();
     }
 
     @Override

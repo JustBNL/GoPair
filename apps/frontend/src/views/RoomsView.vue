@@ -464,7 +464,6 @@ async function handlePageChange(page: number) {
 onMounted(async () => {
   await roomStore.fetchUserRooms(buildFullQuery(1))
   if (authStore.user) {
-    chatStore.initChat()
     connectPrivateChat()
   }
 })

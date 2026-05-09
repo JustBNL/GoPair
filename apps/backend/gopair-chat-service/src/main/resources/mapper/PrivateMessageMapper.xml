@@ -79,4 +79,38 @@
         WHERE conversation_id = #{conversationId} AND is_recalled = 0
     </select>
 
+    <select id="selectConversationDetailsBatch" resultType="com.gopair.chatservice.domain.vo.ConversationDetailVO">
+        SELECT
+            conv.conversation_id AS conversationId,
+            CASE WHEN latest.sender_id = #{userId} THEN latest.receiver_id ELSE latest.sender_id END AS friendId,
+            u.nickname AS friendNickname,
+            u.avatar AS friendAvatar,
+            latest.content AS lastMessageContent,
+            DATE_FORMAT(latest.create_time, '%Y-%m-%d %H:%i:%s') AS lastMessageTime,
+            latest.message_type AS lastMessageType,
+            conv.cnt AS messageCount
+        FROM (
+            SELECT conversation_id, COUNT(1) AS cnt
+            FROM private_message
+            WHERE (sender_id = #{userId} OR receiver_id = #{userId})
+              AND is_recalled = 0
+            GROUP BY conversation_id
+        ) conv
+        LEFT JOIN (
+            SELECT pm2.*
+            FROM private_message pm2
+            INNER JOIN (
+                SELECT conversation_id, MAX(create_time) AS max_time
+                FROM private_message
+                WHERE (sender_id = #{userId} OR receiver_id = #{userId})
+                  AND is_recalled = 0
+                GROUP BY conversation_id
+            ) latest ON latest.conversation_id = pm2.conversation_id
+                     AND latest.max_time = pm2.create_time
+            WHERE pm2.is_recalled = 0
+        ) latest ON latest.conversation_id = conv.conversation_id
+        LEFT JOIN user u ON u.user_id = CASE WHEN latest.sender_id = #{userId} THEN latest.receiver_id ELSE latest.sender_id END
+        ORDER BY latest.create_time DESC
+    </select>
+
 </mapper>

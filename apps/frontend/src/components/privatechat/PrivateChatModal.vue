@@ -284,6 +284,13 @@ watch(
   () => props.visible,
   async (val) => {
     if (val && props.friendId) {
+      // 惰性加载：首次打开时确保好友列表和会话列表已加载
+      if (chatStore.friends.length === 0) {
+        chatStore.fetchFriends()
+      }
+      if (chatStore.conversations.length === 0) {
+        chatStore.fetchConversations()
+      }
       await chatStore.openChat(props.friendId)
       scrollToBottom()
     }

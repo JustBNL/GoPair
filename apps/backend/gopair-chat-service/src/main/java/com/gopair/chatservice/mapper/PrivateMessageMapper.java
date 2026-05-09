@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.chatservice.domain.po.PrivateMessage;
 import com.gopair.chatservice.domain.vo.PrivateMessageVO;
+import com.gopair.chatservice.domain.vo.ConversationDetailVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -40,4 +41,9 @@ public interface PrivateMessageMapper extends BaseMapper<PrivateMessage> {
      * 统计会话消息数量。
      */
     Long countByConversation(@Param("conversationId") Long conversationId);
+
+    /**
+     * 批量查询会话详情（每会话最新消息 + 消息总数），合并 N+1 查询。
+     */
+    List<ConversationDetailVO> selectConversationDetailsBatch(@Param("userId") Long userId);
 }

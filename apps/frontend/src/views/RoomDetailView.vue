@@ -1374,9 +1374,6 @@ onMounted(async () => {
   if (currentRoom.value) {
     await initRoomSubscription()
   }
-  if (authStore.user) {
-    chatStore.initChat()
-  }
 })
 </script>
 
