@@ -102,7 +102,9 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
           connectionState.value = ConnectionState.CONNECTED
           reconnectAttempts.value = 0
           startHeartbeat()
+          console.log(`[WS] onopen触发，wsUrl=${wsUrl}, 调用onConnected回调前`)
           callbacks.onConnected?.()
+          console.log(`[WS] onConnected回调执行完成`)
           resolve()
         }
 
@@ -114,6 +116,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
               return
             }
             if (WS_FEATURES.debug) console.log('[WS] message', message)
+            console.log('[WS] ⬇️ 收到消息, endpoint={}, type={}, channel={}, eventType={}, payloadKeys={}', endpoint || 'unknown', message.type, message.channel, message.eventType, message.payload ? Object.keys(message.payload) : 'none')
             callbacks.onMessage?.(message)
           } catch (error) {
             if (WS_FEATURES.debug) console.error('WebSocket消息解析失败:', error)
@@ -153,6 +156,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
    */
   const send = (message: Partial<WsMessage>): boolean => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.log(`[WS] ⬆️ 发送失败，连接未就绪: wsUrl=${wsUrl}, readyState=${ws?.readyState}`)
       return false
     }
 
@@ -164,6 +168,7 @@ export function useWebSocket(endpoint?: string, options: WsConnectionOptions = {
         ...message
       }
       ws.send(JSON.stringify(wsMessage))
+      console.log(`[WS] ⬆️ 发送消息: endpoint=${endpoint || 'unknown'}, type=${message.type}, channel=${message.channel}, eventType=${message.eventType}`)
       return true
     } catch (error) {
       console.error('WebSocket发送消息失败:', error)

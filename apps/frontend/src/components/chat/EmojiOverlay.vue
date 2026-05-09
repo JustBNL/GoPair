@@ -6,25 +6,34 @@
       class="emoji-particle"
       :style="{
         top: p.y + 'vh',
-        fontSize: p.size + 'px',
-        animationDuration: p.duration + 'ms'
+        left: p.x + 'vw',
+        fontSize: p.size + 'px'
       }"
-      @animationend="$emit('particle-done', p.id)"
+      @animationend="onParticleDone(p.id)"
     >{{ p.emoji }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import type { EmojiParticle } from '@/types/api'
 
 interface Props {
   particles: EmojiParticle[]
 }
 
-defineProps<Props>()
-defineEmits<{
+const props = defineProps<Props>()
+watch(() => props.particles, (newVal) => {
+  console.log('[DEBUG] EmojiOverlay particles updated, count:', newVal.length, 'emojis:', newVal.map(p => p.emoji))
+}, { deep: true })
+
+const emit = defineEmits<{
   (e: 'particle-done', id: string): void
 }>()
+
+function onParticleDone(id: string) {
+  emit('particle-done', id)
+}
 </script>
 
 <style scoped lang="scss">
@@ -41,13 +50,24 @@ defineEmits<{
   top: 0;
   line-height: 1;
   user-select: none;
-  animation: emoji-slide-left linear forwards;
+  animation: emoji-slide-left 2.5s linear forwards;
   will-change: transform, opacity;
 }
 
 @keyframes emoji-slide-left {
   0% {
-    transform: translateX(0) scale(1);
+    transform: translateX(0) scale(0.3);
+    opacity: 0;
+  }
+  15% {
+    transform: translateX(-5vw) scale(1.4);
+    opacity: 1;
+  }
+  30% {
+    transform: translateX(-10vw) scale(1.0);
+    opacity: 1;
+  }
+  80% {
     opacity: 1;
   }
   100% {

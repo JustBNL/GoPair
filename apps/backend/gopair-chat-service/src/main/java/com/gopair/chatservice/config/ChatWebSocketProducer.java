@@ -49,12 +49,15 @@ public class ChatWebSocketProducer {
             System.getProperty("spring.application.name", "chat-service")
         );
 
+        String channel = SystemConstants.CHANNEL_USER_PREFIX + userId;
+        log.info("[ChatWS] 准备发送私聊WebSocket消息: userId={}, channel={}, routingKey={}, messageId={}, payload.chatType={}, payloadKeys={}", userId, channel, SystemConstants.ROUTING_KEY_SYSTEM_USER, message.messageId, enriched.get("chatType"), enriched.keySet());
+
         rabbitTemplate.convertAndSend(
             SystemConstants.WEBSOCKET_EXCHANGE,
             SystemConstants.ROUTING_KEY_SYSTEM_USER,
             message
         );
-        log.debug("发送私聊消息到用户: userId={}, messageId={}", userId, message.messageId);
+        log.info("[ChatWS] 发送私聊消息到用户: userId={}, channel={}, eventType={}, messageId={}", userId, channel, "message_send", message.messageId);
     }
 
     /**

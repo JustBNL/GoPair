@@ -12,7 +12,6 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -22,10 +21,9 @@ import java.lang.reflect.Parameter;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executor;
 
 /**
- * 管理员操作审计切面，拦截所有标注了 @AdminAudit 的方法并异步记录审计日志。
+ * 管理员操作审计切面，拦截所有标注了 @AdminAudit 的方法并同步记录审计日志。
  */
 @Slf4j
 @Aspect
@@ -34,21 +32,18 @@ public class AdminAuditAspect {
 
     private final AdminAuditLogMapper auditLogMapper;
     private final ObjectMapper objectMapper;
-    private final Executor auditTaskExecutor;
 
     public AdminAuditAspect(
             AdminAuditLogMapper auditLogMapper,
-            ObjectMapper objectMapper,
-            @Qualifier("adminAuditTaskExecutor") Executor auditTaskExecutor) {
+            ObjectMapper objectMapper) {
         this.auditLogMapper = auditLogMapper;
         this.objectMapper = objectMapper;
-        this.auditTaskExecutor = auditTaskExecutor;
     }
 
     @Around("@annotation(adminAudit)")
     public Object around(ProceedingJoinPoint joinPoint, AdminAudit adminAudit) throws Throwable {
         Object result = joinPoint.proceed();
-        auditTaskExecutor.execute(() -> writeLog(adminAudit, joinPoint, result));
+        writeLog(adminAudit, joinPoint, result);
         return result;
     }
 

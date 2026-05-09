@@ -76,6 +76,7 @@ const columns = [
   { title: '上传者',   dataIndex: 'uploaderNickname', key: 'uploaderNickname', width: 100 },
   { title: '下载次数', dataIndex: 'downloadCount',     key: 'downloadCount',    width: 90 },
   { title: '上传时间', dataIndex: 'uploadTime',        key: 'uploadTime',       width: 170 },
+  { title: '操作',     key: 'actions',                width: 160 },
 ]
 
 async function handleView(fileId: number) {
@@ -231,24 +232,16 @@ loadFiles()
     <template v-else>
       <div class="file-manage-view__grid">
         <div v-for="file in fileList" :key="file.fileId" class="file-card">
-          <template v-if="isImage(file)">
-            <a-image :src="file.filePath" :alt="file.fileName" class="file-card__image" :preview-mask="false" />
-          </template>
-          <template v-else>
-            <div class="file-card__icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-              </svg>
-              <span class="file-card__ext">{{ file.fileType.toUpperCase() }}</span>
-            </div>
-          </template>
+          <div class="file-card__icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <span class="file-card__ext">{{ file.fileType.toUpperCase() }}</span>
+          </div>
           <div class="file-card__info">
             <div class="file-card__name" :title="file.fileName">{{ file.fileName }}</div>
             <div class="file-card__meta">{{ formatFileSize(file.fileSize) }} · {{ formatTime(file.uploadTime, 'MM-DD HH:mm') }}</div>
             <div class="file-card__actions">
-              <a v-if="isImage(file)" :href="file.filePath" target="_blank">
-                <a-button type="link" size="small">预览</a-button>
-              </a>
               <a :href="file.filePath" target="_blank" class="file-card__link" download>
                 <a-button type="link" size="small">下载</a-button>
               </a>
@@ -355,13 +348,6 @@ loadFiles()
   transition: border-color var(--transition-fast);
 }
 .file-card:hover { border-color: var(--color-border-hover); }
-
-.file-card__image {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  display: block;
-}
 
 .file-card__icon {
   width: 100%;

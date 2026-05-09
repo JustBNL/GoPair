@@ -144,6 +144,8 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       [WsEventType.SIGNALING],
       signalingUserId
     )
+    console.log(`✅ [WS] 连接成功，准备发送订阅消息: channel=room:${roomId.value}, eventTypes=[全部15种]`)
+    console.log(`✅ [WS] 信令订阅消息: userId=${signalingUserId}, channel=user:${signalingUserId}, eventTypes=[signaling]`)
     send(signalingSubscribeMsg)
     if (WS_FEATURES.debug) console.log(`✅ 信令频道订阅: user:${signalingUserId}`)
   }
@@ -165,7 +167,7 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
 
     switch (eventType) {
       case WsEventType.MESSAGE_SEND: {
-        if (WS_FEATURES.debug) console.log('✅ [房间WebSocket] 处理消息发送事件', data)
+        if (WS_FEATURES.debug) console.log('✅ [房间WebSocket] 处理消息发送事件, channel={}, data=', message.channel, data)
         const enriched: any = { ...data }
         if (!enriched.createTime) {
           enriched.createTime = message.timestamp || new Date().toISOString()
@@ -174,9 +176,11 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         if (typeof enriched.isOwn === 'undefined') {
           enriched.isOwn = (uid != null) && (enriched.senderId === uid)
         }
-        // EMOJI 消息：触发动画回调，同时加入聊天消息列表
         if (enriched.messageType === 5) {
+          console.log('[DEBUG] useRoomWebSocket: messageType === 5, calling onEmojiReceived', enriched.content, enriched.senderNickname)
           handlers.onEmojiReceived?.(enriched.content, enriched.senderNickname)
+        } else {
+          console.log('[DEBUG] useRoomWebSocket: messageType !== 5, actual type:', enriched.messageType, typeof enriched.messageType)
         }
         roomState.value.messages = [...roomState.value.messages, enriched].slice(-MAX_MESSAGES)
         handlers.onMessage?.(enriched)

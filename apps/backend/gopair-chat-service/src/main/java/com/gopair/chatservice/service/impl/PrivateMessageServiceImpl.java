@@ -115,7 +115,7 @@ public class PrivateMessageServiceImpl implements PrivateMessageService {
         chatWebSocketProducer.sendPrivateMessage(receiverId, payload);
         chatWebSocketProducer.sendPrivateMessage(senderId, payload);
 
-        log.info("发送私聊消息: senderId={}, receiverId={}, messageId={}", senderId, receiverId, message.getId());
+        log.info("[ChatService] 私聊消息发送完成: senderId={}, receiverId={}, messageId={}, conversationId={}", senderId, receiverId, message.getId(), conversationId);
         return vo;
     }
 

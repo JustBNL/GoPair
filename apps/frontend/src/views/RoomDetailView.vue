@@ -573,6 +573,7 @@ const {
     handleRosterUpdate(callId)
   },
   onEmojiReceived: (emoji: string, senderNickname: string) => {
+    console.log('[DEBUG] onEmojiReceived called', { emoji, senderNickname })
     spawnEmojiParticle(emoji, senderNickname)
   },
   onRoomClosed: (data: { roomId: number; operatorId: number }) => {
@@ -928,9 +929,7 @@ const loadMessages = async () => {
     }))
 
     // 以房间层为单一数据源
-    // 过滤掉 EMOJI 消息，不在聊天气泡中展示
-    const filteredMessages = messagesWithOwnership.filter((m: any) => m.messageType !== 5)
-    replaceMessages(filteredMessages)
+    replaceMessages(messagesWithOwnership)
     serviceStates.value.messages.retryCount = 0
 
     // 初次加载滚动到底部
@@ -1232,6 +1231,7 @@ const getStatusText = (status: string): string => {
  * 生成一个 Emoji 漂浮粒子
  */
 function spawnEmojiParticle(emoji: string, senderNickname: string) {
+  console.log('[DEBUG] spawnEmojiParticle called', { emoji, senderNickname, currentLength: emojiParticles.value.length })
   if (emojiParticles.value.length >= MAX_PARTICLES) {
     emojiParticles.value = emojiParticles.value.slice(1)
   }
@@ -1242,7 +1242,7 @@ function spawnEmojiParticle(emoji: string, senderNickname: string) {
     x: 100,
     y: Math.random() * 92 + 4,
     size: Math.floor(Math.random() * 24) + 32,
-    duration: Math.floor(Math.random() * 3000) + 3000
+    duration: Math.floor(Math.random() * 1000) + 2500
   }]
 }
 

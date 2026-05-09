@@ -186,6 +186,7 @@ loadUsers()
         <template v-else-if="column.key === 'actions'">
           <div class="user-manage-view__actions">
             <a-button type="link" size="small" @click="handleView(record.userId)">详情</a-button>
+            <a-button type="link" size="small" @click="openMigrate(record)">迁移</a-button>
             <a-button v-if="record.status === '0'" type="link" size="small" danger @click="openConfirm(record, 'disable')">停用</a-button>
             <a-button v-else-if="record.status === '1'" type="link" size="small" @click="openConfirm(record, 'enable')">启用</a-button>
           </div>
@@ -198,10 +199,7 @@ loadUsers()
         <a-descriptions :column="1" bordered size="small">
           <a-descriptions-item label="用户ID">{{ userDetail.user.userId }}</a-descriptions-item>
           <a-descriptions-item label="昵称">{{ userDetail.user.nickname }}</a-descriptions-item>
-          <a-descriptions-item label="邮箱">
-            {{ userDetail.user.email }}
-            <a-button type="link" size="small" @click="openMigrate(userDetail.user)">账号迁移</a-button>
-          </a-descriptions-item>
+          <a-descriptions-item label="邮箱">{{ userDetail.user.email }}</a-descriptions-item>
           <a-descriptions-item label="状态"><StatusBadge :status="userDetail.user.status" type="user" /></a-descriptions-item>
           <a-descriptions-item label="加入房间数">{{ userDetail.roomCount }}</a-descriptions-item>
           <a-descriptions-item label="创建房间数">{{ userDetail.ownedRoomCount }}</a-descriptions-item>

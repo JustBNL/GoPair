@@ -100,6 +100,8 @@ public class ChannelMessageRouter {
                 return;
             }
 
+            log.info("[消息代理] 频道有订阅者: channel={}, eventType={}, subscriberCount={}, sessionIds={}", channel, eventType, subscriberSessions.size(), subscriberSessions);
+
             // 性能优化：仅序列化一次，所有接收者复用同一 TextMessage 实例
             // TextMessage 是不可变值对象，多线程共享安全
             final TextMessage textMsg;

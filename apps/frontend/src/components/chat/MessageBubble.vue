@@ -102,6 +102,11 @@
           </div>
         </div>
 
+        <!-- Emoji 互动消息 -->
+        <div v-else-if="message.messageType === MessageType.EMOJI" class="emoji-message">
+          <span class="emoji-content">{{ message.content }}</span>
+        </div>
+
       </div>
 
       <!-- 统一的消息时间与状态（右下角显示时间） -->
@@ -467,6 +472,22 @@ const onDelete = () => {
           font-size: 12px;
           color: var(--text-muted);
         }
+      }
+    }
+  }
+
+  &.message-type-5 {
+    // Emoji 互动消息
+    .emoji-message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      min-height: 48px;
+
+      .emoji-content {
+        font-size: 32px;
+        line-height: 1;
       }
     }
   }

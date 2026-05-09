@@ -70,6 +70,7 @@ public class UserManageController {
 
     @Operation(summary = "账号迁移")
     @PostMapping("/{userId}/migrate-email")
+    @AdminAudit(operation = "USER_EMAIL_MIGRATE", targetType = "USER")
     public R<Void> migrateEmail(@PathVariable Long userId, @RequestParam String newEmail) {
         try {
             userManageService.migrateEmail(userId, newEmail);

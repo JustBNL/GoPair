@@ -111,13 +111,19 @@ public class SubscriptionManagerService {
 
     public Set<String> getChannelSubscribers(String channel, String eventType) {
         Set<String> sessions = channelSessions.get(channel);
-        if (sessions == null) return Collections.emptySet();
+        if (sessions == null) {
+            log.warn("[订阅管理] 频道在 channelSessions 中无记录: channel={}", channel);
+            return Collections.emptySet();
+        }
 
+        log.info("[订阅管理] 查询频道订阅者: channel={}, eventType={}, sessionsInChannel={}", channel, eventType, sessions);
         if (eventType == null) return new HashSet<>(sessions);
 
-        return sessions.stream()
+        Set<String> filtered = sessions.stream()
                 .filter(sessionId -> isSessionSubscribedToEvent(sessionId, channel, eventType))
                 .collect(Collectors.toSet());
+        log.info("[订阅管理] 过滤后订阅者: channel={}, eventType={}, filteredCount={}, filteredSessions={}", channel, eventType, filtered.size(), filtered);
+        return filtered;
     }
 
     public Set<ChannelSubscription> getUserSubscriptions(Long userId) {
@@ -258,30 +264,40 @@ public class SubscriptionManagerService {
 
     private boolean isSessionSubscribedToEvent(String sessionId, String channel, String eventType) {
         Set<String> sessionChannels = sessionSubscriptions.get(sessionId);
-        if (sessionChannels == null || !sessionChannels.contains(channel)) return false;
+        if (sessionChannels == null || !sessionChannels.contains(channel)) {
+            log.debug("[订阅管理] sessionChannels 校验失败: sessionId={}, channel={}, sessionChannels={}", sessionId, channel, sessionChannels);
+            return false;
+        }
 
         Set<String> channelSessions = this.channelSessions.get(channel);
-        if (channelSessions == null || !channelSessions.contains(sessionId)) return false;
+        if (channelSessions == null || !channelSessions.contains(sessionId)) {
+            log.debug("[订阅管理] channelSessions 校验失败: sessionId={}, channel={}, channelSessions={}", sessionId, channel, channelSessions);
+            return false;
+        }
 
         // 通过 sessionUserMap 精确反查该 session 对应的 userId，避免误用其他用户的订阅配置
         Long userId = sessionUserMap.get(sessionId);
+        log.debug("[订阅管理] sessionId={} -> userId={}", sessionId, userId);
         if (userId == null) {
             // sessionUserMap 中无记录时降级：允许投递，避免因内存状态不一致漏发消息
+            log.warn("[订阅管理] sessionUserMap 中无 userId，降级为允许投递: sessionId={}, channel={}", sessionId, channel);
             return true;
         }
 
         Set<ChannelSubscription> subscriptions = userSubscriptions.get(userId);
+        log.debug("[订阅管理] userId={} 的订阅列表: {}", userId, subscriptions);
         if (subscriptions == null) return true;
 
         for (ChannelSubscription sub : subscriptions) {
             if (channel.equals(sub.getChannel())) {
                 Set<String> eventTypes = sub.getEventTypes();
+                log.debug("[订阅管理] 匹配到频道订阅: sessionId={}, userId={}, channel={}, eventTypes={}, 查询eventType={}", sessionId, userId, channel, eventTypes, eventType);
                 // eventTypes 为空表示订阅全部事件类型
                 if (eventTypes == null || eventTypes.isEmpty()) return true;
                 return eventTypes.contains(eventType);
             }
         }
-
+        log.debug("[订阅管理] 未在 userId={} 的订阅列表中找到 channel={}", userId, channel);
         return false;
     }
 
@@ -318,6 +334,12 @@ public class SubscriptionManagerService {
                 try {
                     String channel = entry.getKey();
                     SubscriptionData subData = entry.getValue();
+
+                    // user: 频道不恢复，统一由连接建立时的自动订阅（BasicSubscriptionService）和
+                    // 手动订阅（前端信令订阅）处理。跳过可避免 room 连接错误继承 user: 频道的订阅。
+                    if (channel.startsWith(WebSocketConstants.CHANNEL_PREFIX_USER)) {
+                        continue;
+                    }
 
                     ChannelSubscription subscription = ChannelSubscription.builder()
                             .channel(channel)

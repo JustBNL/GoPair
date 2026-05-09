@@ -8,7 +8,6 @@ import com.gopair.adminservice.domain.po.User;
 import com.gopair.adminservice.mapper.RoomMapper;
 import com.gopair.adminservice.mapper.RoomMemberMapper;
 import com.gopair.adminservice.mapper.UserMapper;
-import com.gopair.adminservice.annotation.AdminAudit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -67,7 +66,6 @@ public class UserManageService {
         return detail;
     }
 
-    @AdminAudit(operation = "USER_DISABLE", targetType = "USER")
     public void disableUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -78,7 +76,6 @@ public class UserManageService {
         log.info("[UserManage] 停用用户: userId={}", userId);
     }
 
-    @AdminAudit(operation = "USER_ENABLE", targetType = "USER")
     public void enableUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -89,7 +86,6 @@ public class UserManageService {
         log.info("[UserManage] 启用用户: userId={}", userId);
     }
 
-    @AdminAudit(operation = "USER_EMAIL_MIGRATE", targetType = "USER")
     public void migrateEmail(Long userId, String newEmail) {
         User user = userMapper.selectById(userId);
         if (user == null) {

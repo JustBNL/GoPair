@@ -8,7 +8,6 @@ import com.gopair.adminservice.domain.po.User;
 import com.gopair.adminservice.mapper.RoomMapper;
 import com.gopair.adminservice.mapper.RoomMemberMapper;
 import com.gopair.adminservice.mapper.UserMapper;
-import com.gopair.adminservice.annotation.AdminAudit;
 import com.gopair.adminservice.messaging.RoomStatusChangeProducer;
 import com.gopair.adminservice.context.AdminContextHolder;
 import lombok.RequiredArgsConstructor;
@@ -81,7 +80,6 @@ public class RoomManageService {
         return detail;
     }
 
-    @AdminAudit(operation = "ROOM_CLOSE", targetType = "ROOM")
     public void closeRoom(Long roomId) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
@@ -93,7 +91,6 @@ public class RoomManageService {
         log.info("[RoomManage] 强制关闭房间: roomId={}", roomId);
     }
 
-    @AdminAudit(operation = "ROOM_DISABLE", targetType = "ROOM")
     public void disableRoom(Long roomId, String reason) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
@@ -109,7 +106,6 @@ public class RoomManageService {
         roomStatusChangeProducer.sendDisable(roomId, adminId, reason);
     }
 
-    @AdminAudit(operation = "ROOM_ENABLE", targetType = "ROOM")
     public void enableRoom(Long roomId) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {

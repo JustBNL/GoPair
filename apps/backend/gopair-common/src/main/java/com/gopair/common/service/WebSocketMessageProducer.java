@@ -43,7 +43,7 @@ public class WebSocketMessageProducer {
                 .build();
 
         rabbitTemplate.convertAndSend(SystemConstants.WEBSOCKET_EXCHANGE, SystemConstants.ROUTING_KEY_CHAT_ROOM, message);
-        log.debug("发送聊天消息到房间: roomId={}, messageId={}", roomId, message.getMessageId());
+        log.info("[MsgWS] 发送房间消息: roomId={}, channel={}, eventType={}, messageId={}, payloadKeys={}", roomId, SystemConstants.CHANNEL_ROOM_PREFIX + roomId, "message_send", message.messageId, payload.keySet());
     }
 
     /**
