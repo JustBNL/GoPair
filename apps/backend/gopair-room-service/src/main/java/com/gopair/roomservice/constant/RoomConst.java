@@ -92,29 +92,29 @@ public final class RoomConst {
     public static final int STATUS_DISABLED = 4;
 
     // ====================================================================
-    // 定时清理阈值（小时）
+    // 定时清理阈值（分钟）
     // ====================================================================
 
-    /** 关闭房间转为已归档的前置阈值（小时），closed_time < now - N 小时后触发归档 */
-    public static final int EXPIRED_TO_CLOSED_HOURS = 24;
+    /** 关闭房间转为已归档的前置阈值（分钟），closed_time < now - N 分钟后触发归档 */
+    public static final int EXPIRED_TO_CLOSED_MINUTES = 1440;
 
     // ====================================================================
-    // 续期时长选项（小时）
+    // 续期时长选项（分钟）
     // ====================================================================
 
     /** 续期可选时长 — 1小时 */
-    public static final int RENEW_HOURS_1   = 1;
-    /** 续期可选时长 — 24小时 */
-    public static final int RENEW_HOURS_24 = 24;
-    /** 续期可选时长 — 72小时 */
-    public static final int RENEW_HOURS_72 = 72;
-    /** 续期可选时长 — 168小时（7天） */
-    public static final int RENEW_HOURS_168 = 168;
-    /** 续期默认时长（小时） */
-    public static final int DEFAULT_RENEW_HOURS = 24;
+    public static final int RENEW_MINUTES_60    = 60;
+    /** 续期可选时长 — 1天 */
+    public static final int RENEW_MINUTES_1440  = 1440;
+    /** 续期可选时长 — 3天 */
+    public static final int RENEW_MINUTES_4320  = 4320;
+    /** 续期可选时长 — 7天 */
+    public static final int RENEW_MINUTES_10080 = 10080;
+    /** 续期默认时长（分钟） */
+    public static final int DEFAULT_RENEW_MINUTES = 1440;
 
-    /** 重新开启默认过期时长（小时），与续期共用同一组选项 */
-    public static final int DEFAULT_REOPEN_HOURS = 24;
+    /** 重新开启默认过期时长（分钟），与续期共用同一组选项 */
+    public static final int DEFAULT_REOPEN_MINUTES = 1440;
 
     // ====================================================================
     // 密码模式（room.password_mode）

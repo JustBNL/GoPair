@@ -40,11 +40,11 @@ public class RoomDto extends BaseQuery {
     private Integer maxMembers = 10;
 
     /**
-     * 房间过期小时数（默认24小时）
+     * 房间过期分钟数（默认1440分钟，即24小时）
      */
-    @Min(value = 1, message = "过期时间最少为1小时")
-    @Max(value = 168, message = "过期时间最多为168小时（7天）")
-    private Integer expireHours;
+    @Min(value = 1, message = "过期时间最少为1分钟")
+    @Max(value = 14400, message = "过期时间最多为14400分钟（10天）")
+    private Integer expireMinutes;
 
     /**
      * 密码模式（0-关闭 1-固定密码 2-动态令牌，默认0）

@@ -198,7 +198,7 @@ const relationshipText = computed(() => {
 const relationshipColor = computed(() => props.room.relationshipType === 'created' ? 'gold' : 'blue')
 const isExpiringSoon = computed(() => {
   const e = dayjs(props.room.expireTime)
-  return e.diff(dayjs(), 'hour') <= 1 && e.isAfter(dayjs())
+  return e.diff(dayjs(), 'minute') <= 30 && e.isAfter(dayjs())
 })
 const statusColor = computed(() => {
   const s = props.room.status

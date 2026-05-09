@@ -101,8 +101,8 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.PASSWORD_REQUIRED);
         }
 
-        int expireHours = roomDto.getExpireHours() != null ? roomDto.getExpireHours() : roomConfig.getDefaultExpireHours();
-        if (expireHours > roomConfig.getMaxExpireHours()) {
+        int expireMinutes = roomDto.getExpireMinutes() != null ? roomDto.getExpireMinutes() : roomConfig.getDefaultExpireMinutes();
+        if (expireMinutes > roomConfig.getMaxExpireMinutes()) {
             throw new RoomException(RoomErrorCode.PARAM_INVALID);
         }
         String roomCode = RoomCodeUtils.generateWithRetry(this::isRoomCodeUnique);
@@ -116,7 +116,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         room.setOwnerId(userId);
         room.setStatus(RoomConst.STATUS_ACTIVE);
         room.setVersion(RoomConst.INITIAL_VERSION);
-        room.setExpireTime(LocalDateTime.now().plusHours(expireHours));
+        room.setExpireTime(LocalDateTime.now().plusMinutes(expireMinutes));
         room.setRoomCode(roomCode);
         // 预设密码模式与可见性（insert 前先写入，insert 后再补充 passwordHash，因为这个需要房间id搭配搅拌）
         room.setPasswordMode(passwordMode);
@@ -532,27 +532,27 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * - 乐观条件：WHERE status IN (0,2) 防止幽灵更新。
      *
      * * [执行链路]
-     * 1. 参数校验：userId 非空；extendHours 在 [1, 168] 范围内。
+     * 1. 参数校验：userId 非空；extendMinutes 在 [1, 14400] 范围内。
      * 2. 查询房间：确认存在。
      * 3. 状态校验：仅允许 ACTIVE(0) 或 EXPIRED(2)；CLOSED/ARCHIVED 抛对应异常。
      * 4. 权限校验：仅房主可操作。
-     * 5. 计算新过期时间：LocalDateTime.now().plusHours(extendHours)。
+     * 5. 计算新过期时间：LocalDateTime.now().plusMinutes(extendMinutes)。
      * 6. 更新数据库：UPDATE expire_time + status=0（WHERE status IN (0,2)）。
      * 7. 事务提交后：同步 Redis status=0 + expireAt；广播 room_renewed 事件。
      *
      * @param roomId      房间ID
      * @param userId      操作用户ID（必须是房主）
-     * @param extendHours 续期时长（小时）
+     * @param extendMinutes 续期时长（分钟）
      * @return 续期后的房间信息
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     @LogRecord(operation = "续期房间", module = "房间管理", includeResult = true)
-    public RoomVO renewRoom(Long roomId, Long userId, Integer extendHours) {
+    public RoomVO renewRoom(Long roomId, Long userId, Integer extendMinutes) {
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
-        if (extendHours == null || extendHours < 1 || extendHours > roomConfig.getMaxExpireHours()) {
+        if (extendMinutes == null || extendMinutes < 1 || extendMinutes > roomConfig.getMaxExpireMinutes()) {
             throw new RoomException(RoomErrorCode.PARAM_INVALID);
         }
 
@@ -576,7 +576,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.NO_PERMISSION);
         }
 
-        LocalDateTime newExpireTime = LocalDateTime.now().plusHours(extendHours);
+        LocalDateTime newExpireTime = LocalDateTime.now().plusMinutes(extendMinutes);
 
         int updated = roomMapper.updateExpireTimeAndStatus(roomId, newExpireTime, RoomConst.STATUS_ACTIVE);
         if (updated == 0) {
@@ -623,22 +623,22 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
      * 3. 状态前置校验链：ARCHIVED → 抛 ARCHIVED_CANNOT_REOPEN；EXPIRED → 抛 EXPIRED_CANNOT_REOPEN；非 CLOSED → 抛 ROOM_STATE_CHANGED。
      * 4. 关闭来源校验：closed_time != null → 抛 SYSTEM_CLOSED_CANNOT_REOPEN。
      * 5. 权限校验：ownerId != userId → 抛 NO_PERMISSION。
-     * 6. 更新状态：expire_time = now + expireHours，status → ACTIVE，closed_time 保持 null。
+     * 6. 更新状态：expire_time = now + expireMinutes，status → ACTIVE，closed_time 保持 null。
      * 7. Redis 同步：setStatus + setExpireAt。
      * 8. WS 广播：room_reopened 事件。
      *
      * @param roomId      房间ID
      * @param userId      操作用户ID（必须是房主）
-     * @param expireHours 重新开启后的过期时长（小时）
+     * @param expireMinutes 重新开启后的过期时长（分钟）
      * @return 重新开启后的房间信息
      */
     @Override
     @LogRecord(operation = "重新开启房间", module = "房间管理")
-    public RoomVO reopenRoom(Long roomId, Long userId, Integer expireHours) {
+    public RoomVO reopenRoom(Long roomId, Long userId, Integer expireMinutes) {
         if (userId == null) {
             throw new RoomException(RoomErrorCode.USER_NOT_LOGGED_IN);
         }
-        if (expireHours == null || expireHours < 1 || expireHours > roomConfig.getMaxExpireHours()) {
+        if (expireMinutes == null || expireMinutes < 1 || expireMinutes > roomConfig.getMaxExpireMinutes()) {
             throw new RoomException(RoomErrorCode.PARAM_INVALID);
         }
 
@@ -669,7 +669,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
             throw new RoomException(RoomErrorCode.NO_PERMISSION);
         }
 
-        LocalDateTime newExpireTime = LocalDateTime.now().plusHours(expireHours);
+        LocalDateTime newExpireTime = LocalDateTime.now().plusMinutes(expireMinutes);
 
         int updated = roomMapper.updateExpireTimeAndStatus(roomId, newExpireTime, RoomConst.STATUS_ACTIVE);
         if (updated == 0) {

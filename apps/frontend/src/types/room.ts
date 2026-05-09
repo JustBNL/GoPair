@@ -46,7 +46,7 @@ export interface CreateRoomRequest {
   roomName: string
   description?: string
   maxMembers?: number
-  expireHours?: number
+  expireMinutes?: number
   passwordMode?: number
   rawPassword?: string
   passwordVisible?: number
@@ -114,7 +114,7 @@ export interface CreateRoomFormData {
   roomName: string
   description: string
   maxMembers: number
-  expireHours: number
+  expireMinutes: number
   expirePreset: number       // 预设档位（-1 表示自定义）
   customDurationValue?: number  // 自定义数值
   customDurationUnit?: TimeUnit // 自定义单位
@@ -129,16 +129,16 @@ export interface JoinRoomFormData {
 }
 
 /**
- * 续期时长档位（小时）
+ * 续期时长档位（分钟）
  */
-export const RENEW_HOURS_OPTIONS = [
-  { value: 1, label: '1小时' },
-  { value: 24, label: '1天' },
-  { value: 72, label: '3天' },
-  { value: 168, label: '7天' }
+export const RENEW_MINUTES_OPTIONS = [
+  { value: 60, label: '1小时' },
+  { value: 1440, label: '1天' },
+  { value: 4320, label: '3天' },
+  { value: 10080, label: '7天' }
 ] as const
 
-export type RenewHoursOption = typeof RENEW_HOURS_OPTIONS[number]['value']
+export type RenewMinutesOption = typeof RENEW_MINUTES_OPTIONS[number]['value']
 
 /**
  * 时间单位枚举
@@ -167,18 +167,18 @@ export interface CustomDurationInput {
 }
 
 /**
- * 将自定义时长输入转换为小时数
+ * 将自定义时长输入转换为分钟数
  * @param input 自定义时长输入
- * @returns 小时数
+ * @returns 分钟数
  */
-export function convertToHours(input: CustomDurationInput): number {
+export function convertToMinutes(input: CustomDurationInput): number {
   switch (input.unit) {
     case TimeUnit.MINUTES:
-      return Math.ceil(input.value / 60)
-    case TimeUnit.HOURS:
       return input.value
+    case TimeUnit.HOURS:
+      return input.value * 60
     case TimeUnit.DAYS:
-      return input.value * 24
+      return input.value * 24 * 60
   }
 }
 
@@ -198,5 +198,5 @@ export interface RoomState {
  * 重新开启房间请求
  */
 export interface ReopenRoomRequest {
-  expireHours: number
+  expireMinutes: number
 }

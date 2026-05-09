@@ -180,10 +180,10 @@ public interface RoomService {
      *
      * @param roomId      房间ID
      * @param userId      操作用户ID（必须是房主）
-     * @param extendHours 续期时长（小时）
+     * @param extendMinutes 续期时长（分钟）
      * @return 续期后的房间信息
      */
-    RoomVO renewRoom(Long roomId, Long userId, Integer extendHours);
+    RoomVO renewRoom(Long roomId, Long userId, Integer extendMinutes);
 
     /**
      * 重新开启房间：将已关闭（手动关闭）房间恢复为 ACTIVE。
@@ -191,10 +191,10 @@ public interface RoomService {
      *
      * @param roomId      房间ID
      * @param userId      操作用户ID（必须是房主）
-     * @param expireHours 重新开启后的过期时长（小时）
+     * @param expireMinutes 重新开启后的过期时长（分钟）
      * @return 重新开启后的房间信息
      */
-    RoomVO reopenRoom(Long roomId, Long userId, Integer expireHours);
+    RoomVO reopenRoom(Long roomId, Long userId, Integer expireMinutes);
 
     /**
      * 获取房间状态（内部服务调用，无需鉴权拦截）。

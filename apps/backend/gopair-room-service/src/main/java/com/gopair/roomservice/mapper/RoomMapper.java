@@ -66,32 +66,36 @@ public interface RoomMapper extends BaseMapper<Room> {
     int decrementMembersIfPositive(@Param("roomId") Long roomId);
 
     /**
-     * 查询用户参与的房间列表（带用户角色、加入时间），支持分页和历史房间过滤。
+     * 查询用户参与的房间列表（带用户角色、加入时间），支持分页、历史房间过滤和关系类型过滤。
      *
      * @param userId         当前用户 ID
      * @param status         房间状态（null 表示不限状态）
      * @param includeHistory  是否包含历史房间（true=IN(0,1,2,4)，false/null=IN(0)）
      * @param offset         偏移量
      * @param limit          每页大小
+     * @param relationshipType 关系类型（null/空=不限；created=仅我创建的；joined=仅我加入的）
      * @return 房间 VO 列表，userRole/joinTime 已填充
      */
     List<RoomVO> selectUserRoomsPage(@Param("userId") Long userId,
                                      @Param("status") Integer status,
                                      @Param("includeHistory") Boolean includeHistory,
                                      @Param("offset") int offset,
-                                     @Param("limit") int limit);
+                                     @Param("limit") int limit,
+                                     @Param("relationshipType") String relationshipType);
 
     /**
-     * 统计用户参与的房间数量（支持状态过滤），用于分页计数。
+     * 统计用户参与的房间数量（支持状态过滤和关系类型过滤），用于分页计数。
      *
-     * @param userId         用户 ID
-     * @param status         房间状态（null 表示不限状态）
-     * @param includeHistory 是否包含历史房间（true=IN(0,1,2,4)，false/null=IN(0)）
+     * @param userId           用户 ID
+     * @param status           房间状态（null 表示不限状态）
+     * @param includeHistory   是否包含历史房间（true=IN(0,1,2,4)，false/null=IN(0)）
+     * @param relationshipType 关系类型（null/空=不限；created=仅我创建的；joined=仅我加入的）
      * @return 符合条件的房间数量
      */
     Long countUserRoomsWithRelationship(@Param("userId") Long userId,
                                        @Param("status") Integer status,
-                                       @Param("includeHistory") Boolean includeHistory);
+                                       @Param("includeHistory") Boolean includeHistory,
+                                       @Param("relationshipType") String relationshipType);
 
     /**
      * 仅更新房间状态和关闭时间（避免幽灵更新）

@@ -18,7 +18,7 @@
       </div>
       <div class="reopen-hours-selector">
         <a-radio-group v-model:value="selectedPreset">
-          <a-radio-button v-for="opt in RENEW_HOURS_OPTIONS" :key="opt.value" :value="opt.value">
+          <a-radio-button v-for="opt in RENEW_MINUTES_OPTIONS" :key="opt.value" :value="opt.value">
             {{ opt.label }}
           </a-radio-button>
           <a-radio-button :value="-1">自定义</a-radio-button>
@@ -40,7 +40,7 @@
               class="custom-unit-select"
             />
             <span class="custom-equivalent" v-if="customValue > 0">
-              等效 {{ customValue }} {{ unitLabel }} = {{ customHours }}小时
+              等效 {{ customValue }} {{ unitLabel }}
             </span>
           </div>
         </Transition>
@@ -52,7 +52,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { RENEW_HOURS_OPTIONS, TIME_UNIT_OPTIONS, TimeUnit, convertToHours } from '@/types/room'
+import { RENEW_MINUTES_OPTIONS, TIME_UNIT_OPTIONS, TimeUnit, convertToMinutes } from '@/types/room'
 import { useRoomStore } from '@/stores/room'
 import type { RoomInfo } from '@/types/room'
 
@@ -71,14 +71,14 @@ interface Emits {
 const emit = defineEmits<Emits>()
 
 const roomStore = useRoomStore()
-const selectedPreset = ref<number>(24)
+const selectedPreset = ref<number>(1440)
 const customValue = ref<number>(1)
 const customUnit = ref<TimeUnit>(TimeUnit.DAYS)
 const reopenLoading = ref(false)
 
-const customHours = computed(() => {
+const customMinutes = computed(() => {
   if (customValue.value <= 0) return 0
-  return convertToHours({ value: customValue.value, unit: customUnit.value })
+  return convertToMinutes({ value: customValue.value, unit: customUnit.value })
 })
 
 const customMaxByUnit = computed(() => {
@@ -100,7 +100,7 @@ const unitLabel = computed(() => {
 
 watch(() => props.visible, (newVal) => {
   if (newVal) {
-    selectedPreset.value = 24
+    selectedPreset.value = 1440
     customValue.value = 1
     customUnit.value = TimeUnit.DAYS
   }
@@ -108,15 +108,15 @@ watch(() => props.visible, (newVal) => {
 
 async function handleConfirm() {
   if (!props.room) return
-  let extendHours: number
+  let expireMinutes: number
   if (selectedPreset.value === -1) {
-    extendHours = convertToHours({ value: customValue.value, unit: customUnit.value })
+    expireMinutes = convertToMinutes({ value: customValue.value, unit: customUnit.value })
   } else {
-    extendHours = selectedPreset.value
+    expireMinutes = selectedPreset.value
   }
   reopenLoading.value = true
   try {
-    await roomStore.reopenRoom(props.room.roomId, extendHours)
+    await roomStore.reopenRoom(props.room.roomId, expireMinutes)
     emit('update:visible', false)
     emit('success', roomStore.currentRoom || props.room)
     message.success('房间已重新开启')

@@ -81,9 +81,9 @@
         </div>
 
         <!-- 房间列表 -->
-        <div class="rooms-list" v-if="filteredRoomList.length > 0">
+        <div class="rooms-list" v-if="roomStore.roomList.length > 0">
           <RoomCard
-            v-for="room in filteredRoomList"
+            v-for="room in roomStore.roomList"
             :key="room.roomId"
             :room="room"
             @enter="handleEnterRoom"
@@ -106,7 +106,7 @@
         </div>
 
         <!-- 空状态：v-show 避免渲染时序导致房间卡片和空状态短暂同时显示 -->
-        <div class="empty-state" v-show="filteredRoomList.length === 0 && !roomStore.loading">
+        <div class="empty-state" v-show="roomStore.roomList.length === 0 && !roomStore.loading">
           <div class="empty-icon">{{ emptyIcon }}</div>
           <h3>{{ emptyTitle }}</h3>
           <p>{{ emptyDescription }}</p>
@@ -237,12 +237,6 @@ const statusOptions = [
 const nicknameInitial = computed(() => {
   const name = authStore.currentNickname
   return name.charAt(0).toUpperCase()
-})
-
-// 根据筛选条件过滤房间列表
-const filteredRoomList = computed(() => {
-  if (roomFilter.value === 'all') return roomStore.roomList
-  return roomStore.roomList.filter(r => r.relationshipType === roomFilter.value)
 })
 
 // 空状态图标
@@ -411,6 +405,7 @@ async function refreshRooms() {
     await roomStore.fetchUserRooms({
       pageNum: roomStore.pagination.current,
       pageSize: roomStore.pagination.pageSize,
+      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
       ...buildStatusQuery(statusFilter.value)
     })
   } catch (error) {
@@ -427,6 +422,7 @@ async function handleFilterChange() {
     await roomStore.fetchUserRooms({
       pageNum: 1,
       pageSize: roomStore.pagination.pageSize,
+      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
       ...buildStatusQuery(statusFilter.value)
     })
   } catch (error) {
@@ -443,6 +439,7 @@ async function handleStatusFilterChange() {
     await roomStore.fetchUserRooms({
       pageNum: 1,
       pageSize: roomStore.pagination.pageSize,
+      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
       ...buildStatusQuery(statusFilter.value)
     })
   } catch (error) {
@@ -459,6 +456,7 @@ async function handlePageChange(page: number) {
     await roomStore.fetchUserRooms({
       pageNum: page,
       pageSize: roomStore.pagination.pageSize,
+      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
       ...buildStatusQuery(statusFilter.value)
     })
   } catch (error) {

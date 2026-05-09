@@ -134,12 +134,18 @@
             <if test="status == null and (includeHistory == false or includeHistory == null)">
                 AND r.status = 0
             </if>
+            <if test="relationshipType != null and relationshipType == 'created'">
+                AND r.owner_id = #{userId}
+            </if>
+            <if test="relationshipType != null and relationshipType == 'joined'">
+                AND r.owner_id != #{userId}
+            </if>
         </where>
         ORDER BY r.create_time DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
-    <!-- 统计用户参与的房间数量（支持状态过滤和历史房间过滤） -->
+    <!-- 统计用户参与的房间数量（支持状态过滤、历史房间过滤和关系类型过滤） -->
     <select id="countUserRoomsWithRelationship" resultType="java.lang.Long">
         SELECT COUNT(DISTINCT r.room_id)
         FROM room r
@@ -153,6 +159,12 @@
             </if>
             <if test="status == null and (includeHistory == false or includeHistory == null)">
                 AND r.status = 0
+            </if>
+            <if test="relationshipType != null and relationshipType == 'created'">
+                AND r.owner_id = #{userId}
+            </if>
+            <if test="relationshipType != null and relationshipType == 'joined'">
+                AND r.owner_id != #{userId}
             </if>
         </where>
     </select>

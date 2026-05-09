@@ -131,7 +131,7 @@ public class RoomController {
             @Parameter(description = "续期请求", required = true)
             @RequestBody @Validated RenewRoomDto dto) {
         Long userId = UserContextHolder.getCurrentUserId();
-        RoomVO result = roomService.renewRoom(roomId, userId, dto.getExtendHours());
+        RoomVO result = roomService.renewRoom(roomId, userId, dto.getExtendMinutes());
         return R.ok(result);
     }
 
@@ -144,7 +144,7 @@ public class RoomController {
             @Parameter(description = "重新开启请求", required = true)
             @RequestBody @Validated ReopenRoomDto dto) {
         Long userId = UserContextHolder.getCurrentUserId();
-        RoomVO result = roomService.reopenRoom(roomId, userId, dto.getExpireHours());
+        RoomVO result = roomService.reopenRoom(roomId, userId, dto.getExpireMinutes());
         return R.ok(result);
     }
 

@@ -103,6 +103,8 @@ export interface BaseQuery {
   status?: number
   /** 包含历史房间（含活跃+已关闭+已过期），与 status 互斥 */
   includeHistory?: boolean
+  /** 关系类型过滤：created=我创建的 joined=我加入的 */
+  relationshipType?: 'created' | 'joined'
 }
 
 /**

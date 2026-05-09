@@ -503,23 +503,23 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
     private record UserProfileBrief(String nickname, String avatar) {}
 
     /**
-     * 查询指定用户参与的房间列表（分页），支持按状态过滤。
+     * 查询指定用户参与的房间列表（分页），支持按状态和关系类型过滤。
      *
      * * [核心策略]
      * - 两段式分页：COUNT 查询获取过滤后总数，数据查询直接用 LIMIT/OFFSET 在数据库层完成。
      * - 单次 JOIN 填充：userRole 和 joinTime 通过 JOIN 查询一次性获取。
-     * - relationshipType 由 ownerId 在内存中推导，无需额外查询。
+     * - relationshipType 在 SQL 层通过 owner_id 与 userId 的比较实现过滤，而非内存推导。
      *
      * * [执行链路]
      * 1. 防御修正：确保 pageNum/pageSize 合法。
      * 2. 解析状态：调用 resolveStatus 从查询条件获取 room.status 过滤值。
-     * 3. 计数查询：调用 countUserRoomsWithRelationship 获取过滤后房间总数。
-     * 4. 分页查询：调用 selectUserRoomsPage 带 LIMIT/OFFSET 查询当前页。
+     * 3. 计数查询：调用 countUserRoomsWithRelationship 获取过滤后房间总数（含关系类型过滤）。
+     * 4. 分页查询：调用 selectUserRoomsPage 带 LIMIT/OFFSET 查询当前页（含关系类型过滤）。
      *    - 若当前页为空且非第1页，自动回退到第1页重查（最多1次）。
-     * 5. 推导关系类型：ownerId == userId → "created"；否则 → "joined"。
+     * 5. 推导关系类型：ownerId == userId → "created"；否则 → "joined"（作为返回字段标注）。
      *
      * @param userId 用户 ID
-     * @param query  查询条件（含分页参数 pageNum/pageSize、status、includeHistory）
+     * @param query  查询条件（含分页参数 pageNum/pageSize、status、includeHistory、relationshipType）
      * @return 房间分页结果（total=过滤后总房间数）
      */
     @Override
@@ -534,7 +534,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         }
 
         Integer status = resolveStatus(query);
-        long total = roomMapper.countUserRoomsWithRelationship(userId, status, query.getIncludeHistory());
+        long total = roomMapper.countUserRoomsWithRelationship(userId, status, query.getIncludeHistory(), query.getRelationshipType());
 
         int currentPage = query.getPageNum();
         int pageSize = query.getPageSize();
@@ -544,7 +544,7 @@ public class RoomMemberServiceImpl extends ServiceImpl<RoomMemberMapper, RoomMem
         int retryCount = 0;
         while (true) {
             int offset = (currentPage - 1) * pageSize;
-            rooms = roomMapper.selectUserRoomsPage(userId, status, query.getIncludeHistory(), offset, pageSize);
+            rooms = roomMapper.selectUserRoomsPage(userId, status, query.getIncludeHistory(), offset, pageSize, query.getRelationshipType());
             if (rooms.isEmpty() && currentPage > 1 && retryCount == 0) {
                 currentPage = 1;
                 retryCount++;

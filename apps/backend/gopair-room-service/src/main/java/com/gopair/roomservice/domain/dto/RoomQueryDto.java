@@ -29,4 +29,11 @@ public class RoomQueryDto extends BaseQuery {
      */
     @Schema(description = "房间状态筛选（0-活跃 1-已关闭 2-已过期）", example = "1")
     private Integer status;
+
+    /**
+     * 房间关系类型筛选（null/空=不限，全部；created=仅我创建的；joined=仅我加入的）。
+     * 该字段在 SQL 层通过 owner_id 与 userId 的比较实现过滤。
+     */
+    @Schema(description = "房间关系类型筛选（created=我创建的 joined=我加入的）", example = "created")
+    private String relationshipType;
 }

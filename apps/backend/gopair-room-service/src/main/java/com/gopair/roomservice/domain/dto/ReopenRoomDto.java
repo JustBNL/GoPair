@@ -16,8 +16,8 @@ import lombok.Data;
 public class ReopenRoomDto {
 
     @NotNull(message = "过期时长不能为空")
-    @Min(value = 1, message = "过期时长最少为1小时")
-    @Max(value = 168, message = "过期时长最多为168小时（7天）")
-    @Schema(description = "重新开启后的过期时长（小时）", example = "24")
-    private Integer expireHours;
+    @Min(value = 1, message = "过期时长最少为1分钟")
+    @Max(value = 14400, message = "过期时长最多为14400分钟（10天）")
+    @Schema(description = "重新开启后的过期时长（分钟）", example = "1440")
+    private Integer expireMinutes;
 }

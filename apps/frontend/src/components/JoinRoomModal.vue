@@ -243,7 +243,7 @@ const isRoomExpiringSoon = computed(() => {
   if (!roomPreview.value) return false
   const expireTime = dayjs(roomPreview.value.expireTime)
   const now = dayjs()
-  return expireTime.diff(now, 'hour') <= 1 && expireTime.isAfter(now)
+  return expireTime.diff(now, 'minute') <= 30 && expireTime.isAfter(now)
 })
 
 watch(() => props.visible, (newVal) => { if (newVal) resetForm() })

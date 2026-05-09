@@ -89,13 +89,13 @@
                 size="large"
                 placeholder="选择有效期"
               >
-                <a-select-option :value="1">1小时</a-select-option>
-                <a-select-option :value="6">6小时</a-select-option>
-                <a-select-option :value="12">12小时</a-select-option>
-                <a-select-option :value="24">24小时（推荐）</a-select-option>
-                <a-select-option :value="48">48小时</a-select-option>
-                <a-select-option :value="72">72小时</a-select-option>
-                <a-select-option :value="168">1周</a-select-option>
+                <a-select-option :value="60">1小时</a-select-option>
+                <a-select-option :value="360">6小时</a-select-option>
+                <a-select-option :value="720">12小时</a-select-option>
+                <a-select-option :value="1440">24小时（推荐）</a-select-option>
+                <a-select-option :value="2880">48小时</a-select-option>
+                <a-select-option :value="4320">72小时</a-select-option>
+                <a-select-option :value="10080">1周</a-select-option>
                 <a-select-option :value="-1">自定义</a-select-option>
               </a-select>
               <Transition name="slide-fade">
@@ -120,7 +120,7 @@
                     />
                   </a-form-item>
                   <span class="custom-equivalent" v-if="formData.customDurationValue > 0">
-                    等效 {{ formData.customDurationValue }} {{ createUnitLabel }} = {{ createCustomHours }}小时
+                    等效 {{ formData.customDurationValue }} {{ createUnitLabel }}
                   </span>
                 </div>
               </Transition>
@@ -207,7 +207,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useRoomStore } from '@/stores/room'
 import type { CreateRoomFormData, RoomInfo } from '@/types/room'
-import { TimeUnit, TIME_UNIT_OPTIONS, convertToHours } from '@/types/room'
+import { TimeUnit, TIME_UNIT_OPTIONS, convertToMinutes } from '@/types/room'
 
 // ==================== 组件属性 ====================
 
@@ -239,8 +239,8 @@ const formData = reactive<CreateRoomFormData>({
   roomName: '',
   description: '',
   maxMembers: 10,
-  expireHours: 24,
-  expirePreset: 24,
+  expireMinutes: 1440,
+  expirePreset: 1440,
   customDurationValue: 1,
   customDurationUnit: TimeUnit.DAYS,
   passwordMode: 0,
@@ -276,9 +276,9 @@ const formRules = {
 
 // ==================== 计算属性 ====================
 
-const createCustomHours = computed(() => {
+const createCustomMinutes = computed(() => {
   if (formData.customDurationValue <= 0) return 0
-  return convertToHours({ value: formData.customDurationValue, unit: formData.customDurationUnit })
+  return convertToMinutes({ value: formData.customDurationValue, unit: formData.customDurationUnit })
 })
 
 const createCustomMaxByUnit = computed(() => {
@@ -325,11 +325,11 @@ async function handleSubmit(values: CreateRoomFormData) {
     }
   }
 
-  let finalExpireHours: number
+  let finalExpireMinutes: number
   if (values.expirePreset === -1) {
-    finalExpireHours = convertToHours({ value: values.customDurationValue!, unit: values.customDurationUnit! })
+    finalExpireMinutes = convertToMinutes({ value: values.customDurationValue!, unit: values.customDurationUnit! })
   } else {
-    finalExpireHours = values.expirePreset
+    finalExpireMinutes = values.expirePreset
   }
 
   try {
@@ -337,7 +337,7 @@ async function handleSubmit(values: CreateRoomFormData) {
       roomName: values.roomName.trim(),
       description: values.description?.trim() || undefined,
       maxMembers: values.maxMembers,
-      expireHours: finalExpireHours,
+      expireMinutes: finalExpireMinutes,
       passwordMode: values.passwordMode,
       rawPassword: values.passwordMode === 1 ? values.rawPassword : undefined,
       passwordVisible: values.passwordMode !== 0 ? values.passwordVisible : undefined
@@ -374,8 +374,8 @@ function resetForm() {
   formData.roomName = ''
   formData.description = ''
   formData.maxMembers = 10
-  formData.expireHours = 24
-  formData.expirePreset = 24
+  formData.expireMinutes = 1440
+  formData.expirePreset = 1440
   formData.customDurationValue = 1
   formData.customDurationUnit = TimeUnit.DAYS
   formData.passwordMode = 0

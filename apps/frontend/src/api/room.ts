@@ -63,12 +63,12 @@ export class RoomAPI {
     return http.delete<null>(API_ENDPOINTS.ROOM_KICK_MEMBER(roomId, userId))
   }
 
-  static async renewRoom(roomId: number, extendHours: number): Promise<ApiResponse<RoomInfo>> {
-    return http.post<RoomInfo>(API_ENDPOINTS.ROOM_RENEW(roomId), { extendHours })
+  static async renewRoom(roomId: number, extendMinutes: number): Promise<ApiResponse<RoomInfo>> {
+    return http.post<RoomInfo>(API_ENDPOINTS.ROOM_RENEW(roomId), { extendMinutes })
   }
 
-  static async reopenRoom(roomId: number, expireHours: number): Promise<ApiResponse<RoomInfo>> {
-    return http.post<RoomInfo>(API_ENDPOINTS.ROOM_REOPEN(roomId), { expireHours })
+  static async reopenRoom(roomId: number, expireMinutes: number): Promise<ApiResponse<RoomInfo>> {
+    return http.post<RoomInfo>(API_ENDPOINTS.ROOM_REOPEN(roomId), { expireMinutes })
   }
 }
 

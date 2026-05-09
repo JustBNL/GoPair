@@ -22,8 +22,8 @@ gopair:
   room:
     # 房间默认最大成员数
     default-max-members: 10
-    # 房间默认过期时间（小时）
-    default-expire-hours: 24
+    # 房间默认过期时间（分钟）
+    default-expire-minutes: 1440
     # 房间码长度
     code-length: 8
     # Redis 预占参数
