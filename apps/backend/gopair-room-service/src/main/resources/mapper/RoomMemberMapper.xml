@@ -20,6 +20,19 @@
           AND leave_time IS NULL
     </update>
 
+    <!-- 重新激活历史成员记录，清空 leave_time 和 leave_type -->
+    <update id="reactivateMember">
+        UPDATE room_member
+        SET leave_time = NULL,
+            leave_type = NULL,
+            status = #{status},
+            join_time = #{joinTime},
+            last_active_time = #{lastActiveTime}
+        WHERE room_id = #{roomId}
+          AND user_id = #{userId}
+          AND leave_time IS NOT NULL
+    </update>
+
     <!-- 批量标记房间所有成员离开（软删除） -->
     <update id="markAllAsLeft">
         UPDATE room_member

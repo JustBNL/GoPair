@@ -98,14 +98,13 @@ public class JoinRoomConsumer {
                     .isNotNull(RoomMember::getLeaveTime);
             RoomMember history = roomMemberMapper.selectOne(historyQuery);
             if (history != null) {
-                // 复用历史记录：重置离开状态和时间
-                history.setLeaveTime(null);
-                history.setLeaveType(null);
-                history.setStatus(RoomConst.MEMBER_STATUS_ONLINE);
-                history.setJoinTime(java.time.LocalDateTime.now());
-                history.setLastActiveTime(java.time.LocalDateTime.now());
-                roomMemberMapper.updateById(history);
-                inserted = true;
+                // 复用历史记录：使用显式 SQL 清空 leave_time/leave_type，绕过 MyBatis-Plus null 字段忽略策略
+                int updated = roomMemberMapper.reactivateMember(
+                        roomId, userId,
+                        RoomConst.MEMBER_STATUS_ONLINE,
+                        java.time.LocalDateTime.now(),
+                        java.time.LocalDateTime.now());
+                inserted = updated == 1;
             } else {
                 // 插入新成员（唯一键兜底，可能因并发重试而抛异常）
                 RoomMember member = new RoomMember();
@@ -151,11 +150,12 @@ public class JoinRoomConsumer {
                             stringRedisTemplate.opsForSet().size(RoomConst.membersKey(roomId)));
                 }
             } else {
-                // 任一步失败：补偿删除（仅对本次消费新插入的记录生效，历史复用记录不会被删除）
+                // 补偿删除：精确按 roomId + userId 删除，不依赖 leave_time IS NULL 条件
+                // 因为 reactivateMember 已确保 leave_time 正确清空，此处无需额外条件过滤
                 try {
                     LambdaQueryWrapper<RoomMember> del = new LambdaQueryWrapper<>();
-                    del.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId)
-                            .isNull(RoomMember::getLeaveTime);
+                    del.eq(RoomMember::getRoomId, roomId)
+                       .eq(RoomMember::getUserId, userId);
                     roomMemberMapper.delete(del);
                 } catch (Exception ignore) {}
                 stringRedisTemplate.opsForValue().set(RoomConst.joinTokenKey(token),

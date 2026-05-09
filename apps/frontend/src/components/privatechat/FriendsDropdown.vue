@@ -113,7 +113,7 @@
           <!-- 收到的申请 -->
           <div class="requests-section">
             <div class="section-label">收到的申请</div>
-            <div v-if="chatStore.requestsLoading" class="loading-state">
+            <div v-if="requestsTabLoading" class="loading-state">
               <a-spin size="small" />
               <span>加载中...</span>
             </div>
@@ -139,6 +139,7 @@
                     type="primary"
                     size="small"
                     :loading="acceptingId === req.requestId"
+                    :disabled="acceptingId !== null || rejectingId !== null"
                     @click="handleAccept(req.requestId)"
                   >
                     同意
@@ -146,6 +147,7 @@
                   <a-button
                     size="small"
                     :loading="rejectingId === req.requestId"
+                    :disabled="acceptingId !== null || rejectingId !== null"
                     @click="handleReject(req.requestId)"
                   >
                     拒绝
@@ -161,7 +163,7 @@
           <!-- 发出的申请 -->
           <div class="requests-section">
             <div class="section-label">发出的申请</div>
-            <div v-if="chatStore.requestsLoading" class="loading-state">
+            <div v-if="requestsTabLoading" class="loading-state">
               <a-spin size="small" />
               <span>加载中...</span>
             </div>
@@ -338,6 +340,7 @@ const addingUserId = ref<number | null>(null)
 // 操作级 loading
 const acceptingId = ref<number | null>(null)
 const rejectingId = ref<number | null>(null)
+const requestsTabLoading = ref(false)
 
 // 防抖定时器
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -355,7 +358,7 @@ const pendingIncoming = computed(() =>
 
 const outgoingRequests = computed(() => chatStore.outgoingRequests)
 
-function switchTab(tab: 'friends' | 'requests' | 'search') {
+async function switchTab(tab: 'friends' | 'requests' | 'search') {
   activeTab.value = tab
   if (tab === 'friends') {
     searchKeyword.value = ''
@@ -364,9 +367,12 @@ function switchTab(tab: 'friends' | 'requests' | 'search') {
     friendSearchKeyword.value = ''
     chatStore.clearFriendSearchResults()
   } else if (tab === 'requests') {
-    // 切换到申请 Tab 时刷新数据
-    chatStore.fetchIncomingRequests()
-    chatStore.fetchOutgoingRequests()
+    requestsTabLoading.value = true
+    await Promise.all([
+      chatStore.fetchIncomingRequests(),
+      chatStore.fetchOutgoingRequests()
+    ])
+    requestsTabLoading.value = false
   }
 }
 
