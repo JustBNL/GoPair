@@ -11,6 +11,15 @@ import type {
 import { ChatAPI } from '@/api/chat'
 import { useAuthStore } from '@/stores/auth'
 
+/** 与后端 computeConversationId 保持一致：minId * 1_000_000_0000 + maxId */
+const CONVERSATION_ID_MULTIPLIER = 1_000_000_0000
+
+function computeConversationId(userIdA: number, userIdB: number): number {
+  const min = Math.min(userIdA, userIdB)
+  const max = Math.max(userIdA, userIdB)
+  return min * CONVERSATION_ID_MULTIPLIER + max
+}
+
 /**
  * 聊天状态管理（好友 + 私聊）
  */
@@ -183,8 +192,10 @@ export const useChatStore = defineStore('chat', () => {
       currentConversationId.value = conv.conversationId
       await fetchMessages(conv.conversationId)
     } else {
-      currentConversationId.value = null
-      currentMessages.value = []
+      const authStore = useAuthStore()
+      const cid = computeConversationId(authStore.user!.userId, friendId)
+      currentConversationId.value = cid
+      await fetchMessages(cid)
     }
   }
 

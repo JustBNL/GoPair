@@ -28,7 +28,7 @@
         upload_time, create_time, update_time
     </sql>
 
-    <!-- 动态分页查询房间文件列表（支持搜索、类型筛选、排序） -->
+    <!-- 动态分页查询房间文件列表（支持搜索、类型筛选、排序；排除语音消息 webm） -->
     <select id="selectPage" resultMap="RoomFileResultMap">
         SELECT
             <include refid="Base_Column_List"/>
@@ -37,6 +37,8 @@
             <if test="roomId != null">
                 AND room_id = #{roomId}
             </if>
+            <!-- 排除语音消息文件类型 -->
+            AND file_type != 'webm'
             <!-- 关键字搜索：模糊匹配文件名 -->
             <if test="keyword != null and keyword != ''">
                 AND file_name LIKE CONCAT('%', #{keyword}, '%')
@@ -47,7 +49,7 @@
                     <choose>
                         <when test="fileType == 'image'">'jpg','jpeg','png','gif','bmp','webp','svg'</when>
                         <when test="fileType == 'document'">'pdf','doc','docx','xls','xlsx','ppt','pptx'</when>
-                        <when test="fileType == 'video'">'mp4','avi','mov','wmv','flv','mkv','webm'</when>
+                        <when test="fileType == 'video'">'mp4','avi','mov','wmv','flv','mkv'</when>
                         <when test="fileType == 'audio'">'mp3','wav','flac','aac','ogg','wma'</when>
                         <when test="fileType == 'archive'">'zip','rar','7z','tar','gz','bz2'</when>
                         <when test="fileType == 'other'">'txt','md','json','xml','csv','log','js','ts','html','css'</when>
@@ -68,18 +70,20 @@
             </choose>
     </select>
 
-    <!-- 统计房间文件数量 -->
+    <!-- 统计房间文件数量（排除语音消息 webm） -->
     <select id="countByRoomId" resultType="long">
         SELECT COUNT(*)
         FROM room_file
         WHERE room_id = #{roomId}
+          AND file_type != 'webm'
     </select>
 
-    <!-- 统计房间文件总大小（含原图 + 缩略图） -->
+    <!-- 统计房间文件总大小（排除语音消息 webm） -->
     <select id="sumFileSizeByRoomId" resultType="long">
         SELECT IFNULL(SUM(file_size), 0) + IFNULL(SUM(thumbnail_size), 0)
         FROM room_file
         WHERE room_id = #{roomId}
+          AND file_type != 'webm'
     </select>
 
     <!-- 分批查询房间文件（用于清理时防止 OOM） -->

@@ -69,9 +69,6 @@
           <div v-if="chatStore.messagesLoading" class="loading-messages">
             <a-spin />
           </div>
-          <div v-else-if="chatStore.currentMessages.length === 0" class="empty-messages">
-            <p>暂无聊天记录，开始对话吧</p>
-          </div>
           <template v-else>
             <div
               v-for="msg in chatStore.currentMessages"
