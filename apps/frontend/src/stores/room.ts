@@ -34,6 +34,8 @@ export const useRoomStore = defineStore('room', () => {
     total: 0
   })
 
+  const currentQuery = ref<BaseQuery>({})
+
   // ==================== 计算属性 ====================
 
   const hasRooms = computed(() => roomList.value.length > 0)
@@ -58,12 +60,23 @@ export const useRoomStore = defineStore('room', () => {
         pageSize: result.size,
         total: result.total
       }
+      currentQuery.value = query
     } catch (error) {
       console.error('获取房间列表失败:', error)
       message.error('获取房间列表失败')
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * 使用当前保存的查询条件刷新房间列表。
+   * 用于操作（关闭、离开等）后刷新，保持用户当前的筛选视图。
+   * 若 currentQuery 为空（首次加载前），使用默认全量查询。
+   */
+  async function refreshWithCurrentQuery(): Promise<void> {
+    const q = currentQuery.value
+    await fetchUserRooms(q && Object.keys(q).length > 0 ? q : { includeHistory: true })
   }
 
   async function createRoom(roomData: CreateRoomRequest): Promise<RoomInfo | null> {
@@ -182,7 +195,6 @@ export const useRoomStore = defineStore('room', () => {
     try {
       await RoomAPI.closeRoom(roomId)
       message.success('房间已关闭')
-      await fetchUserRooms()
     } catch (error) {
       console.error('关闭房间失败:', error)
       throw error
@@ -262,12 +274,14 @@ export const useRoomStore = defineStore('room', () => {
     joinLoading,
     membersLoading,
     pagination,
+    currentQuery,
     // 计算属性
     hasRooms,
     isRoomOwner,
     currentRoomMemberCount,
     // 方法
     fetchUserRooms,
+    refreshWithCurrentQuery,
     createRoom,
     requestJoinRoomAsync,
     queryJoinResult,

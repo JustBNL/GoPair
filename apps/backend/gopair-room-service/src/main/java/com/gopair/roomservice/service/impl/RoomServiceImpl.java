@@ -430,7 +430,7 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
                                 RoomConst.VOICE_SERVICE_END_ALL_URL + roomId + "/end-all", null, Integer.class);
                         log.info("[房间服务] 房间{}关闭，语音通话终止完成，共终止{}个通话", roomId, count);
                     } catch (Exception e) {
-                        log.warn("[房间服务] 房间{}关闭时终止语音通话失败: {}", roomId, e.getMessage());
+                        log.warn("[房间服务] 房间{}关闭时终止语音通话失败", roomId, e);
                     }
                 }
             });

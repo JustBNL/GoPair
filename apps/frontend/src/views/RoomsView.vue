@@ -180,6 +180,7 @@ import { useRoomStore } from '@/stores/room'
 import { useChatStore } from '@/stores/chat'
 import { usePrivateChatWebSocket } from '@/composables/usePrivateChatWebSocket'
 import type { RoomInfo } from '@/types/room'
+import type { BaseQuery } from '@/types/api'
 import CreateRoomModal from '@/components/CreateRoomModal.vue'
 import JoinRoomModal from '@/components/JoinRoomModal.vue'
 import RenewRoomModal from '@/components/RenewRoomModal.vue'
@@ -261,6 +262,19 @@ const emptyDescription = computed(() => {
 })
 
 // ==================== 事件处理 ====================
+
+/**
+ * 构造完整的房间列表查询参数，始终包含两个维度的参数
+ */
+function buildFullQuery(page: number = 1): BaseQuery {
+  const relationshipType = roomFilter.value === 'all' ? undefined : roomFilter.value
+  return {
+    pageNum: page,
+    pageSize: roomStore.pagination.pageSize,
+    relationshipType,
+    ...buildStatusQuery(statusFilter.value)
+  }
+}
 
 /**
  * 将前端 statusFilter 转换为后端查询参数
@@ -345,6 +359,7 @@ async function handleCloseRoom(room: RoomInfo) {
     onOk: async () => {
       try {
         await roomStore.closeRoom(room.roomId)
+        refreshRooms()
       } catch (error) {
         message.error('关闭房间失败，请重试')
       }
@@ -398,16 +413,11 @@ function handleRefreshFriends() {
 }
 
 /**
- * 刷新房间列表（保留当前页和筛选条件）
+ * 刷新房间列表（基于当前筛选条件构建完整参数）
  */
 async function refreshRooms() {
   try {
-    await roomStore.fetchUserRooms({
-      pageNum: roomStore.pagination.current,
-      pageSize: roomStore.pagination.pageSize,
-      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
-      ...buildStatusQuery(statusFilter.value)
-    })
+    await roomStore.fetchUserRooms(buildFullQuery())
   } catch (error) {
     message.error('刷新失败，请重试')
   }
@@ -419,12 +429,7 @@ async function refreshRooms() {
 async function handleFilterChange() {
   roomStore.pagination.current = 1
   try {
-    await roomStore.fetchUserRooms({
-      pageNum: 1,
-      pageSize: roomStore.pagination.pageSize,
-      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
-      ...buildStatusQuery(statusFilter.value)
-    })
+    await roomStore.fetchUserRooms(buildFullQuery(1))
   } catch (error) {
     message.error('加载失败，请重试')
   }
@@ -436,12 +441,7 @@ async function handleFilterChange() {
 async function handleStatusFilterChange() {
   roomStore.pagination.current = 1
   try {
-    await roomStore.fetchUserRooms({
-      pageNum: 1,
-      pageSize: roomStore.pagination.pageSize,
-      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
-      ...buildStatusQuery(statusFilter.value)
-    })
+    await roomStore.fetchUserRooms(buildFullQuery(1))
   } catch (error) {
     message.error('加载失败，请重试')
   }
@@ -453,12 +453,7 @@ async function handleStatusFilterChange() {
 async function handlePageChange(page: number) {
   roomStore.pagination.current = page
   try {
-    await roomStore.fetchUserRooms({
-      pageNum: page,
-      pageSize: roomStore.pagination.pageSize,
-      relationshipType: roomFilter.value === 'all' ? undefined : roomFilter.value,
-      ...buildStatusQuery(statusFilter.value)
-    })
+    await roomStore.fetchUserRooms(buildFullQuery(page))
   } catch (error) {
     message.error('加载失败，请重试')
   }
@@ -467,7 +462,7 @@ async function handlePageChange(page: number) {
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
-  await roomStore.fetchUserRooms({ includeHistory: true })
+  await roomStore.fetchUserRooms(buildFullQuery(1))
   if (authStore.user) {
     chatStore.initChat()
     connectPrivateChat()

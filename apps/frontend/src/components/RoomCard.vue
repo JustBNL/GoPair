@@ -220,12 +220,11 @@ const expireText = computed(() => {
 })
 
 function handleEnter() {
-  if (props.room.status === ROOM_STATUS.ARCHIVED) { message.warning('房间已归档，无法进入'); return }
-  // 非房主禁止进入已关闭房间
-  if (props.room.status === ROOM_STATUS.CLOSED && !isOwner.value) {
-    message.warning('房间已关闭，无法进入')
-    return
-  }
+  const s = props.room.status
+  if (s === ROOM_STATUS.ARCHIVED) { message.warning('房间已归档，无法进入'); return }
+  if (s === ROOM_STATUS.CLOSED) { message.warning('房间已关闭，无法进入'); return }
+  if (s === ROOM_STATUS.DISABLED) { message.warning('房间已被禁用，无法进入'); return }
+  // ACTIVE 和 EXPIRED 允许进入（EXPIRED 进入后只读，由 canWrite 控制）
   emit('enter', props.room)
 }
 function handleLeave() { emit('leave', props.room) }
