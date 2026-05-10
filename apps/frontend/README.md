@@ -1,39 +1,19 @@
-# apps/frontend
+# GoPair Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+用户端前端，基于 Vue 3 + TypeScript + Vite 构建。
 
-## Recommended IDE Setup
+## 技术栈
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- Vue 3 · TypeScript
+- Vite 7 · pnpm 9+
+- Ant Design Vue 4 · Pinia 3 · Vue Router 4
 
-## Type Support for `.vue` Imports in TS
+## 快速启动
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
+cd apps/frontend
 pnpm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 pnpm dev
 ```
 
-### Type-Check, Compile and Minify for Production
-
-```sh
-pnpm build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-pnpm test:unit
-```
+访问 `http://localhost:5173`，前端通过 `VITE_API_BASE` 环境变量连接后端网关（默认 `http://localhost:8081`）。
