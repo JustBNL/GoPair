@@ -332,25 +332,25 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
 
     /**
      * 撤回文件类消息时，同步清理 MinIO 对象和 room_file 记录。
-     * 通过 message.fileUrl 提取 objectKey，优先通过 messageId 查找 room_file；
-     * 降级兜底：使用 roomId + filePath 精确匹配（兼容历史数据）。
+     * 通过 message.content 提取 objectKey（原始图片路径），file-service 会同时删除原始文件和缩略图。
+     * 优先通过 messageId 查找 room_file；降级兜底：使用 roomId + filePath 精确匹配（兼容历史数据）。
      *
      * * [执行链路]
-     * 1. 提取 objectKey（从 message.fileUrl 解析）。
+     * 1. 提取 objectKey（从 message.content 解析原始图片路径）。
      * 2. 调用 file-service /by-key-with-cleanup，传入 objectKey + messageId + roomId。
-     * 3. file-service 内部：先删 MinIO → 再按 messageId 查找 room_file → 找不到则按 filePath 降级匹配 → 删除记录 + 释放配额 + 推送 file_delete 事件。
+     * 3. file-service 内部：先删 MinIO 原始文件 + 缩略图 → 再按 messageId 查找 room_file → 找不到则按 filePath 降级匹配 → 删除记录 + 释放配额 + 推送 file_delete 事件。
      * 4. 若 file-service 调用失败，静默吞掉（不影响撤回结果），MinIO 已删，DB 记录作为孤立数据留待后续清理。
      *
      * @param message 消息实体
      */
     private void deleteOssFileAndDbRecord(Message message) {
-        if (message.getFileUrl() == null || message.getFileUrl().trim().isEmpty()) {
+        if (message.getContent() == null || message.getContent().trim().isEmpty()) {
             return;
         }
         try {
-            String objectKey = extractObjectKeyFromUrl(message.getFileUrl().trim());
+            String objectKey = extractObjectKeyFromUrl(message.getContent().trim());
             if (objectKey == null) {
-                log.warn("无法从 fileUrl 提取 objectKey，跳过文件清理: {}", message.getFileUrl());
+                log.warn("无法从 content 提取 objectKey，跳过文件清理: {}", message.getContent());
                 return;
             }
             String fileServiceUrl = restTemplateProperties.getFileServiceUrl();
@@ -368,12 +368,12 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         for (String marker : markers) {
             int idx = fileUrl.indexOf(marker);
             if (idx >= 0) {
-                return fileUrl.substring(idx + marker.length());
+                return fileUrl.substring(idx + marker.length()).split("\\?")[0];
             }
         }
         if (fileUrl.contains("/room/")) {
             int idx = fileUrl.indexOf("/room/");
-            return fileUrl.substring(idx + 1);
+            return fileUrl.substring(idx + 1).split("\\?")[0];
         }
         return null;
     }

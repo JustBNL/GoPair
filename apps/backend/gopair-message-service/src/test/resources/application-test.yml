@@ -100,4 +100,4 @@ gopair:
     recall-time-limit-seconds: 120
   rest-template:
     enabled: true
-    file-service-url: http://file-service/
+    file-service-url: http://file-relay-service/

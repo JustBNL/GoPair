@@ -43,5 +43,5 @@ public class RestTemplateProperties {
      * File Service 的调用地址。
      * 用于 message-service 在消息撤回时通知 file-service 删除 OSS 对象。
      */
-    private String fileServiceUrl = "http://file-service/";
+    private String fileServiceUrl = "http://file-relay-service/";
 }

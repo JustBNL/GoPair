@@ -1046,6 +1046,7 @@ const handleRecallMessage = async (message: MessageVO) => {
   try {
     await MessageAPI.recallMessage(message.messageId)
     antMessage.success('消息已撤回')
+    fileListRefresh.value = !fileListRefresh.value
   } catch (error: any) {
     antMessage.error(error.response?.data?.msg || '撤回消息失败')
   }
