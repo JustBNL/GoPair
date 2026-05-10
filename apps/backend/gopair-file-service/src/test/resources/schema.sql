@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS room_file (
     upload_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    message_id BIGINT NULL DEFAULT NULL,
     INDEX idx_room_id (room_id),
     INDEX idx_uploader_id (uploader_id),
-    INDEX idx_upload_time (upload_time)
+    INDEX idx_upload_time (upload_time),
+    INDEX idx_message_id (message_id)
 );

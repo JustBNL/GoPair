@@ -21,7 +21,7 @@ const router = createRouter({
       name: 'login',
       component: LoginView,
       meta: {
-        title: '登录 - GoPair',
+        title: '登录 - 聊天室',
         requiresGuest: true
       }
     },
@@ -30,7 +30,7 @@ const router = createRouter({
       name: 'rooms',
       component: () => import('@/views/RoomsView.vue'),
       meta: {
-        title: '房间管理 - GoPair',
+        title: '房间管理 - 聊天室',
         requiresAuth: true
       }
     },
@@ -39,7 +39,7 @@ const router = createRouter({
       name: 'roomDetail',
       component: () => import('@/views/RoomDetailView.vue'),
       meta: {
-        title: '房间详情 - GoPair',
+        title: '房间详情 - 聊天室',
         requiresAuth: true
       }
     },

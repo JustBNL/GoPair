@@ -10,7 +10,13 @@
       <div class="reply-info">
         <span class="reply-label">回复</span>
         <span class="reply-target">{{ replyMessage.senderNickname }}</span>
-        <span class="reply-content">{{ replyMessage.content }}</span>
+        <span class="reply-content">
+          <template v-if="replyMessage.replyToIsRecalled">消息已被撤回</template>
+          <template v-else-if="replyMessage.replyToMessageType === MessageType.IMAGE">[图片] {{ replyMessage.replyToFileName || '' }}</template>
+          <template v-else-if="replyMessage.replyToMessageType === MessageType.FILE">{{ replyMessage.replyToFileName || '文件' }}</template>
+          <template v-else-if="replyMessage.replyToMessageType === MessageType.VOICE">[语音]</template>
+          <template v-else>{{ replyMessage.content }}</template>
+        </span>
       </div>
       <a-button
         type="text"

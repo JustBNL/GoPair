@@ -38,7 +38,7 @@ async function handleLogin() {
           <circle cx="32" cy="22" r="8" fill="currentColor" opacity="0.70"/>
           <circle cx="32" cy="42" r="8" fill="currentColor" opacity="0.70"/>
         </svg>
-        <h1 class="login-page__brand">GoPair</h1>
+        <h1 class="login-page__brand">聊天室</h1>
         <p class="login-page__tagline">管理员控制台</p>
         <div class="login-page__shapes">
           <div class="login-page__shape login-page__shape--1"></div>

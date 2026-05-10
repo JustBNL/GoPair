@@ -19,13 +19,14 @@
         <result column="upload_time" property="uploadTime"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
+        <result column="message_id" property="messageId"/>
     </resultMap>
 
     <!-- 通用列 -->
     <sql id="Base_Column_List">
         file_id, room_id, uploader_id, uploader_nickname, file_name, file_path,
         file_size, thumbnail_size, file_type, content_type, download_count,
-        upload_time, create_time, update_time
+        upload_time, create_time, update_time, message_id
     </sql>
 
     <!-- 动态分页查询房间文件列表（支持搜索、类型筛选、排序；排除语音消息 webm） -->
@@ -107,6 +108,29 @@
     <update id="incrementDownloadCount">
         UPDATE room_file
         SET download_count = download_count + 1
+        WHERE file_id = #{fileId}
+    </update>
+
+    <!-- 通过 messageId 精确查找 room_file 记录（消息撤回场景） -->
+    <select id="selectByMessageId" resultMap="RoomFileResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM room_file
+        WHERE message_id = #{messageId}
+        LIMIT 1
+    </select>
+
+    <!-- 通过 roomId + filePath 精确查找 room_file 记录（降级兜底：历史记录无 message_id 时使用） -->
+    <select id="selectByRoomIdAndFilePath" resultMap="RoomFileResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM room_file
+        WHERE room_id = #{roomId} AND file_path = #{filePath}
+        LIMIT 1
+    </select>
+
+    <!-- 回填 message_id 到 room_file 记录 -->
+    <update id="updateMessageId">
+        UPDATE room_file
+        SET message_id = #{messageId}
         WHERE file_id = #{fileId}
     </update>
 

@@ -140,6 +140,15 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             if (result.getReplyToSenderNickname() != null) {
                 payload.put("replyToSenderNickname", result.getReplyToSenderNickname());
             }
+            if (result.getReplyToIsRecalled() != null) {
+                payload.put("replyToIsRecalled", result.getReplyToIsRecalled());
+            }
+            if (result.getReplyToMessageType() != null) {
+                payload.put("replyToMessageType", result.getReplyToMessageType());
+            }
+            if (result.getReplyToFileName() != null) {
+                payload.put("replyToFileName", result.getReplyToFileName());
+            }
 
             webSocketMessageProducer.sendChatMessageToRoom(sendMessageDto.getRoomId(), payload);
 
@@ -151,7 +160,19 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             } catch (Exception e) {
                 log.warn("消息事件发布失败, 消息ID: {}, 房间ID: {}, 错误: {}", 
                          message.getMessageId(), sendMessageDto.getRoomId(), e.getMessage());
-                // 事件发布失败不影响接口返回成功
+            }
+
+            // 文件消息：回填 messageId 到 room_file 记录
+            if (result.getFileUrl() != null && result.getMessageId() != null && sendMessageDto.getFileId() != null) {
+                try {
+                    String fileServiceUrl = restTemplateProperties.getFileServiceUrl();
+                    restTemplate.postForObject(
+                        fileServiceUrl + "file/link-message?fileId=" + sendMessageDto.getFileId() + "&messageId=" + result.getMessageId(),
+                        null, Void.class);
+                    log.info("已回填 messageId={} 到 room_file(fileId={})", result.getMessageId(), sendMessageDto.getFileId());
+                } catch (Exception e) {
+                    log.warn("回填 messageId 到 room_file 失败（不影响消息发送）: {}", e.getMessage());
+                }
             }
             
             log.info("发送消息成功, 消息ID: {}, 发送者ID: {}", message.getMessageId(), senderId);
@@ -295,7 +316,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         update.setRecalledAt(LocalDateTime.now());
         messageMapper.updateById(update);
 
-        deleteOssFileIfNeeded(message);
+        deleteOssFileAndDbRecord(message);
 
         Map<String, Object> payload = new java.util.HashMap<>();
         payload.put("messageId", messageId);
@@ -310,27 +331,35 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     /**
-     * 若消息为文件类型（图片/文件/语音）且有 fileUrl，则通知 file-service 删除 OSS 对象。
-     * 从 fileUrl 中提取 MinIO objectKey：
-     *   格式：{endpoint}/{bucket}/{objectKey}，例如 http://127.0.0.1:9000/gopair-files/room/123/original/abc.jpg
-     *   → objectKey = room/123/original/abc.jpg
+     * 撤回文件类消息时，同步清理 MinIO 对象和 room_file 记录。
+     * 通过 message.fileUrl 提取 objectKey，优先通过 messageId 查找 room_file；
+     * 降级兜底：使用 roomId + filePath 精确匹配（兼容历史数据）。
+     *
+     * * [执行链路]
+     * 1. 提取 objectKey（从 message.fileUrl 解析）。
+     * 2. 调用 file-service /by-key-with-cleanup，传入 objectKey + messageId + roomId。
+     * 3. file-service 内部：先删 MinIO → 再按 messageId 查找 room_file → 找不到则按 filePath 降级匹配 → 删除记录 + 释放配额 + 推送 file_delete 事件。
+     * 4. 若 file-service 调用失败，静默吞掉（不影响撤回结果），MinIO 已删，DB 记录作为孤立数据留待后续清理。
+     *
+     * @param message 消息实体
      */
-    private void deleteOssFileIfNeeded(Message message) {
+    private void deleteOssFileAndDbRecord(Message message) {
         if (message.getFileUrl() == null || message.getFileUrl().trim().isEmpty()) {
             return;
         }
         try {
-            String fileUrl = message.getFileUrl().trim();
-            String objectKey = extractObjectKeyFromUrl(fileUrl);
+            String objectKey = extractObjectKeyFromUrl(message.getFileUrl().trim());
             if (objectKey == null) {
-                log.warn("无法从 fileUrl 提取 objectKey，跳过 OSS 删除: {}", fileUrl);
+                log.warn("无法从 fileUrl 提取 objectKey，跳过文件清理: {}", message.getFileUrl());
                 return;
             }
             String fileServiceUrl = restTemplateProperties.getFileServiceUrl();
-            restTemplate.delete(fileServiceUrl + "file/by-key?objectKey=" + objectKey);
-            log.info("已通知 file-service 删除 OSS 对象: {}", objectKey);
+            restTemplate.delete(fileServiceUrl + "file/by-key-with-cleanup?objectKey=" + objectKey
+                    + "&messageId=" + message.getMessageId()
+                    + "&roomId=" + message.getRoomId());
+            log.info("已通知 file-service 清理文件记录: objectKey={}, messageId={}", objectKey, message.getMessageId());
         } catch (Exception e) {
-            log.warn("通知 file-service 删除 OSS 文件失败（不影响撤回结果）: {}", e.getMessage());
+            log.warn("通知 file-service 清理文件记录失败（不影响撤回结果）: {}", e.getMessage());
         }
     }
 

@@ -546,7 +546,138 @@ class FileApiContractTest extends BaseIntegrationTest {
         }
     }
 
+    // ==================== 回填 messageId 接口 ====================
+
+    @Nested
+    @DisplayName("POST /file/link-message")
+    class LinkMessageIdTests {
+
+        @Test
+        @DisplayName("回填成功：上传文件后回填 messageId，DB 记录 messageId 字段被更新")
+        void linkMessageId_success() {
+            long userId = Long.parseLong(uid());
+            long roomId = Long.parseLong(uid());
+
+            ResponseEntity<R<FileVO>> uploadResp = callUploadFile(pngBytes(), "link.png", "image/png", roomId, userId, "linkuser");
+            Long fileId = uploadResp.getBody().getData().getFileId();
+            Long fakeMessageId = Long.parseLong(uid());
+
+            ResponseEntity<R<Void>> resp = callLinkMessageId(fileId, fakeMessageId);
+
+            assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(resp.getBody().isSuccess()).isTrue();
+
+            // 验证 DB 中 messageId 已回填
+            ResponseEntity<R<FileVO>> getResp = callGetFileInfo(fileId);
+            assertThat(getResp.getBody().getData()).isNotNull();
+        }
+    }
+
+    // ==================== 撤回时清理文件记录接口 ====================
+
+    @Nested
+    @DisplayName("DELETE /file/by-key-with-cleanup")
+    class DeleteByObjectKeyWithCleanupTests {
+
+        @Test
+        @DisplayName("清理成功：有 messageId 时优先按 messageId 查找并删除 room_file 记录")
+        void deleteByObjectKeyWithCleanup_byMessageId() {
+            long userId = Long.parseLong(uid());
+            long roomId = Long.parseLong(uid());
+
+            ResponseEntity<R<FileVO>> uploadResp = callUploadFile(pngBytes(), "recall.png", "image/png", roomId, userId, "recalluser");
+            Long fileId = uploadResp.getBody().getData().getFileId();
+            Long fakeMessageId = Long.parseLong(uid());
+
+            // 先回填 messageId
+            callLinkMessageId(fileId, fakeMessageId);
+
+            // 模拟撤回：删除文件记录
+            String objectKey = "room/" + roomId + "/original/test.jpg";
+            ResponseEntity<R<Boolean>> resp = callDeleteByObjectKeyWithDbCleanup(objectKey, fakeMessageId, roomId);
+
+            assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(resp.getBody().isSuccess()).isTrue();
+            assertThat(resp.getBody().getData()).isTrue();
+        }
+
+        @Test
+        @DisplayName("清理成功：无 messageId 时降级按 roomId + filePath 查找并删除 room_file 记录")
+        void deleteByObjectKeyWithCleanup_byFilePathFallback() {
+            long userId = Long.parseLong(uid());
+            long roomId = Long.parseLong(uid());
+
+            ResponseEntity<R<FileVO>> uploadResp = callUploadFile(pdfBytes(), "fallback.pdf", "application/pdf", roomId, userId, "fallbackuser");
+            Long fileId = uploadResp.getBody().getData().getFileId();
+
+            // 从上传响应中获取 filePath
+            String filePath = uploadResp.getBody().getData().getDownloadUrl();
+            String objectKey = extractObjectKeyFromUrl(filePath);
+
+            // 不回填 messageId，模拟历史记录
+            ResponseEntity<R<Boolean>> resp = callDeleteByObjectKeyWithDbCleanup(objectKey, null, roomId);
+
+            assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(resp.getBody().isSuccess()).isTrue();
+        }
+
+        @Test
+        @DisplayName("清理失败：objectKey 不存在时返回 false，不抛异常")
+        void deleteByObjectKeyWithCleanup_notFound() {
+            long roomId = Long.parseLong(uid());
+            String fakeKey = "room/" + roomId + "/original/nonexist.jpg";
+
+            ResponseEntity<R<Boolean>> resp = callDeleteByObjectKeyWithDbCleanup(fakeKey, null, roomId);
+
+            assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(resp.getBody().isSuccess()).isTrue();
+            assertThat(resp.getBody().getData()).isFalse();
+        }
+    }
+
     // ==================== HTTP 调用辅助方法 ====================
+
+    private String extractObjectKeyFromUrl(String url) {
+        if (url == null) return null;
+        String[] markers = {"gopair-files/", "gopair-files-test/"};
+        for (String marker : markers) {
+            int idx = url.indexOf(marker);
+            if (idx >= 0) {
+                return url.substring(idx + marker.length());
+            }
+        }
+        if (url.contains("/room/")) {
+            int idx = url.indexOf("/room/");
+            return url.substring(idx + 1);
+        }
+        return null;
+    }
+
+    private ResponseEntity<R<Void>> callLinkMessageId(Long fileId, Long messageId) {
+        HttpHeaders headers = userHeaders(Long.parseLong(uid()), "linkuser");
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        return testRestTemplate.exchange(
+                getUrl("/file/link-message?fileId=" + fileId + "&messageId=" + messageId),
+                HttpMethod.POST,
+                entity,
+                new ParameterizedTypeReference<R<Void>>() {}
+        );
+    }
+
+    private ResponseEntity<R<Boolean>> callDeleteByObjectKeyWithDbCleanup(String objectKey, Long messageId, Long roomId) {
+        HttpHeaders headers = userHeaders(Long.parseLong(uid()), "cleanupuser");
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        String url = getUrl("/file/by-key-with-cleanup?objectKey=" + objectKey + "&roomId=" + roomId);
+        if (messageId != null) {
+            url = getUrl("/file/by-key-with-cleanup?objectKey=" + objectKey + "&messageId=" + messageId + "&roomId=" + roomId);
+        }
+        return testRestTemplate.exchange(
+                url,
+                HttpMethod.DELETE,
+                entity,
+                new ParameterizedTypeReference<R<Boolean>>() {}
+        );
+    }
 
     private ResponseEntity<R<String>> callUploadAvatar(byte[] content, String filename, String contentType, long userId, String nickname) {
         HttpHeaders headers = userHeaders(userId, nickname);

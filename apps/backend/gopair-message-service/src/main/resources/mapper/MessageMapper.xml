@@ -19,6 +19,9 @@
         <result column="reply_to_content" property="replyToContent"/>
         <result column="reply_to_sender_nickname" property="replyToSenderNickname"/>
         <result column="reply_to_sender_id" property="replyToSenderId"/>
+        <result column="reply_to_is_recalled" property="replyToIsRecalled"/>
+        <result column="reply_to_message_type" property="replyToMessageType"/>
+        <result column="reply_to_file_name" property="replyToFileName"/>
         <result column="is_recalled" property="isRecalled"/>
         <result column="recalled_at" property="recalledAt"/>
         <result column="create_time" property="createTime"/>
@@ -49,6 +52,9 @@
         rm.content as reply_to_content,
         ru.nickname as reply_to_sender_nickname,
         rm.sender_id as reply_to_sender_id,
+        rm.is_recalled as reply_to_is_recalled,
+        rm.message_type as reply_to_message_type,
+        rm.file_name as reply_to_file_name,
         m.is_recalled,
         m.recalled_at,
         m.create_time,

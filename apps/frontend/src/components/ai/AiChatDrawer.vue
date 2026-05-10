@@ -17,14 +17,14 @@
     :header-style="{ display: 'none' }"
   >
     <!-- ARIA: 语义化抽屉角色，提供屏幕阅读器支持 -->
-    <div class="ai-panel" ref="panelEl" role="dialog" aria-modal="true" aria-label="GoPair AI 助手聊天面板">
+    <div class="ai-panel" ref="panelEl" role="dialog" aria-modal="true" aria-label="聊天室 AI 助手聊天面板">
       <!-- 头部 -->
       <div class="ai-header">
         <div class="ai-header-left">
           <div class="ai-avatar">✦</div>
           <div>
             <div class="ai-title">AI 助手</div>
-            <div class="ai-subtitle">GLM-4-Flash · GoPair 智能助手</div>
+            <div class="ai-subtitle">GLM-4-Flash · 聊天室智能助手</div>
           </div>
         </div>
         <div class="ai-header-actions">
@@ -42,7 +42,7 @@
         <!-- 欢迎语 -->
         <div v-if="messages.length === 0" class="ai-welcome">
           <div class="welcome-icon">✦</div>
-          <h3>你好！我是 GoPair AI 助手</h3>
+          <h3>你好！我是 聊天室 AI 助手</h3>
           <p>我可以帮你解答关于协作、房间管理、功能使用等问题，也可以陪你聊聊天。</p>
           <div class="quick-questions">
             <button

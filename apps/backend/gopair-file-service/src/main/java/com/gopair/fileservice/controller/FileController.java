@@ -156,4 +156,30 @@ public class FileController {
         fileService.deleteByObjectKey(objectKey);
         return R.ok(true);
     }
+
+    @Operation(summary = "回填消息关联ID", description = "将 message_id 回填到 room_file 记录，供 message-service 在消息发送后调用")
+    @PostMapping("/link-message")
+    public R<Void> linkMessageId(
+            @Parameter(description = "文件ID", required = true)
+            @RequestParam("fileId") Long fileId,
+            @Parameter(description = "消息ID", required = true)
+            @RequestParam("messageId") Long messageId) {
+        log.info("[文件服务] 回填消息关联ID fileId:{} messageId:{}", fileId, messageId);
+        fileService.linkMessageId(fileId, messageId);
+        return R.ok();
+    }
+
+    @Operation(summary = "撤回时清理文件记录", description = "根据 objectKey 删除 MinIO 对象，并通过 messageId 或 filePath 查找并删除 room_file 记录，同时释放房间配额")
+    @DeleteMapping("/by-key-with-cleanup")
+    public R<Boolean> deleteByObjectKeyWithDbCleanup(
+            @Parameter(description = "MinIO对象Key", required = true)
+            @RequestParam("objectKey") String objectKey,
+            @Parameter(description = "关联的消息ID（可选，用于精准定位）")
+            @RequestParam(value = "messageId", required = false) Long messageId,
+            @Parameter(description = "房间ID（用于降级兜底匹配）", required = true)
+            @RequestParam("roomId") Long roomId) {
+        log.info("[文件服务] 撤回时清理文件记录 objectKey:{} msgId:{} roomId:{}", objectKey, messageId, roomId);
+        boolean deleted = fileService.deleteByObjectKeyWithDbCleanup(objectKey, messageId, roomId);
+        return R.ok(deleted);
+    }
 }

@@ -77,4 +77,30 @@ public interface RoomFileMapper extends BaseMapper<RoomFile> {
      * @return 受影响行数
      */
     int incrementDownloadCount(@Param("fileId") Long fileId);
+
+    /**
+     * 通过 messageId 精确查找 room_file 记录（消息撤回场景）
+     *
+     * @param messageId 消息ID
+     * @return 文件记录，未找到则返回 null
+     */
+    RoomFile selectByMessageId(@Param("messageId") Long messageId);
+
+    /**
+     * 通过 roomId + filePath 精确查找 room_file 记录（降级兜底：历史记录无 message_id 时使用）
+     *
+     * @param roomId   房间ID
+     * @param filePath MinIO 对象 key
+     * @return 文件记录，未找到则返回 null
+     */
+    RoomFile selectByRoomIdAndFilePath(@Param("roomId") Long roomId, @Param("filePath") String filePath);
+
+    /**
+     * 回填 message_id 到 room_file 记录
+     *
+     * @param fileId    文件ID
+     * @param messageId 消息ID
+     * @return 受影响行数
+     */
+    int updateMessageId(@Param("fileId") Long fileId, @Param("messageId") Long messageId);
 }

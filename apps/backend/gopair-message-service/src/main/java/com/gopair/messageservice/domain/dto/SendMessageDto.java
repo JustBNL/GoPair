@@ -62,4 +62,10 @@ public class SendMessageDto {
      */
     @Schema(description = "回复的消息ID", example = "123")
     private Long replyToId;
+
+    /**
+     * 文件ID（当消息类型为文件时必填，由前端从 file-service 上传响应中传入，用于关联 room_file 记录）
+     */
+    @Schema(description = "文件ID（文件消息时由前端从上传响应中传入）", example = "1")
+    private Long fileId;
 } 

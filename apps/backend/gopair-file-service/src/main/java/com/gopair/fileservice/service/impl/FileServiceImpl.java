@@ -314,6 +314,55 @@ public class FileServiceImpl implements FileService {
         log.info("[file-service] success op:deleteByObjectKey key:{}", objectKey);
     }
 
+    @Override
+    public void linkMessageId(Long fileId, Long messageId) {
+        log.info("[file-service] linkMessageId fileId:{} messageId:{}", fileId, messageId);
+        roomFileMapper.updateMessageId(fileId, messageId);
+    }
+
+    @Override
+    public boolean deleteByObjectKeyWithDbCleanup(String objectKey, Long messageId, Long roomId) {
+        if (objectKey == null || objectKey.trim().isEmpty()) {
+            log.warn("[file-service] deleteByObjectKeyWithDbCleanup: objectKey is empty, skip");
+            return false;
+        }
+        log.info("[file-service] deleteByObjectKeyWithDbCleanup key:{} msgId:{} roomId:{}", objectKey, messageId, roomId);
+
+        // Step 1: 删除 MinIO 对象
+        silentDeleteFromMinio(objectKey);
+        silentDeleteThumbnail(objectKey);
+
+        // Step 2: 查找 room_file 记录
+        RoomFile rf = null;
+
+        // 优先通过 messageId 查找（新记录）
+        if (messageId != null) {
+            rf = roomFileMapper.selectByMessageId(messageId);
+        }
+
+        // 降级兜底：通过 roomId + filePath 查找（历史记录）
+        if (rf == null && roomId != null) {
+            rf = roomFileMapper.selectByRoomIdAndFilePath(roomId, objectKey);
+        }
+
+        if (rf == null) {
+            log.info("[file-service] no room_file record found for key:{}", objectKey);
+            return false;
+        }
+
+        // 释放房间配额
+        releaseRoomQuota(rf.getRoomId(), rf.getFileSize() + (rf.getThumbnailSize() != null ? rf.getThumbnailSize() : 0));
+
+        // 删除 DB 记录
+        roomFileMapper.deleteById(rf.getFileId());
+
+        // 推送文件删除事件（通知文件面板刷新）
+        publishFileEvent(rf.getRoomId(), rf.getFileId(), rf.getFileName(), "file_delete");
+
+        log.info("[file-service] room_file record deleted: fileId:{} key:{}", rf.getFileId(), objectKey);
+        return true;
+    }
+
     /**
      * 上传私有文件（用于私聊场景，不关联房间）。
      *

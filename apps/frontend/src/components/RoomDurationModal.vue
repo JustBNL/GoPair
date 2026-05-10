@@ -34,11 +34,15 @@
               placeholder="请输入数值"
               class="custom-value-input"
             />
-            <a-select
+            <a-radio-group
               v-model:value="customUnit"
-              :options="TIME_UNIT_OPTIONS"
-              class="custom-unit-select"
-            />
+              size="large"
+              class="custom-unit-radio"
+            >
+              <a-radio-button v-for="opt in TIME_UNIT_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </a-radio-button>
+            </a-radio-group>
             <span class="custom-equivalent" v-if="customValue > 0">
               等效 {{ customValue }} {{ unitLabel }}
             </span>
@@ -195,9 +199,10 @@ function handleCancel() {
 }
 
 .duration-selector :deep(.ant-radio-button-wrapper) {
-  flex: 1;
+  flex: 0 0 auto;
   text-align: center;
-  min-width: 70px;
+  min-width: 56px;
+  padding: 0 8px;
 }
 
 .custom-duration-panel {
@@ -216,8 +221,12 @@ function handleCancel() {
   width: 120px;
 }
 
-.custom-unit-select {
-  width: 100px;
+.custom-unit-radio {
+  flex: 0 0 auto;
+}
+
+.custom-unit-radio :deep(.ant-radio-button-wrapper) {
+  padding: 0 12px;
 }
 
 .custom-equivalent {

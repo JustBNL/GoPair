@@ -127,6 +127,25 @@ public interface FileService {
     void deleteByObjectKey(String objectKey);
 
     /**
+     * 回填 room_file 的 message_id 字段（消息发送后由 message-service 调用）。
+     *
+     * @param fileId    文件ID
+     * @param messageId 消息ID
+     */
+    void linkMessageId(Long fileId, Long messageId);
+
+    /**
+     * 根据 MinIO objectKey 删除 MinIO 对象及 room_file 记录（消息撤回场景）。
+     * 优先通过 messageId 查找；若 messageId 为空或未命中，降级使用 roomId + filePath 兜底。
+     *
+     * @param objectKey MinIO 对象 key（从 message.fileUrl 提取）
+     * @param messageId 关联的消息ID（可为空，用于精准定位）
+     * @param roomId    房间ID（用于降级兜底匹配）
+     * @return 是否删除了 room_file 记录
+     */
+    boolean deleteByObjectKeyWithDbCleanup(String objectKey, Long messageId, Long roomId);
+
+    /**
      * 房间文件统计信息内部类
      */
     record RoomFileStats(long fileCount, long totalSize, String totalSizeFormatted) {}

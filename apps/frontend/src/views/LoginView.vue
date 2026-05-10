@@ -16,7 +16,7 @@
         <div class="brand-section">
           <div class="brand-logo">
             <BrandLogo class="logo-icon" :size="48" aria-hidden="true" />
-            <h1 class="brand-name">GoPair</h1>
+            <h1 class="brand-name">聊天室</h1>
           </div>
         </div>
 

@@ -212,6 +212,9 @@ export interface MessageVO {
   replyToId?: number
   replyToContent?: string
   replyToSender?: string
+  replyToIsRecalled?: boolean
+  replyToMessageType?: MessageType
+  replyToFileName?: string
   createTime: string
   isOwn: boolean
   isRecalled?: boolean

@@ -83,4 +83,10 @@ public class RoomFile extends BaseEntity {
      * 上传时间
      */
     private LocalDateTime uploadTime;
+
+    /**
+     * 关联的消息ID（可选，用于消息撤回时精准定位文件记录）。
+     * 文件消息发送后由 message-service 回填，若未回填则通过 roomId + filePath 降级匹配。
+     */
+    private Long messageId;
 }

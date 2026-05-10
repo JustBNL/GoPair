@@ -8,7 +8,7 @@ const auth  = useAuthStore()
 
 const pageTitle = computed(() => {
   const meta = route.meta
-  return (meta?.title as string) || 'GoPair 管理后台'
+  return (meta?.title as string) || '聊天室 管理后台'
 })
 </script>
 

@@ -32,7 +32,13 @@
       <div v-if="message.replyToId" class="reply-message">
         <div class="reply-content">
           <span class="reply-sender">{{ message.replyToSender }}</span>
-          <span class="reply-text">{{ message.replyToContent }}</span>
+          <span class="reply-text">
+            <template v-if="message.replyToIsRecalled">消息已被撤回</template>
+            <template v-else-if="message.replyToMessageType === MessageType.IMAGE">[图片] {{ message.replyToFileName || '' }}</template>
+            <template v-else-if="message.replyToMessageType === MessageType.FILE">{{ message.replyToFileName || '文件' }}</template>
+            <template v-else-if="message.replyToMessageType === MessageType.VOICE">[语音]</template>
+            <template v-else>{{ message.replyToContent }}</template>
+          </span>
         </div>
       </div>
 

@@ -105,6 +105,24 @@ public class MessageVO {
     private Long replyToSenderId;
 
     /**
+     * 回复的消息是否已被撤回
+     */
+    @Schema(description = "回复的消息是否已被撤回", example = "false")
+    private Boolean replyToIsRecalled = false;
+
+    /**
+     * 回复的消息类型：1-文本 2-图片 3-文件 4-语音
+     */
+    @Schema(description = "回复的消息类型", example = "1")
+    private Integer replyToMessageType;
+
+    /**
+     * 回复的消息文件名（仅图片/文件/语音消息有值）
+     */
+    @Schema(description = "回复的消息文件名", example = "设计稿.pdf")
+    private String replyToFileName;
+
+    /**
      * 创建时间
      */
     @Schema(description = "创建时间", example = "2024-12-20T15:30:00")
