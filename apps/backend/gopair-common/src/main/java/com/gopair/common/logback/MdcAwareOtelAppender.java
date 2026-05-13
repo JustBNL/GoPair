@@ -8,12 +8,8 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * MDC 感知型 OpenTelemetry Logback Appender
@@ -44,30 +40,36 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class MdcAwareOtelAppender extends io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender {
 
+    private static final org.slf4j.Logger ERROR_LOGGER =
+            LoggerFactory.getLogger("MdcAwareOtelAppender");
+
+    private static final int MAX_INIT_RETRIES = 3;
+
+    private volatile Logger logger;
+    private volatile boolean initialized;
+    private int retryCount = 0;
+
     private static final AttributeKey<String> KEY_TRACE_ID = AttributeKey.stringKey("traceId");
     private static final AttributeKey<String> KEY_USER_ID = AttributeKey.stringKey("userId");
     private static final AttributeKey<String> KEY_NICKNAME = AttributeKey.stringKey("nickname");
     private static final AttributeKey<String> KEY_THREAD_NAME = AttributeKey.stringKey("thread");
     private static final AttributeKey<String> KEY_LOGGER = AttributeKey.stringKey("logger");
 
-    private volatile Logger logger;
-    private volatile boolean initialized;
-    private final AtomicBoolean initializing = new AtomicBoolean(false);
-
     /**
      * 重写 append：不再调用父类异步发送机制（异步线程中 MDC 已丢失），
      * 改为在当前线程（原始请求线程）同步发送，保证 MDC 上下文完整。
+     * 每次 append 时检查 logger 是否就绪，未就绪则触发重试初始化。
      */
     @Override
     public void append(ILoggingEvent event) {
-        // 延迟初始化：只在第一次 append 时尝试获取 SDK，避免 Logback 初始化阶段就触发
-        // GlobalOpenTelemetry.get()（会触发 auto-configure 设置 noop，导致 SDK Bean 的 set() 被拒绝）
-        if (!initialized) {
-            tryInitLogger();
-        }
-
-        if (logger == null) {
-            return;
+        if (!initialized || logger == null) {
+            if (!tryInitLogger()) {
+                if (logger == null) {
+                    ERROR_LOGGER.error("[MdcAwareOtelAppender] Failed to initialize OTel logger after {} retries, dropping log: {}",
+                            retryCount, event.getMessage());
+                    return;
+                }
+            }
         }
 
         try {
@@ -83,7 +85,6 @@ public class MdcAwareOtelAppender extends io.opentelemetry.instrumentation.logba
 
             AttributesBuilder attrBuilder = Attributes.builder();
 
-            // 注入 MDC 上下文（关键：此处在原始请求线程，MDC 完整）
             String traceId = MDC.get(SystemConstants.MDC_TRACE_ID);
             if (traceId != null && !traceId.isEmpty()) {
                 attrBuilder.put(KEY_TRACE_ID, traceId);
@@ -97,7 +98,6 @@ public class MdcAwareOtelAppender extends io.opentelemetry.instrumentation.logba
                 attrBuilder.put(KEY_NICKNAME, nickname);
             }
 
-            // 注入线程名和 logger 名（便于排查）
             attrBuilder.put(KEY_THREAD_NAME, event.getThreadName());
             attrBuilder.put(KEY_LOGGER, event.getLoggerName());
 
@@ -105,38 +105,50 @@ public class MdcAwareOtelAppender extends io.opentelemetry.instrumentation.logba
             builder.emit();
 
         } catch (Exception e) {
-            // 不抛出异常，避免影响业务线程
-            System.err.println("[MdcAwareOtelAppender] Failed to emit log: " + e.getMessage());
+            ERROR_LOGGER.error("[MdcAwareOtelAppender] Failed to emit log: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * 延迟初始化 LoggerProvider。
+     * 延迟初始化 LoggerProvider，支持指数退避重试。
      *
-     * 只在第一次 append 时执行（initialized 双重检查锁定）。
-     * 此方法在应用启动后的第一次日志时调用，此时 SDK Bean 应已就绪。
+     * 首次调用时尝试获取 SDK，若 SDK 尚未注册（append 早于 Spring Bean 初始化），
+     * 则重试最多 3 次（间隔 10/20/40ms）。重试期间 initialized=false，
+     * 每次 append 都会触发重试。3 次全部失败后返回 false，后续 append 将丢弃日志。
      *
-     * 注意：
-     * - 不得在 Logback 配置阶段（构造函数/start() 方法）调用 GlobalOpenTelemetry.get()，
-     *   否则会触发 auto-configure 导致 noop 被设置，阻止 SDK Bean 的 set() 成功注册。
-     * - 使用 compareAndSet 保证线程安全初始化。
+     * @return true if logger was successfully obtained, false otherwise
      */
-    private void tryInitLogger() {
-        if (initialized || !initializing.compareAndSet(false, true)) {
-            return;
-        }
-        try {
-            // 从静态 Holder 获取 SDK，绕过 GlobalOpenTelemetry 的 "先 get 后 set" 限制
-            OpenTelemetry otel = OtelSdkHolder.get();
-            if (otel != null) {
-                logger = otel.getLogsBridge().get("gopair-logger");
+    private boolean tryInitLogger() {
+        for (int attempt = 1; attempt <= MAX_INIT_RETRIES; attempt++) {
+            try {
+                OpenTelemetry otel = OtelSdkHolder.get();
+                if (otel != null) {
+                    Logger obtained = otel.getLogsBridge().get("gopair-logger");
+                    if (obtained != null) {
+                        this.logger = obtained;
+                        this.initialized = true;
+                        this.retryCount = 0;
+                        ERROR_LOGGER.info("[MdcAwareOtelAppender] OTel logger initialized successfully on attempt {}", attempt);
+                        return true;
+                    }
+                }
+            } catch (Throwable t) {
+                ERROR_LOGGER.warn("[MdcAwareOtelAppender] Init attempt {}/{} failed: {}",
+                        attempt, MAX_INIT_RETRIES, t.getMessage());
             }
-        } catch (Throwable t) {
-            // 静默降级：若 SDK 未就绪，logger=null，后续 append 跳过日志发送
-            this.logger = null;
-        } finally {
-            initialized = true;
+
+            this.retryCount = attempt;
+            if (attempt < MAX_INIT_RETRIES) {
+                try {
+                    Thread.sleep(10L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
+        this.initialized = true;
+        return false;
     }
 
     private Severity toOtelSeverity(ch.qos.logback.classic.Level level) {

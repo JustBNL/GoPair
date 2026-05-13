@@ -40,7 +40,8 @@ const columns = [
   {
     title: '操作',
     key: 'action',
-    width: 80,
+    width: 120,
+    fixed: 'right',
   },
 ]
 
@@ -67,6 +68,7 @@ function goToRoom(roomId: number) {
       :data-source="props.rooms"
       :pagination="false"
       :row-key="(record: RecentRoom) => record.roomId"
+      :scroll="{ x: 900 }"
       size="small"
     >
       <template #bodyCell="{ column, record }">
@@ -87,9 +89,11 @@ function goToRoom(roomId: number) {
           <span class="time-text">{{ record.createTime }}</span>
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-button type="link" size="small" @click="goToRoom(record.roomId)">
-            查看
-          </a-button>
+          <div class="action-cell">
+            <a-button type="link" size="small" @click="goToRoom(record.roomId)">
+              查看
+            </a-button>
+          </div>
         </template>
       </template>
     </a-table>
@@ -134,4 +138,6 @@ function goToRoom(roomId: number) {
   color: var(--color-text-muted);
   font-size: 13px;
 }
+
+.action-cell { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 </style>

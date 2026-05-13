@@ -28,6 +28,9 @@ export const useAuthStore = defineStore('auth', () => {
   // 初始化状态锁
   const isInitialized = ref(false)
 
+  // 头像缓存时间戳，用于强制刷新浏览器缓存的头像
+  const avatarCacheTs = ref(Date.now())
+
   // ==================== 计算属性 ====================
 
   // 是否已登录
@@ -35,6 +38,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 当前用户昵称
   const currentNickname = computed(() => user.value?.nickname || '用户')
+
+  // 当前用户头像（带缓存时间戳，防止浏览器缓存旧头像）
+  const currentAvatar = computed(() => {
+    const avatar = user.value?.avatar
+    if (!avatar) return undefined
+    return avatar + '?v=' + avatarCacheTs.value
+  })
 
   // ==================== 操作方法 ====================
 
@@ -237,7 +247,10 @@ export const useAuthStore = defineStore('auth', () => {
       const updatedUser = { ...user.value }
       if (data.nickname) updatedUser.nickname = data.nickname
       if (data.email) updatedUser.email = data.email
-      if (data.avatar !== undefined) updatedUser.avatar = data.avatar
+      if (data.avatar !== undefined) {
+        updatedUser.avatar = data.avatar
+        avatarCacheTs.value = Date.now()
+      }
       if (data.avatarOriginalUrl !== undefined) updatedUser.avatarOriginalUrl = data.avatarOriginalUrl
       user.value = updatedUser
       Storage.setUser(updatedUser)
@@ -259,6 +272,7 @@ export const useAuthStore = defineStore('auth', () => {
     // 计算属性
     isLoggedIn,
     currentNickname,
+    currentAvatar,
 
     // 方法
     login,

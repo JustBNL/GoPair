@@ -199,12 +199,12 @@ watch(
     if (val) {
       form.value.nickname = authStore.user?.nickname || ''
       form.value.email = authStore.user?.email || ''
-      form.value.avatar = authStore.user?.avatar || ''
+      form.value.avatar = authStore.currentAvatar || ''
       form.value.avatarOriginalUrl = authStore.user?.avatarOriginalUrl || ''
       form.value.currentPassword = ''
       form.value.password = ''
       form.value.confirmPassword = ''
-      avatarPreview.value = authStore.user?.avatar || ''
+      avatarPreview.value = authStore.currentAvatar || ''
       showPassword.value = false
     }
   }
@@ -235,8 +235,9 @@ async function handleAvatarUpload({ file }: { file: File }) {
     form.value.avatar = avatarUrl
     form.value.avatarOriginalUrl = avatarOriginalUrl
     avatarPreview.value = avatarUrl
-    // 自动将头像 URL 写入后端用户表
+    // 自动将头像 URL 写入后端用户表，写入成功后 currentAvatar 会自动带新时间戳
     await authStore.updateProfile({ avatar: avatarUrl, avatarOriginalUrl })
+    avatarPreview.value = authStore.currentAvatar || ''
     message.success('头像上传成功')
   } catch {
     message.error('头像上传失败，请重试')

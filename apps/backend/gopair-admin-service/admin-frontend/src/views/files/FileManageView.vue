@@ -76,7 +76,7 @@ const columns = [
   { title: '上传者',   dataIndex: 'uploaderNickname', key: 'uploaderNickname', width: 100 },
   { title: '下载次数', dataIndex: 'downloadCount',     key: 'downloadCount',    width: 90 },
   { title: '上传时间', dataIndex: 'uploadTime',        key: 'uploadTime',       width: 170 },
-  { title: '操作',     key: 'actions',                width: 160 },
+  { title: '操作',     key: 'actions',                width: 220, fixed: 'right' },
 ]
 
 async function handleView(fileId: number) {
@@ -201,7 +201,7 @@ loadFiles()
         :data-source="fileList"
         :loading="loading"
         :pagination="{ ...pagination, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
-        :scroll="{ x: 1200 }"
+        :scroll="{ x: 1400 }"
         class="file-manage-view__table"
         @change="onPageChange"
       >
@@ -332,7 +332,7 @@ loadFiles()
 
 .file-manage-view__mono { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-secondary); }
 .file-manage-view__muted { font-size: 13px; color: var(--color-text-muted); }
-.file-manage-view__actions { display: flex; gap: var(--space-2); align-items: center; }
+.file-manage-view__actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 
 .file-manage-view__grid {
   display: grid;

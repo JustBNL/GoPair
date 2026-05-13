@@ -2,6 +2,7 @@ package com.gopair.gateway.config;
 
 import com.gopair.common.logback.OtelSdkHolder;
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
@@ -119,6 +120,23 @@ public class GatewayOtelConfiguration {
 
         // 注册到静态 Holder，供 MdcAwareOtelAppender 获取（不使用 GlobalOpenTelemetry，避免冲突）
         OtelSdkHolder.set(openTelemetrySdk);
+
+        // 发送心跳日志验证链路：若此日志出现在 OpenObserve stream 中，说明 OTLP gRPC 链路正常
+        try {
+            io.opentelemetry.api.logs.Logger heartbeatLogger = loggerProvider.get("heartbeat");
+            heartbeatLogger.logRecordBuilder()
+                    .setBody("OTel SDK registered, heartbeat check")
+                    .setAllAttributes(Attributes.builder()
+                            .put(AttributeKey.stringKey("type"), "heartbeat")
+                            .put(AttributeKey.stringKey("service"), serviceName)
+                            .put(AttributeKey.stringKey("instance"), instanceId)
+                            .put(AttributeKey.stringKey("stream"), otelStreamName)
+                            .build())
+                    .emit();
+            log.info("[网关服务] OpenTelemetry SDK 心跳日志发送成功 - stream={}", otelStreamName);
+        } catch (Exception e) {
+            log.warn("[网关服务] OpenTelemetry SDK 心跳日志发送失败 - 请检查 5081 端口和凭证: {}", e.getMessage());
+        }
 
         log.info("[网关服务] OpenTelemetry SDK 初始化完成 - tracing={}, logs={}, service={}, instance={}",
                 tracingEndpoint, loggingEndpoint, serviceName, instanceId);

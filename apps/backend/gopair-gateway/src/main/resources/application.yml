@@ -13,7 +13,7 @@ spring:
       # 统一日志与可观测性配置
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
 
-  # 网关路由配置
+  # 网关路由配置（若 Nacos 不可用则此节为空，路由需手动配置或服务不可达）
   cloud:
     gateway:
       # 全局 HTTP 客户端超时配置，防止下游卡死导致线程池耗尽
@@ -110,6 +110,12 @@ spring:
 # 若不禁用，Logback 在 SDK Bean 就绪前触发 GlobalOpenTelemetry.get() 会导致 auto-configure
 # 设置 noop，进而阻止 SDK Bean 的 set() 调用，引发 IllegalStateException。
 otel.java.global-autoconfigure.enabled: false
+
+# JWT 本地配置（本地开发 fallback，Nacos 优先）
+gopair:
+  jwt:
+    secret: placeholder-for-local-dev-only
+    expiration: 86400000
 
 # 服务端口（可通过环境变量 SERVER_PORT 覆盖）
 server:

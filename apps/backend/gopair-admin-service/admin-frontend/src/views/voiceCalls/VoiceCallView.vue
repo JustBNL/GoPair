@@ -72,7 +72,7 @@ const columns = [
   { title: '参与人数', dataIndex: 'participantCount',  key: 'participantCount', width: 100 },
   { title: '时长',     dataIndex: 'duration',          key: 'duration',        width: 90 },
   { title: '开始时间', dataIndex: 'startTime',         key: 'startTime',       width: 170 },
-  { title: '操作',     key: 'actions',                width: 80 },
+  { title: '操作',     key: 'actions',                width: 120, fixed: 'right' },
 ]
 
 async function handleView(callId: number) {
@@ -189,7 +189,7 @@ loadCalls()
       :data-source="callList"
       :loading="loading"
       :pagination="{ ...pagination, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
-      :scroll="{ x: 1300 }"
+      :scroll="{ x: 1500 }"
       class="voice-call-view__table"
       @change="onPageChange"
     >
@@ -217,7 +217,9 @@ loadCalls()
           <span class="voice-call-view__muted">{{ formatTime(record.startTime) }}</span>
         </template>
         <template v-else-if="column.key === 'actions'">
-          <a-button type="link" size="small" @click="handleView(record.callId)">详情</a-button>
+          <div class="voice-call-view__actions">
+            <a-button type="link" size="small" @click="handleView(record.callId)">详情</a-button>
+          </div>
         </template>
       </template>
     </a-table>
@@ -312,6 +314,7 @@ loadCalls()
 
 .voice-call-view__mono { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-secondary); }
 .voice-call-view__muted { font-size: 13px; color: var(--color-text-muted); }
+.voice-call-view__actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 
 .voice-call-view__participant {
   font-size: 13px;

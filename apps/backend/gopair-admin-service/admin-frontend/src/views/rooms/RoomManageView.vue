@@ -55,7 +55,7 @@ const columns = [
   { title: '成员',     key: 'members',           width: 100 },
   { title: '状态',     dataIndex: 'status',      key: 'status',      width: 90 },
   { title: '创建时间', dataIndex: 'createTime',   key: 'createTime',  width: 170 },
-  { title: '操作',     key: 'actions',           width: 140 },
+  { title: '操作',     key: 'actions',           width: 240, fixed: 'right' },
 ]
 
 async function handleView(roomId: number) {
@@ -191,7 +191,7 @@ onMounted(() => {
       :data-source="roomList"
       :loading="loading"
       :pagination="{ ...pagination, showSizeChanger: true, showTotal: (total: number) => `共 ${total} 条` }"
-      :scroll="{ x: 800 }"
+      :scroll="{ x: 1000 }"
       class="room-manage-view__table"
       @change="onPageChange"
     >
@@ -333,7 +333,7 @@ onMounted(() => {
 .room-manage-view__mono { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-secondary); }
 .room-manage-view__muted { font-size: 13px; color: var(--color-text-muted); }
 .room-manage-view__code { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.05em; }
-.room-manage-view__actions { display: flex; gap: var(--space-2); align-items: center; }
+.room-manage-view__actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .room-manage-view__members-title {
   margin: var(--space-5) 0 var(--space-3);
   font-size: 15px;

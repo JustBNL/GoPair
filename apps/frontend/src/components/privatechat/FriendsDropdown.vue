@@ -46,6 +46,19 @@
 
         <!-- ===== Tab: 好友列表 ===== -->
         <template v-if="activeTab === 'friends'">
+          <div class="tab-header-row">
+            <span class="tab-header-label">好友</span>
+            <a-button
+              type="text"
+              size="small"
+              class="refresh-btn"
+              :loading="refreshing"
+              @click="handleRefresh"
+            >
+              <ReloadOutlined />
+            </a-button>
+          </div>
+
           <!-- 搜索 -->
           <div class="search-area">
             <a-input
@@ -109,6 +122,19 @@
 
         <!-- ===== Tab: 好友申请 ===== -->
         <template v-else-if="activeTab === 'requests'">
+          <div class="tab-header-row">
+            <span class="tab-header-label">好友申请</span>
+            <a-button
+              type="text"
+              size="small"
+              class="refresh-btn"
+              :loading="refreshing"
+              @click="handleRefresh"
+            >
+              <ReloadOutlined />
+            </a-button>
+          </div>
+
           <!-- 收到的申请 -->
           <div class="requests-section">
             <div class="section-label">收到的申请</div>
@@ -197,6 +223,19 @@
 
         <!-- ===== Tab: 添加朋友 ===== -->
         <template v-else-if="activeTab === 'search'">
+          <div class="tab-header-row">
+            <span class="tab-header-label">添加朋友</span>
+            <a-button
+              type="text"
+              size="small"
+              class="refresh-btn"
+              :loading="refreshing"
+              @click="handleRefresh"
+            >
+              <ReloadOutlined />
+            </a-button>
+          </div>
+
           <!-- 搜索输入 -->
           <div class="search-area">
             <a-input
@@ -314,7 +353,8 @@ import { ref, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import {
   ContactsOutlined,
-  SearchOutlined
+  SearchOutlined,
+  ReloadOutlined
 } from '@ant-design/icons-vue'
 import { useChatStore } from '@/stores/chat'
 import type { FriendVO } from '@/types/chat'
@@ -340,6 +380,7 @@ const addingUserId = ref<number | null>(null)
 const acceptingId = ref<number | null>(null)
 const rejectingId = ref<number | null>(null)
 const requestsTabLoading = ref(false)
+const refreshing = ref(false)
 
 // 防抖定时器
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -372,6 +413,27 @@ async function switchTab(tab: 'friends' | 'requests' | 'search') {
       chatStore.fetchOutgoingRequests()
     ])
     requestsTabLoading.value = false
+  }
+}
+
+async function handleRefresh() {
+  refreshing.value = true
+  try {
+    if (activeTab.value === 'friends') {
+      await chatStore.fetchFriends()
+    } else if (activeTab.value === 'requests') {
+      await Promise.all([
+        chatStore.fetchIncomingRequests(),
+        chatStore.fetchOutgoingRequests()
+      ])
+    } else if (activeTab.value === 'search') {
+      const kw = searchKeyword.value.trim()
+      if (kw) {
+        await chatStore.fetchSearchResults(kw)
+      }
+    }
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -621,6 +683,28 @@ watch(dropdownOpen, (open) => {
   font-size: 10px;
   font-weight: 600;
   padding: 0 4px;
+}
+
+.tab-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 4px;
+}
+
+.tab-header-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #666);
+}
+
+.refresh-btn {
+  color: var(--text-muted, #999);
+  padding: 2px 6px;
+}
+
+.refresh-btn:hover {
+  color: var(--brand-primary);
 }
 
 .search-area {
