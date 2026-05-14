@@ -19,7 +19,13 @@ public enum AdminErrorCode implements ErrorCode {
 
     ADMIN_NOT_FOUND(20000, "管理员账号不存在"),
     ADMIN_DISABLED(20001, "管理员账号已被停用"),
-    ADMIN_PASSWORD_ERROR(20002, "密码错误");
+    ADMIN_PASSWORD_ERROR(20002, "密码错误"),
+
+    USER_NOT_FOUND(20003, "用户不存在"),
+    ROOM_NOT_FOUND(20004, "房间不存在"),
+    FILE_NOT_FOUND(20005, "文件记录不存在"),
+    VOICE_CALL_NOT_FOUND(20006, "通话记录不存在"),
+    EMAIL_ALREADY_USED(20007, "该邮箱已被其他用户使用");
 
     private final int code;
     private final String message;

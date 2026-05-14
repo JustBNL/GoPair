@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.domain.po.Room;
 import com.gopair.adminservice.domain.po.RoomMember;
 import com.gopair.adminservice.domain.po.User;
+import com.gopair.adminservice.enums.AdminErrorCode;
+import com.gopair.adminservice.exception.AdminException;
 import com.gopair.adminservice.mapper.RoomMapper;
 import com.gopair.adminservice.mapper.RoomMemberMapper;
 import com.gopair.adminservice.mapper.UserMapper;
@@ -53,7 +55,7 @@ public class UserManageService {
     public Map<String, Object> getUserDetail(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new AdminException(AdminErrorCode.USER_NOT_FOUND);
         }
         Map<String, Object> detail = new HashMap<>();
         detail.put("user", user);
@@ -69,7 +71,7 @@ public class UserManageService {
     public void disableUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new AdminException(AdminErrorCode.USER_NOT_FOUND);
         }
         user.setStatus('1');
         userMapper.updateById(user);
@@ -79,7 +81,7 @@ public class UserManageService {
     public void enableUser(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new AdminException(AdminErrorCode.USER_NOT_FOUND);
         }
         user.setStatus('0');
         userMapper.updateById(user);
@@ -89,7 +91,7 @@ public class UserManageService {
     public void migrateEmail(Long userId, String newEmail) {
         User user = userMapper.selectById(userId);
         if (user == null) {
-            throw new IllegalArgumentException("用户不存在");
+            throw new AdminException(AdminErrorCode.USER_NOT_FOUND);
         }
         String oldEmail = user.getEmail();
 
@@ -100,7 +102,7 @@ public class UserManageService {
         boolean normalUserExists = existUsers.stream()
                 .anyMatch(u -> u.getStatus() != '2');
         if (normalUserExists) {
-            throw new IllegalArgumentException("该邮箱已被其他用户使用");
+            throw new AdminException(AdminErrorCode.EMAIL_ALREADY_USED);
         }
 
         user.setEmail(newEmail);

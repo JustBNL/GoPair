@@ -493,7 +493,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                     throw new MessageException(MessageErrorCode.MESSAGE_CONTENT_EMPTY);
                 }
                 if (dto.getContent().length() > messageProperties.getEmojiMaxLength()) {
-                    throw new MessageException(MessageErrorCode.MESSAGE_TYPE_INVALID);
+                    throw new MessageException(MessageErrorCode.MESSAGE_CONTENT_TOO_LONG);
                 }
                 break;
             default:

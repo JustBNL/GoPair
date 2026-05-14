@@ -216,6 +216,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginFormData, RegisterFormData, ForgotPasswordFormData } from '@/types/auth'
+import { validateEmail } from '@/utils/validation'
 
 // ==================== 组件状态 ====================
 
@@ -265,7 +266,13 @@ let forgotTimer: ReturnType<typeof setInterval> | null = null
 const loginRules = {
   email: [
     { required: true, message: '请输入邮箱地址' },
-    { type: 'email', message: '请输入有效的邮箱地址' }
+    {
+      validator: (_: unknown, value: string) =>
+        !value || validateEmail(value)
+          ? Promise.resolve()
+          : Promise.reject(new Error('请输入有效的邮箱地址')),
+      trigger: 'change'
+    }
   ],
   password: [
     { required: true, message: '请输入密码' }
@@ -279,7 +286,13 @@ const registerRules = {
   ],
   email: [
     { required: true, message: '请输入邮箱地址' },
-    { type: 'email', message: '请输入有效的邮箱地址' }
+    {
+      validator: (_: unknown, value: string) =>
+        !value || validateEmail(value)
+          ? Promise.resolve()
+          : Promise.reject(new Error('请输入有效的邮箱地址')),
+      trigger: 'change'
+    }
   ],
   code: [
     { required: true, message: '请输入邮箱验证码' },
@@ -294,7 +307,13 @@ const registerRules = {
 const forgotRules = {
   email: [
     { required: true, message: '请输入注册邮箱' },
-    { type: 'email', message: '请输入有效的邮箱地址' }
+    {
+      validator: (_: unknown, value: string) =>
+        !value || validateEmail(value)
+          ? Promise.resolve()
+          : Promise.reject(new Error('请输入有效的邮箱地址')),
+      trigger: 'change'
+    }
   ],
   code: [
     { required: true, message: '请输入邮箱验证码' },

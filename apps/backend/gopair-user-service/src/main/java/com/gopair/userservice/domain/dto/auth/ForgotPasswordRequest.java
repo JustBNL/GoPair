@@ -1,8 +1,10 @@
 package com.gopair.userservice.domain.dto.auth;
 
+import com.gopair.common.constants.RegexConstants;
 import com.gopair.common.constants.SystemConstants;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -18,7 +20,8 @@ public class ForgotPasswordRequest {
      * 注册时使用的邮箱
      */
     @NotBlank(message = SystemConstants.PARAM_MISSING)
-    @Email(message = SystemConstants.EMAIL_FORMAT_ERROR)
+    @Email(message = RegexConstants.EMAIL_FORMAT_ERROR)
+    @Pattern(regexp = RegexConstants.EMAIL_PATTERN, message = RegexConstants.EMAIL_FORMAT_ERROR)
     private String email;
 
     /**

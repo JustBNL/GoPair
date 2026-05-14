@@ -283,17 +283,9 @@ const downloadFile = async () => {
   if (!props.file) return
 
   try {
-    const blob = await FileAPI.downloadFile(props.file.fileId)
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = props.file.fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    
-    antMessage.success('下载成功')
+    const response = await FileAPI.downloadFile(props.file.fileId)
+    window.open(response.data, '_blank')
+    antMessage.success('开始下载')
   } catch (error) {
     antMessage.error('下载失败')
   }

@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.domain.po.Room;
 import com.gopair.adminservice.domain.po.RoomMember;
 import com.gopair.adminservice.domain.po.User;
+import com.gopair.adminservice.enums.AdminErrorCode;
+import com.gopair.adminservice.exception.AdminException;
 import com.gopair.adminservice.mapper.RoomMapper;
 import com.gopair.adminservice.mapper.RoomMemberMapper;
 import com.gopair.adminservice.mapper.UserMapper;
@@ -58,7 +60,7 @@ public class RoomManageService {
     public Map<String, Object> getRoomDetail(Long roomId) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
-            throw new IllegalArgumentException("房间不存在");
+            throw new AdminException(AdminErrorCode.ROOM_NOT_FOUND);
         }
         LambdaQueryWrapper<RoomMember> memberQ = new LambdaQueryWrapper<RoomMember>()
                 .eq(RoomMember::getRoomId, roomId);
@@ -83,7 +85,7 @@ public class RoomManageService {
     public void closeRoom(Long roomId) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
-            throw new IllegalArgumentException("房间不存在");
+            throw new AdminException(AdminErrorCode.ROOM_NOT_FOUND);
         }
         room.setStatus(1);
         room.setClosedTime(LocalDateTime.now());
@@ -94,7 +96,7 @@ public class RoomManageService {
     public void disableRoom(Long roomId, String reason) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
-            throw new IllegalArgumentException("房间不存在");
+            throw new AdminException(AdminErrorCode.ROOM_NOT_FOUND);
         }
         room.setStatus(4);
         room.setDisabledTime(LocalDateTime.now());
@@ -109,7 +111,7 @@ public class RoomManageService {
     public void enableRoom(Long roomId) {
         Room room = roomMapper.selectById(roomId);
         if (room == null) {
-            throw new IllegalArgumentException("房间不存在");
+            throw new AdminException(AdminErrorCode.ROOM_NOT_FOUND);
         }
         room.setStatus(0);
         room.setDisabledTime(null);

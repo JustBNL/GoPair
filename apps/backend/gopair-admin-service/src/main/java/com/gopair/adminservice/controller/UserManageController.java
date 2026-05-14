@@ -37,47 +37,31 @@ public class UserManageController {
     @Operation(summary = "用户详情")
     @GetMapping("/{userId}")
     public R<Map<String, Object>> getUserDetail(@PathVariable Long userId) {
-        try {
-            return R.ok(userManageService.getUserDetail(userId));
-        } catch (IllegalArgumentException e) {
-            return R.fail(404, e.getMessage());
-        }
+        return R.ok(userManageService.getUserDetail(userId));
     }
 
     @Operation(summary = "停用用户")
     @PostMapping("/{userId}/disable")
     @AdminAudit(operation = "USER_DISABLE", targetType = "USER")
     public R<Void> disableUser(@PathVariable Long userId) {
-        try {
-            userManageService.disableUser(userId);
-            return R.ok();
-        } catch (IllegalArgumentException e) {
-            return R.fail(400, e.getMessage());
-        }
+        userManageService.disableUser(userId);
+        return R.ok();
     }
 
     @Operation(summary = "启用用户")
     @PostMapping("/{userId}/enable")
     @AdminAudit(operation = "USER_ENABLE", targetType = "USER")
     public R<Void> enableUser(@PathVariable Long userId) {
-        try {
-            userManageService.enableUser(userId);
-            return R.ok();
-        } catch (IllegalArgumentException e) {
-            return R.fail(400, e.getMessage());
-        }
+        userManageService.enableUser(userId);
+        return R.ok();
     }
 
     @Operation(summary = "账号迁移")
     @PostMapping("/{userId}/migrate-email")
     @AdminAudit(operation = "USER_EMAIL_MIGRATE", targetType = "USER")
     public R<Void> migrateEmail(@PathVariable Long userId, @RequestParam String newEmail) {
-        try {
-            userManageService.migrateEmail(userId, newEmail);
-            return R.ok();
-        } catch (IllegalArgumentException e) {
-            return R.fail(400, e.getMessage());
-        }
+        userManageService.migrateEmail(userId, newEmail);
+        return R.ok();
     }
 
 }

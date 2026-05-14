@@ -80,17 +80,6 @@
               <div class="file-name">{{ message.fileName }}</div>
               <div class="file-size">{{ message.fileSizeFormatted }}</div>
             </div>
-            <div class="file-actions">
-            <a-button
-              type="link"
-              size="small"
-              aria-label="下载文件"
-              @click="downloadFile"
-            >
-              <download-outlined />
-              下载
-            </a-button>
-            </div>
           </div>
         </div>
 
@@ -166,7 +155,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { message as antMessage } from 'ant-design-vue'
 import {
   FileOutlined,
-  DownloadOutlined,
   PlayCircleOutlined,
   PauseCircleOutlined,
   CheckOutlined,
@@ -267,25 +255,6 @@ const togglePlay = async () => {
     } catch (error) {
       isPlaying.value = false
     }
-  }
-}
-
-/**
- * 下载文件
- */
-const downloadFile = async () => {
-  try {
-    const blob = await FileAPI.downloadFile(props.message.messageId)
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = props.message.fileName || 'download'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  } catch (error) {
-    antMessage.error('下载失败')
   }
 }
 

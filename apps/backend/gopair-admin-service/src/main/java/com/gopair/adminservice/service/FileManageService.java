@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gopair.adminservice.domain.po.RoomFile;
 import com.gopair.adminservice.domain.query.FilePageQuery;
 import com.gopair.adminservice.domain.vo.FileVO;
+import com.gopair.adminservice.enums.AdminErrorCode;
+import com.gopair.adminservice.exception.AdminException;
 import com.gopair.adminservice.mapper.RoomFileMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +36,7 @@ public class FileManageService {
     public void deleteFile(Long fileId) {
         RoomFile file = roomFileMapper.selectById(fileId);
         if (file == null) {
-            throw new IllegalArgumentException("文件记录不存在");
+            throw new AdminException(AdminErrorCode.FILE_NOT_FOUND);
         }
         roomFileMapper.deleteById(fileId);
         log.info("[FileManage] 删除文件元数据: fileId={}, fileName={}", fileId, file.getFileName());

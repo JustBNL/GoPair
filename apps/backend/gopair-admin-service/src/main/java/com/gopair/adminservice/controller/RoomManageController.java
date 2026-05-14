@@ -37,47 +37,31 @@ public class RoomManageController {
     @Operation(summary = "房间详情")
     @GetMapping("/{roomId}")
     public R<Map<String, Object>> getRoomDetail(@PathVariable Long roomId) {
-        try {
-            return R.ok(roomManageService.getRoomDetail(roomId));
-        } catch (IllegalArgumentException e) {
-            return R.fail(404, e.getMessage());
-        }
+        return R.ok(roomManageService.getRoomDetail(roomId));
     }
 
     @Operation(summary = "强制关闭房间")
     @PostMapping("/{roomId}/close")
     @AdminAudit(operation = "ROOM_CLOSE", targetType = "ROOM")
     public R<Void> closeRoom(@PathVariable Long roomId) {
-        try {
-            roomManageService.closeRoom(roomId);
-            return R.ok();
-        } catch (IllegalArgumentException e) {
-            return R.fail(400, e.getMessage());
-        }
+        roomManageService.closeRoom(roomId);
+        return R.ok();
     }
 
     @Operation(summary = "禁用房间")
     @PostMapping("/{roomId}/disable")
     @AdminAudit(operation = "ROOM_DISABLE", targetType = "ROOM")
     public R<Void> disableRoom(@PathVariable Long roomId, @RequestBody(required = false) Map<String, String> body) {
-        try {
-            String reason = body != null ? body.get("reason") : null;
-            roomManageService.disableRoom(roomId, reason);
-            return R.ok();
-        } catch (IllegalArgumentException e) {
-            return R.fail(400, e.getMessage());
-        }
+        String reason = body != null ? body.get("reason") : null;
+        roomManageService.disableRoom(roomId, reason);
+        return R.ok();
     }
 
     @Operation(summary = "解禁房间")
     @PostMapping("/{roomId}/enable")
     @AdminAudit(operation = "ROOM_ENABLE", targetType = "ROOM")
     public R<Void> enableRoom(@PathVariable Long roomId) {
-        try {
-            roomManageService.enableRoom(roomId);
-            return R.ok();
-        } catch (IllegalArgumentException e) {
-            return R.fail(400, e.getMessage());
-        }
+        roomManageService.enableRoom(roomId);
+        return R.ok();
     }
 }

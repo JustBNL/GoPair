@@ -45,7 +45,8 @@ public class FileManageController {
     public R<RoomFile> getFileById(@PathVariable Long fileId) {
         RoomFile file = fileManageService.getFileById(fileId);
         if (file == null) {
-            return R.fail(404, "文件记录不存在");
+            throw new com.gopair.adminservice.exception.AdminException(
+                    com.gopair.adminservice.enums.AdminErrorCode.FILE_NOT_FOUND);
         }
         return R.ok(file);
     }
@@ -54,11 +55,7 @@ public class FileManageController {
     @PostMapping("/{fileId}/delete")
     @AdminAudit(operation = "FILE_DELETE", targetType = "FILE")
     public R<Void> deleteFile(@PathVariable Long fileId) {
-        try {
-            fileManageService.deleteFile(fileId);
-            return R.ok();
-        } catch (IllegalArgumentException e) {
-            return R.fail(400, e.getMessage());
-        }
+        fileManageService.deleteFile(fileId);
+        return R.ok();
     }
 }

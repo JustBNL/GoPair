@@ -120,6 +120,13 @@ public class AdminAuditAspect {
         if (ip != null && ip.contains(",")) {
             ip = ip.split(",")[0].trim();
         }
+        if (ip != null && (ip.equals("0:0:0:0:0:0:0:1") || ip.equals("::1") || ip.equals("127.0.0.1"))) {
+            try {
+                ip = java.net.InetAddress.getLocalHost().getHostAddress();
+            } catch (Exception e) {
+                ip = "LOCAL_DEV";
+            }
+        }
         return ip;
     }
 }

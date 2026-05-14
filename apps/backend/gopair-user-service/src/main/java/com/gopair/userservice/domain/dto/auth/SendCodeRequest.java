@@ -1,5 +1,6 @@
 package com.gopair.userservice.domain.dto.auth;
 
+import com.gopair.common.constants.RegexConstants;
 import com.gopair.common.constants.SystemConstants;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -18,7 +19,8 @@ public class SendCodeRequest {
      * 目标邮箱
      */
     @NotBlank(message = SystemConstants.PARAM_MISSING)
-    @Email(message = SystemConstants.EMAIL_FORMAT_ERROR)
+    @Email(message = RegexConstants.EMAIL_FORMAT_ERROR)
+    @Pattern(regexp = RegexConstants.EMAIL_PATTERN, message = RegexConstants.EMAIL_FORMAT_ERROR)
     private String email;
 
     /**

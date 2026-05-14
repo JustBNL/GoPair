@@ -52,7 +52,7 @@ const columns = [
   { title: '邮箱',      dataIndex: 'email',     key: 'email',     ellipsis: true },
   { title: '状态',      dataIndex: 'status',    key: 'status',    width: 90 },
   { title: '注册时间',  dataIndex: 'createTime',key: 'createTime',width: 170 },
-  { title: '操作',      key: 'actions',        width: 120, fixed: 'right' },
+  { title: '操作',      key: 'actions',        width: 200, fixed: 'right' },
 ]
 
 async function handleView(userId: number) {
@@ -262,5 +262,5 @@ loadUsers()
 .user-manage-view__mono { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-secondary); }
 .user-manage-view__muted { font-size: 13px; color: var(--color-text-muted); }
 
-.user-manage-view__actions { display: flex; gap: var(--space-2); align-items: center; }
+.user-manage-view__actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 </style>
