@@ -224,7 +224,6 @@
                   :message="message"
                   :show-sender-info="true"
                   @reply="handleReply"
-                  @delete="(id) => handleDeleteMessage(messages.find(m => m.messageId === id)!)"
                   @recall="(id) => handleRecallMessage(messages.find(m => m.messageId === id)!)"
                   @view-profile="openMemberProfile"
                 />
@@ -536,9 +535,6 @@ const {
       unreadCount.value++
     }
     scrollToBottom()
-  },
-  onMessageDelete: (messageId: number) => {
-    // 房间层已处理删除，这里无需重复修改数据
   },
   onFileUpload: () => {
     fileCount.value++
@@ -1025,18 +1021,6 @@ const handleSendMessage = async (messageData: any) => {
 const handleReply = (message: MessageVO) => {
   replyMessage.value = message
   activeTab.value = 'chat'
-}
-
-/**
- * 处理消息删除
- */
-const handleDeleteMessage = async (message: MessageVO) => {
-  try {
-    await MessageAPI.deleteMessage(message.messageId)
-    // 删除事件会通过WebSocket推送
-  } catch (error: any) {
-    antMessage.error(error.response?.data?.msg || '删除消息失败')
-  }
 }
 
 /**

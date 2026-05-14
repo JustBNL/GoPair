@@ -87,7 +87,6 @@ function spawnEmojiDOM(emoji: string, senderNickname: string): void {
  */
 interface RoomEventHandlers {
   onMessage?: (message: MessageVO) => void
-  onMessageDelete?: (messageId: number) => void
   onFileUpload?: (file: any) => void
   onFileDelete?: (fileId: number) => void
   onMemberJoin?: (member: any) => void
@@ -184,7 +183,6 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
       `room:${roomId.value}`,
       [
         WsEventType.MESSAGE_SEND,
-        WsEventType.MESSAGE_DELETE,
         WsEventType.MESSAGE_RECALL,
         WsEventType.FILE_UPLOAD,
         WsEventType.FILE_DELETE,
@@ -260,15 +258,6 @@ export function useRoomWebSocket(roomId: Ref<number>, handlers: RoomEventHandler
         // 委托给 roomMessageStore 管理消息状态
         roomMessageStore.appendMessage(enriched)
         handlers.onMessage?.(enriched)
-        break
-      }
-
-      case WsEventType.MESSAGE_DELETE: {
-        const messageId = data?.messageId
-        if (messageId) {
-          roomState.value.messages = roomState.value.messages.filter(m => m.messageId !== messageId)
-          handlers.onMessageDelete?.(messageId)
-        }
         break
       }
 

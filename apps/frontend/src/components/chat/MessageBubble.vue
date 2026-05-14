@@ -139,10 +139,6 @@
               <rollback-outlined />
               撤回
             </a-menu-item>
-            <a-menu-item v-if="message.isOwn" key="delete" danger role="menuitem" @click="onDelete">
-              <delete-outlined />
-              删除
-            </a-menu-item>
           </a-menu>
         </template>
       </a-dropdown>
@@ -161,8 +157,7 @@ import {
   MoreOutlined,
   MessageOutlined,
   CopyOutlined,
-  RollbackOutlined,
-  DeleteOutlined
+  RollbackOutlined
 } from '@ant-design/icons-vue'
 import { MessageType, type MessageVO } from '@/types/api'
 import { formatTime } from '@/utils/format'
@@ -178,7 +173,6 @@ interface Props {
 
 interface Emits {
   (e: 'reply', message: MessageVO): void
-  (e: 'delete', messageId: number): void
   (e: 'recall', messageId: number): void
   (e: 'viewProfile', senderId: number): void
 }
@@ -282,13 +276,6 @@ const onCopy = async () => {
  */
 const onRecall = () => {
   emit('recall', props.message.messageId)
-}
-
-/**
- * 删除消息
- */
-const onDelete = () => {
-  emit('delete', props.message.messageId)
 }
 </script>
 

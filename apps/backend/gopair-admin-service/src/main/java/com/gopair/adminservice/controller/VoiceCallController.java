@@ -5,6 +5,8 @@ import com.gopair.adminservice.domain.po.VoiceCall;
 import com.gopair.adminservice.domain.po.VoiceCallParticipant;
 import com.gopair.adminservice.domain.query.VoiceCallPageQuery;
 import com.gopair.adminservice.domain.vo.VoiceCallVO;
+import com.gopair.adminservice.enums.AdminErrorCode;
+import com.gopair.adminservice.exception.AdminException;
 import com.gopair.adminservice.service.VoiceCallService;
 import com.gopair.common.core.R;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,7 +49,7 @@ public class VoiceCallController {
     public R<VoiceCall> getVoiceCallById(@PathVariable Long callId) {
         VoiceCall call = voiceCallService.getVoiceCallById(callId);
         if (call == null) {
-            return R.fail(404, "通话记录不存在");
+            throw new AdminException(AdminErrorCode.VOICE_CALL_NOT_FOUND);
         }
         return R.ok(call);
     }
