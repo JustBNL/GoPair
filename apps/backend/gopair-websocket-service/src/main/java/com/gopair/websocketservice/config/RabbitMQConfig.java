@@ -162,7 +162,7 @@ public class RabbitMQConfig {
      * * [个性化参数]
      * - concurrentConsumers: 3（最小并发消费线程数）
      * - maxConcurrentConsumers: 10（最大并发消费线程数）
-     * - 消费者 prefetch/concurrency 在 gopair-shared.yml 中通过 spring.rabbitmq.listener.simple 统一配置
+     * - acknowledge-mode: 在 application.yml 中通过 spring.rabbitmq.listener.simple.acknowledge-mode=manual 覆盖全局 AUTO
      */
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {

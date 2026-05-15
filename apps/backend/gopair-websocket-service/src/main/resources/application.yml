@@ -16,6 +16,10 @@ spring:
       - optional:nacos:gopair-shared.yml?group=DEFAULT_GROUP&refresh=true
       # 统一日志与可观测性配置
       - optional:nacos:gopair-logging-base.yml?group=DEFAULT_GROUP&refresh=true
+  rabbitmq:
+    listener:
+      simple:
+        acknowledge-mode: manual
 
 # 服务端口（可通过环境变量 SERVER_PORT 覆盖）
 server:

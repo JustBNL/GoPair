@@ -46,26 +46,11 @@
         <div class="info-card">
           <div class="card-header">
             <TeamOutlined class="card-icon" />
-            <h3>成员信息</h3>
+            <h3>房间人数上限</h3>
           </div>
           <div class="card-content">
-            <!-- 成员信息加载状态 -->
-            <div v-if="serviceStates.members.loading" class="card-loading">
-              <a-spin size="small" />
-              <span>加载中...</span>
-            </div>
-            
-            <!-- 成员信息加载失败 -->
-            <div v-else-if="serviceStates.members.error" class="card-error">
-              <span class="error-text">{{ serviceStates.members.error }}</span>
-              <a-button type="link" size="small" @click="retryService('members')">
-                重试
-              </a-button>
-            </div>
-            
-            <!-- 正常的成员信息 -->
-            <div v-else class="member-count">
-              成员已加入
+            <div class="member-count">
+              {{ currentRoom.maxMembers }} 人
             </div>
           </div>
         </div>

@@ -614,6 +614,7 @@ export function useVoiceCall(
     rosterUpdating = true
     try {
       await executeRosterUpdate(callId)
+      // 再来一次似乎更不容易出现问题，保留了，后面看看是哪里出现了问题
       while (rosterPendingCallId !== null) {
         const nextId = rosterPendingCallId
         rosterPendingCallId = null

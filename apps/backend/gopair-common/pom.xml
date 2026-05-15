@@ -43,10 +43,11 @@
             <scope>runtime</scope>
         </dependency>
         
-        <!-- Spring Security Crypto -->
+        <!-- jBCrypt (password hashing, replaces spring-security-crypto) -->
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
+            <groupId>org.mindrot</groupId>
+            <artifactId>jbcrypt</artifactId>
+            <version>0.4</version>
         </dependency>
         
         <!-- RabbitMQ 依赖 (可选) -->

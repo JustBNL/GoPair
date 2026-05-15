@@ -9,7 +9,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.support.AmqpHeaders;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+
+import com.rabbitmq.client.Channel;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -46,49 +50,85 @@ public class BusinessMessageListener {
      * @param rawMessage  原始 AMQP 消息（用于提取追踪消息头）
      */
     @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_CHAT)
-    public void handleChatMessage(WebSocketMessageDto messageDto, Message rawMessage) {
-        tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
-            log.debug("[消息监听] 收到聊天消息: messageId={}, channel={}, eventType={}",
-                    messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
-            channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
-        });
+    public void handleChatMessage(WebSocketMessageDto messageDto, Message rawMessage,
+                                  Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+        try {
+            tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
+                log.debug("[消息监听] 收到聊天消息: messageId={}, channel={}, eventType={}",
+                        messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
+                channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
+            });
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("[消息监听] 处理聊天消息异常 messageId={}", messageDto.getMessageId(), e);
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (Exception ignore) {}
+        }
     }
 
     /**
      * 监听信令消息队列
      */
     @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_SIGNALING)
-    public void handleSignalingMessage(WebSocketMessageDto messageDto, Message rawMessage) {
-        tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
-            log.info("[消息监听] 收到信令消息: messageId={}, channel={}, eventType={}, payloadKeys={}",
-                    messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType(),
-                    messageDto.getPayload() != null ? messageDto.getPayload().keySet() : "null");
-            channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
-        });
+    public void handleSignalingMessage(WebSocketMessageDto messageDto, Message rawMessage,
+                                      Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+        try {
+            tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
+                log.info("[消息监听] 收到信令消息: messageId={}, channel={}, eventType={}, payloadKeys={}",
+                        messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType(),
+                        messageDto.getPayload() != null ? messageDto.getPayload().keySet() : "null");
+                channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
+            });
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("[消息监听] 处理信令消息异常 messageId={}", messageDto.getMessageId(), e);
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (Exception ignore) {}
+        }
     }
 
     /**
      * 监听文件消息队列
      */
     @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_FILE)
-    public void handleFileMessage(WebSocketMessageDto messageDto, Message rawMessage) {
-        tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
-            log.debug("[消息监听] 收到文件消息: messageId={}, channel={}, eventType={}",
-                    messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
-            channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
-        });
+    public void handleFileMessage(WebSocketMessageDto messageDto, Message rawMessage,
+                                 Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+        try {
+            tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
+                log.debug("[消息监听] 收到文件消息: messageId={}, channel={}, eventType={}",
+                        messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
+                channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
+            });
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("[消息监听] 处理文件消息异常 messageId={}", messageDto.getMessageId(), e);
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (Exception ignore) {}
+        }
     }
 
     /**
      * 监听系统消息队列
      */
     @RabbitListener(queues = SystemConstants.QUEUE_WEBSOCKET_SYSTEM)
-    public void handleSystemMessage(WebSocketMessageDto messageDto, Message rawMessage) {
-        tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
-            log.debug("[消息监听] 收到系统消息: messageId={}, channel={}, eventType={}",
-                    messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
-            channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
-        });
+    public void handleSystemMessage(WebSocketMessageDto messageDto, Message rawMessage,
+                                   Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+        try {
+            tracingAmqpConsumerSupport.runWithTracing(rawMessage, () -> {
+                log.debug("[消息监听] 收到系统消息: messageId={}, channel={}, eventType={}",
+                        messageDto.getMessageId(), messageDto.getChannel(), messageDto.getEventType());
+                channelMessageRouter.processChannelMessage(convertToUnifiedMessage(messageDto));
+            });
+            channel.basicAck(deliveryTag, false);
+        } catch (Exception e) {
+            log.error("[消息监听] 处理系统消息异常 messageId={}", messageDto.getMessageId(), e);
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (Exception ignore) {}
+        }
     }
 
     /**
