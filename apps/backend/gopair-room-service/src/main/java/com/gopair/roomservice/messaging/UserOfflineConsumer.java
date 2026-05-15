@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
  *
  * <h2>触发时机</h2>
  * 用户所有 WebSocket 连接断开时（断网、杀进程、超时等任何断开场景）触发。
+ * TODO 预留，后续可以实现，对于用户下线这个判断过于复杂
  */
 @Slf4j
 @Component

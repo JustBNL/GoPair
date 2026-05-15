@@ -16,9 +16,9 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Objects;
 
 /**
  * 房间服务集成测试基础类。
@@ -27,6 +27,8 @@ import java.util.Objects;
  * - 真实 MySQL + 真实 Redis：使用 gopair_test 数据库和 Redis DB 14，@Transactional 保证 DB 回滚。
  * - Redis 手动清理：@AfterEach 执行 FLUSHDB 清理 Redis 数据（Redis 不支持事务回滚）。
  * - MQ/WebSocket Mock：MQ 消费者/生产者/WebSocket 均 Mock，避免测试间相互干扰。
+ * - Lua 脚本走真实 Redis：JoinReservationService / MemberRemovalService 使用 RedisConfig 中
+ *   配置的真实 Lua 脚本，测试前确保 Redis 可用，测试后 flushDb() 清空。
  *
  * @author gopair
  */
@@ -68,6 +70,21 @@ public abstract class BaseIntegrationTest {
 
     @Autowired
     protected TestRestTemplate testRestTemplate;
+
+    @Autowired
+    protected PlatformTransactionManager transactionManager;
+
+    /**
+     * TransactionTemplate with REQUIRES_NEW propagation.
+     * Creates an independent committed transaction, bypassing the test class's @Transactional rollback.
+     * Use to execute Redis init before the test class tx commits.
+     */
+    protected TransactionTemplate createRequiresNewTxTemplate() {
+        org.springframework.transaction.support.DefaultTransactionDefinition def =
+                new org.springframework.transaction.support.DefaultTransactionDefinition();
+        def.setPropagationBehavior(org.springframework.transaction.annotation.Propagation.REQUIRES_NEW.value());
+        return new TransactionTemplate(transactionManager, def);
+    }
 
     /**
      * 每个测试方法结束后清理 Redis 数据。

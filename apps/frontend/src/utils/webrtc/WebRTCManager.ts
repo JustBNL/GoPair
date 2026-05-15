@@ -393,6 +393,7 @@ export class WebRTCManager {
     const peerConnection = this.createPeerConnection(userId)
 
     // createPeerConnection 内部会尝试 addTrack，但如果当时 localStream 为 null，这里补充添加
+    // 因为麦克风的权限申请是异步的，在浏览器上的体现就是会进行一个提示用户是否需要开启浏览器麦克风权限
     if (this.callState.localStream) {
       const existingSenders = peerConnection.getSenders()
       const hasAudioSender = existingSenders.some(s => s.track?.kind === 'audio')

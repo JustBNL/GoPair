@@ -26,6 +26,7 @@ import java.util.Map;
  * 2. ENABLE：同步 Redis status=0 + 广播 room_enabled。
  *
  * @param event 房间状态变更事件
+ *              TODO预留，后续实现，原因是想给管理员服务使用，但是想实现的是管理员可以独立部署而不依赖nacos，所以无法这个消费者的访问
  */
 @Slf4j
 @Component

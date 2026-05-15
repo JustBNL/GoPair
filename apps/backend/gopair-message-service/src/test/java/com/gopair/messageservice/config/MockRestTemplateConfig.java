@@ -21,9 +21,15 @@ import java.util.Map;
  * * [核心策略]
  *   - mockRestTemplate（@Primary）：用于 Service 层调用外部服务（room-service/user-service），
  *     通过拦截器返回预设的 stub 数据，实现外部依赖的 Mock。
+ *     默认行为：未配置的 room-service URL 返回 data=false，user-service URL 返回默认响应。
  *   - realRestTemplate（无 @Primary）：用于测试代码向 localhost 发送 Controller 请求，
  *     不经过任何拦截，走真实网络连接。
  *   - @Qualifier("mockRestTemplate") / @Qualifier("realRestTemplate") 区分注入目标。
+ *
+ * * [拦截逻辑]
+ *   - localhost/* → 跳过拦截，走真实网络连接（Controller 测试的 HTTP 请求）
+ *   - room-service/* → 查找 BOOL_STUBS 精确匹配，未配置则返回 data=false
+ *   - user-service/* → 查找 HTTP_STUBS 精确匹配，未配置则返回默认响应
  *
  * 使用方式：
  * <pre>
@@ -46,10 +52,12 @@ import java.util.Map;
 public class MockRestTemplateConfig {
 
     /**
-     * Mock RestTemplate（Primary）：用于 Service 层调用外部服务（room-service/user-service），
-     * 拦截外部请求并返回预设 stub，不走真实网络。
+     * Mock RestTemplate（@Primary）：用于 Service 层调用外部服务（room-service/user-service），
+     * 通过拦截器返回预设的 stub 数据，实现外部依赖的 Mock。
+     * @Primary 确保在没有显式 @Qualifier 时优先注入此 mock 实例。
      */
     @Bean
+    @Primary
     public RestTemplate mockRestTemplate() {
         RestTemplate restTemplate = new RestTemplate(new SimpleClientHttpRequestFactory());
         restTemplate.getInterceptors().add(new ConfigurableMockInterceptor());
@@ -57,7 +65,7 @@ public class MockRestTemplateConfig {
     }
 
     /**
-     * Real RestTemplate：无拦截器，用于测试代码向 localhost 发送 HTTP 请求，
+     * Real RestTemplate：无拦截器，用于测试代码向 localhost 发送 Controller 请求，
      * 走真实网络连接，确保 Controller 请求能正确到达应用。
      */
     @Bean
@@ -66,7 +74,12 @@ public class MockRestTemplateConfig {
     }
 
     /**
-     * 可配置的拦截器：通过 STUBS Map 查找匹配的 URL 返回 mock 值
+     * 可配置的拦截器。
+     *
+     * 拦截策略（按优先级）：
+     * 1. localhost/* → 跳过，走真实网络连接
+     * 2. room-service/* → 查找 BOOL_STUBS 精确匹配，未配置返回 data=false
+     * 3. user-service/* → 查找 HTTP_STUBS 精确匹配，未配置返回默认响应
      */
     public static class ConfigurableMockInterceptor implements ClientHttpRequestInterceptor {
 
@@ -78,39 +91,38 @@ public class MockRestTemplateConfig {
 
             String url = request.getURI().toString();
 
-            // 优先查找 HTTP stub（字符串响应，用于 user-service 降级）
-            String httpStub = HTTP_STUBS.get(url);
-            if (httpStub != null) {
-                return new MockClientHttpResponse(httpStub);
+            // localhost 请求（Controller 测试向 localhost 发起的 HTTP 调用）-> 跳过拦截，走真实连接
+            if (url.contains("localhost")) {
+                return execution.execute(request, body);
             }
 
-            // 其次查找布尔 stub（用于 room-service 成员检查）
-            Boolean boolStub = BOOL_STUBS.get(url);
-            if (boolStub != null) {
-                return new MockClientHttpResponse(boolStub);
-            }
-
-            // 本地请求（Controller 测试向 localhost 发起的 HTTP 调用）或外部服务请求
-            // 若请求的是 localhost 且包含 /room/，尝试映射到 room-service stub
-            if (url.contains("localhost") && url.contains("/room/")) {
-                String mapped = url.replaceFirst("http://[^/]+", "http://room-service");
-                Boolean mappedStub = BOOL_STUBS.get(mapped);
-                if (mappedStub != null) {
-                    return new MockClientHttpResponse(mappedStub);
+            // room-service 请求：查找 BOOL_STUBS 精确匹配
+            if (url.contains("room-service")) {
+                // 精确匹配
+                Boolean boolStub = BOOL_STUBS.get(url);
+                if (boolStub != null) {
+                    return new MockClientHttpResponse(boolStub);
                 }
-                // 精确匹配本地端口的 room-service stub（格式：http://localhost:8081/room/{id}/members/{uid}/check）
+                // URL 模式匹配（支持 http://room-service/room/{id}/members/{uid}/check）
                 for (Map.Entry<String, Boolean> entry : BOOL_STUBS.entrySet()) {
                     String stubUrl = entry.getKey();
-                    // 匹配格式：localhost:PORT/room/{id}/members/{uid}/check
                     String pattern = stubUrl.replaceFirst("http://[^/]+", "");
                     if (url.contains(pattern)) {
                         return new MockClientHttpResponse(entry.getValue());
                     }
                 }
+                // 未配置 stub 的 room-service URL：返回默认 data=false
+                // 模拟"服务不可用或用户不在房间"的降级行为
+                return new MockClientHttpResponse(false);
             }
 
-            // 未配置的外部服务 URL 返回 200 OK + 空响应体（模拟服务不可用时的降级）
-            return new MockClientHttpResponse("{\"code\":500}");
+            // user-service 请求：查找 HTTP_STUBS 精确匹配
+            String httpStub = HTTP_STUBS.get(url);
+            if (httpStub != null) {
+                return new MockClientHttpResponse(httpStub);
+            }
+            // 未配置的 user-service URL：返回默认 data=false
+            return new MockClientHttpResponse(false);
         }
     }
 
@@ -137,6 +149,7 @@ public class MockRestTemplateConfig {
             return org.springframework.http.HttpStatus.OK;
         }
 
+        @SuppressWarnings("deprecation")
         @Override
         public int getRawStatusCode() {
             return statusCode;

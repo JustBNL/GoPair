@@ -64,7 +64,7 @@ server:
   port: 0
 
 mybatis-plus:
-  mapper-locations: classpath*:/test-mapper/**/*.xml
+  mapper-locations: classpath*:/test-mapper/**/*.xml,classpath*:/mapper/**/*.xml
   type-aliases-package: com.gopair.chatservice.domain.po
   configuration:
     map-underscore-to-camel-case: true

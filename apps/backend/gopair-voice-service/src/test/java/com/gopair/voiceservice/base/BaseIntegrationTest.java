@@ -5,6 +5,7 @@ import com.gopair.voiceservice.mapper.VoiceCallMapper;
 import com.gopair.voiceservice.mapper.VoiceCallParticipantMapper;
 import com.gopair.voiceservice.messaging.RoomEventConsumer;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -19,6 +20,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestTemplate;
+
+import static org.mockito.Mockito.*;
 
 /**
  * 语音通话服务集成测试基础类。
@@ -63,6 +66,10 @@ public abstract class BaseIntegrationTest {
     @MockBean
     protected RoomEventConsumer roomEventConsumer;
 
+    /** 房间状态 RestTemplate Mock（@BeforeEach 中配置 stub） */
+    @MockBean
+    protected RestTemplate restTemplate;
+
     @LocalServerPort
     protected int port;
 
@@ -76,6 +83,12 @@ public abstract class BaseIntegrationTest {
         if (factory != null && factory.getConnection() != null) {
             factory.getConnection().serverCommands().flushDb();
         }
+    }
+
+    /** 每个测试方法开始前配置 RestTemplate stub（返回 ACTIVE 房间状态） */
+    @BeforeEach
+    protected void setupRestTemplateStub() {
+        RoomStatusStubber.stubAllAsActive(restTemplate);
     }
 
     protected String getUrl(String path) {

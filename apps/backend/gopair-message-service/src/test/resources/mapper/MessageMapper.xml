@@ -119,4 +119,23 @@
         </if>
     </select>
 
+    <!-- 游标分页查询房间历史消息（查 beforeMessageId 之前的消息，按 create_time DESC 返回） -->
+    <select id="selectHistoryMessagesBefore" resultMap="MessageVOMap">
+        SELECT <include refid="MessageVOColumns"/>
+        <include refid="MessageTableJoins"/>
+        WHERE m.room_id = #{roomId}
+          AND m.is_recalled = 0
+          <if test="beforeMessageId != null">
+              AND (m.create_time, m.message_id) &lt;
+                  (SELECT create_time, message_id FROM message WHERE message_id = #{beforeMessageId})
+          </if>
+        ORDER BY m.create_time DESC
+        LIMIT #{pageSize}
+    </select>
+
+    <!-- 根据 roomId 删除所有消息 -->
+    <delete id="deleteByRoomId">
+        DELETE FROM message WHERE room_id = #{roomId}
+    </delete>
+
 </mapper>
