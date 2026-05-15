@@ -10,27 +10,44 @@
   - Service 层测试：`@Transactional` 保证每个测试方法结束后自动回滚
   - Controller 层测试：使用 `TestDataCleaner` 手动清理，**不使用** `@Transactional`（HTTP 请求跨线程，需要手动管理数据生命周期）
 - **MQ/WebSocket Mock**：`RabbitTemplate`、`WebSocketMessageProducer`、`RoomEventConsumer` 均为 `@MockBean`，避免测试间相互干扰
+- **RestTemplate Mock**：`RoomStatusStubber` + `@MockBean RestTemplate`，通过 Mockito Answer 动态返回房间状态（默认 ACTIVE(0)），用于测试房间状态校验
 - **MyBatis L1 缓存规避**：使用 `BaseIntegrationTest.selectCall()` 通过 `JdbcTemplate` 直接查 DB，绕过 MyBatis 一级缓存，确保 Service 操作后的 DB 状态可见
 
 ### 测试配置文件
+
 | 文件 | 用途 |
 |------|------|
 | `src/test/resources/application-test.yml` | 集成测试配置（MySQL gopair_test + Redis DB 14）|
 | `src/test/resources/schema.sql` | MySQL 8.0 兼容建表脚本 |
 
 ### 基础设施基类
-`BaseIntegrationTest` 提供：
+
+**`BaseIntegrationTest`** 提供：
 - `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `@ActiveProfiles("test")`
 - 真实 `StringRedisTemplate`（注入，非 Mock）
 - `JdbcTemplate`：无事务，用于 `@BeforeEach` 清理，不受 `@Transactional` 回滚影响
 - `TransactionTemplate`：手动事务控制
 - `TestRestTemplate`：随机端口 HTTP 测试
+- `@MockBean RestTemplate`：房间状态 Mock，默认返回 ACTIVE(0)
 - `selectCall(Long)`：通过 `JdbcTemplate` 直接查 DB，绕过 MyBatis L1 缓存
 - MQ/WebSocket 全系列 `@MockBean`
-- `@AfterEach flushDb()` Redis 清理
+- `@BeforeEach setupRestTemplateStub()`：默认配置所有房间为 ACTIVE(0)
+- `@AfterEach flushDb()`：Redis 清理
+
+### 房间状态 Mock 工具
+
+**`RoomStatusStubber`** 提供：
+- `stubAllAsActive(mock)`：默认所有 `/status` 请求返回 `R.ok(0)`（ACTIVE），用于大多数测试
+- `stub(mock, roomId, status)`：指定特定 roomId 返回特定状态，用于测试房间状态校验
+  - `0 = ACTIVE`（允许创建/加入通话）
+  - `1 = CLOSED`（拒绝）
+  - `2 = EXPIRED`（拒绝）
+  - `3 = ARCHIVED`（拒绝）
+  - `4 = DISABLED`（拒绝）
 
 ### 数据清理工具
-`TestDataCleaner` 提供 `cleanupAll()`、`cleanupByRoomId(Long)`、`cleanupByCallId(Long)` 方法，用于 Controller 层测试的手动数据清理。
+
+**`TestDataCleaner`** 提供 `cleanupAll()`、`cleanupByRoomId(Long)`、`cleanupByCallId(Long)` 方法，用于 Controller 层测试的手动数据清理。
 
 ---
 
@@ -39,7 +56,7 @@
 ### 1. VoiceControllerIntegrationTest
 **文件**：`src/test/java/com/gopair/voiceservice/controller/VoiceControllerIntegrationTest.java`
 **类型**：Controller 层集成测试（HTTP + 真实 DB）
-**测试用例**（共 12 个）：
+**测试用例**（共 28 个）：
 
 #### 分支：主干流 A - 完整通话生命周期 HTTP 链路
 
@@ -67,6 +84,52 @@
 | getActiveCall_NoActiveCall_ShouldReturnNull | 空 roomId（无通话）| status=200, R.data=null |
 | joinCall_EndedCall_ShouldReturnError | 已结束 callId | status != 200, R.code != 200 |
 | forwardSignaling_NonParticipant_ShouldReturn200 | strangerId, 非参与者信令 | status=200, 信令被静默丢弃 |
+
+#### 分支：分支流 D - 房间关闭优雅终止
+
+| 用例 | 输入参数 | 预期结果 |
+|------|---------|---------|
+| endAllCalls_WithActiveCalls_ShouldTerminateAll | roomId（含 1 个通话）, userId1, userId2 | status=200, R.data=1, call.status=ENDED |
+| endAllCalls_NoActiveCalls_ShouldReturnZero | 空 roomId | status=200, R.data=0 |
+
+#### 分支：分支流 E - cleanup 接口
+
+| 用例 | 输入参数 | 预期结果 |
+|------|---------|---------|
+| cleanup_WithExistingCalls_ShouldReturnCount | roomId（含通话记录）| status=200, R.data=1, 通话物理删除 |
+| cleanup_NoCalls_ShouldReturnZero | 空 roomId | status=200, R.data=0 |
+
+#### 分支：边界流 F - 房间状态校验
+
+| 用例 | 输入参数 | 预期结果 |
+|------|---------|---------|
+| joinOrCreateCall_RoomClosed_ShouldReturnError | roomId, status=CLOSED | status=400 BAD_REQUEST |
+| joinOrCreateCall_RoomExpired_ShouldReturnError | roomId, status=EXPIRED | status=400 BAD_REQUEST |
+| joinOrCreateCall_RoomDisabled_ShouldReturnError | roomId, status=DISABLED | status=400 BAD_REQUEST |
+| joinOrCreateCall_RoomArchived_ShouldReturnError | roomId, status=ARCHIVED | status=400 BAD_REQUEST |
+
+#### 分支：边界流 G - 通话不存在时的操作
+
+| 用例 | 输入参数 | 预期结果 |
+|------|---------|---------|
+| notifyReady_CallNotFound_ShouldReturnError | 不存在的 callId | status != 200 |
+| leaveCall_CallNotFound_ShouldReturnError | 不存在的 callId | status != 200 |
+| endCall_CallNotFound_ShouldReturnError | 不存在的 callId | status != 200 |
+| ownerLeave_CallNotFound_ShouldReturnError | 不存在的 callId | status != 200 |
+
+#### 分支：边界流 H - 用户不在通话中的操作
+
+| 用例 | 输入参数 | 预期结果 |
+|------|---------|---------|
+| leaveCall_UserNotInCall_ShouldReturn200 | 通话存在, strangerId 未加入 | status=200（静默返回）|
+| ownerLeave_UserNotInCall_ShouldReturn200 | 通话存在, strangerId 非房主 | status=200（静默返回）|
+
+#### 分支：边界流 I - 信令转发边界
+
+| 用例 | 输入参数 | 预期结果 |
+|------|---------|---------|
+| forwardSignaling_CallNotFound_ShouldReturn200 | 不存在的 callId | status=200（静默丢弃）|
+| forwardSignaling_Participant_ShouldReturn200 | 正常通话, 参与者转发信令 | status=200, DB 记录不变 |
 
 ---
 
@@ -155,16 +218,26 @@
 ## 测试执行结果
 
 ```
-Tests run: 35, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 51, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
 ```
-- VoiceControllerIntegrationTest$FullCallLifecycleFlow: 4 passed
-- VoiceControllerIntegrationTest$QueryAndEndFlow: 4 passed
-- VoiceControllerIntegrationTest$EdgeCaseFlow: 4 passed
-- VoiceCallLifecycleIntegrationTest$CallLifecycleFlow: 5 passed
-- VoiceCallLifecycleIntegrationTest$OwnerLeaveAndEndCallFlow: 2 passed
-- VoiceCallLifecycleIntegrationTest$ExceptionAndEdgeCaseFlow: 6 passed
-- VoiceCallServiceImplUnitTest$DurationCalculationTests: 3 passed
-- VoiceCallServiceImplUnitTest$RejoinTests: 2 passed
-- VoiceCallServiceImplUnitTest$SignalingPermissionTests: 2 passed
-- VoiceCallServiceImplUnitTest$AutoCreateIdempotentTests: 1 passed
-- RoomEventConsumerTest: 2 passed
+
+| 测试类 | 测试数 | 状态 |
+|--------|--------|------|
+| VoiceControllerIntegrationTest$FullCallLifecycleFlow | 4 | passed |
+| VoiceControllerIntegrationTest$QueryAndEndFlow | 4 | passed |
+| VoiceControllerIntegrationTest$EdgeCaseFlow | 4 | passed |
+| VoiceControllerIntegrationTest$RoomCloseGracefulTerminateFlow | 2 | passed |
+| VoiceControllerIntegrationTest$CleanupFlow | 2 | passed |
+| VoiceControllerIntegrationTest$RoomStatusValidationFlow | 4 | passed |
+| VoiceControllerIntegrationTest$CallNotFoundFlow | 4 | passed |
+| VoiceControllerIntegrationTest$UserNotInCallFlow | 2 | passed |
+| VoiceControllerIntegrationTest$SignalingEdgeFlow | 2 | passed |
+| VoiceCallLifecycleIntegrationTest$CallLifecycleFlow | 5 | passed |
+| VoiceCallLifecycleIntegrationTest$OwnerLeaveAndEndCallFlow | 2 | passed |
+| VoiceCallLifecycleIntegrationTest$ExceptionAndEdgeCaseFlow | 6 | passed |
+| VoiceCallServiceImplUnitTest$DurationCalculationTests | 3 | passed |
+| VoiceCallServiceImplUnitTest$RejoinTests | 2 | passed |
+| VoiceCallServiceImplUnitTest$SignalingPermissionTests | 2 | passed |
+| VoiceCallServiceImplUnitTest$AutoCreateIdempotentTests | 1 | passed |
+| RoomEventConsumerTest | 2 | passed |

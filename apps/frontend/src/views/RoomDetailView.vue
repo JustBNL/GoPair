@@ -65,7 +65,7 @@
             
             <!-- 正常的成员信息 -->
             <div v-else class="member-count">
-              {{ currentRoom.currentMembers }} / {{ currentRoom.maxMembers }} 人
+              成员已加入
             </div>
           </div>
         </div>
@@ -187,7 +187,7 @@
               <template #tab>
                 <span class="tab-title">
                   <TeamOutlined />
-                  成员 ({{ !serviceStates.members.available ? '?' : currentRoom.currentMembers }})
+                  成员
                   <a-badge v-if="!serviceStates.members.available" status="error" class="tab-badge" />
                 </span>
               </template>
@@ -545,15 +545,9 @@ const {
     fileListRefresh.value = !fileListRefresh.value
   },
   onMemberJoin: () => {
-    if (currentRoom.value) {
-      currentRoom.value = { ...currentRoom.value, currentMembers: currentRoom.value.currentMembers + 1 }
-    }
     loadRoomMembers()
   },
   onMemberLeave: () => {
-    if (currentRoom.value) {
-      currentRoom.value = { ...currentRoom.value, currentMembers: Math.max(0, currentRoom.value.currentMembers - 1) }
-    }
     loadRoomMembers()
   },
   onCallStart: (callId: number, initiatorId: number) => {

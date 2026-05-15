@@ -4,6 +4,9 @@ spring:
     name: chat-service
   profiles:
     active: dev
+  cloud:
+    nacos:
+      server-addr: 127.0.0.1:8848
   config:
     import:
       # 共享基础设施配置（Redis、MySQL、RabbitMQ、MyBatis-Plus、Knife4j）

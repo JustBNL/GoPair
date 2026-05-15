@@ -107,13 +107,14 @@ public class ConnectionHandler {
 
             // 恢复用户在 Redis 中持久化的订阅状态（合并到内存，并重建三个反向索引）
             // 无需依赖 sessions Map，仅需 userId 和 sessionId 即可重建所有内存索引
-            subscriptionManager.restoreUserSubscriptionState(userId, session.getId());
+            //Todo 浏览器对于Websocket的连接非常不稳定，为了稳定性目前是从前端重新进行建立而不是后端恢复，后续可以进行优化这三个缓存
+//            subscriptionManager.restoreUserSubscriptionState(userId, session.getId());
 
             // 建立全局连接
             connectionManager.addGlobalSession(session, userId);
 
-            // 执行登录基础订阅
-            basicSubscriptionService.performLoginBasicSubscription(session.getId(), userId);
+            // 执行登录基础订阅，目前也是前端订阅，后续要优化
+//            basicSubscriptionService.performLoginBasicSubscription(session.getId(), userId);
 
             // 发送连接成功确认
             UnifiedWebSocketMessage welcomeMessage = new UnifiedWebSocketMessage()

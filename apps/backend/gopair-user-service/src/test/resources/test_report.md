@@ -2,7 +2,7 @@
 
 > 服务名称：gopair-user-service
 > 基准路径：`apps/backend/gopair-user-service`
-> 生成时间：2026-05-02
+> 生成时间：2026-05-14
 
 ---
 
@@ -13,13 +13,14 @@ src/test/java/com/gopair/userservice/
   ├─ base/
   │    ├─ BaseIntegrationTest.java     (集成测试抽象基类，@Transactional + Redis flushDb())
   │    └─ TestMailConfig.java          (@TestConfiguration，JavaMailSender 桩)
+  ├─ config/
+  │    └─ MockRestTemplateConfig.java   (@TestConfiguration，提供 @Primary mockRestTemplate + realRestTemplate)
   ├─ service/
+  │    ├─ StubEmailServiceImpl.java   (EmailService 测试替身，@Primary)
   │    └─ impl/
   │         └─ PasswordUtilsUnitTest.java  (无 Spring 容器，纯单元测试)
   ├─ api/
   │    └─ UserApiContractTest.java     (API 契约测试，唯一集成测试入口，@Nested 分组)
-  ├─ service/
-  │    └─ StubEmailServiceImpl.java   (EmailService 测试替身，@Primary)
   └─ UserServiceApplicationTests.java   (上下文加载测试)
 ```
 
@@ -48,8 +49,9 @@ UserServiceApplicationTests       (@SpringBootTest, 无继承)
 | 测试场景 | 输入参数 (JSON) | 预期输出 (JSON) | 预期数据库/缓存/异常状态 |
 | --- | --- | --- | --- |
 | 发送成功（@example.com 绕过验证） | `{"email":"sendcode_xxx@example.com","type":"register"}` | `{"code":200}` | 会插入一条 Redis 键值为 `verify:code:register:sendcode_xxx@example.com` = 6位数字 的数据（TTL 过期） |
+| 注册场景 - 邮箱未注册（不校验，可直接发码） | `{"email":"notreg_register_xxx@example.com","type":"register"}` | `{"code":200}` | 同上，register 类型不校验邮箱是否已注册 |
 | 忘记密码场景 - 邮箱未注册 | `{"email":"notreg_xxx@example.com","type":"resetPassword"}` | `{"code":20101,"msg":"邮箱不存在"}` | 会抛出 `UserException`，事务不产生副作用 |
-| 暂未编写测试（边界：type 参数为空/null/非法值） | - | - | - |
+| 60秒内重复发送验证码 - 触发限流 | 同一 `email` + `type` 在 60 秒内两次请求 | 第二次 `{"code":20105,"msg":"发送验证码过于频繁，请稍后再试"}` | 第一次请求写入 Redis 键 `verify:limit:<type>:<email>`（TTL=60s）；第二次请求检测到该键存在，抛出 `UserException` |
 
 ---
 
@@ -72,6 +74,8 @@ UserServiceApplicationTests       (@SpringBootTest, 无继承)
 | 正常登录 | `{"email":"loginuser_xxx@example.com","password":"P@ss1234"}` | `{"code":200,"data":{"userId":1,"nickname":"loginuser_xxx","token":"eyJ..."}}` | `user` 表按 email + password 查询，无写入副作用 |
 | 用户不存在 | `{"email":"notexist_xxx@example.com","password":"P@ss1234"}` | `{"code":20100,"msg":"用户不存在"}` | 无数据库/缓存副作用 |
 | 密码错误 | `{"email":"wrongpwd_xxx@example.com","password":"WrongPassword1"}` | `{"code":20102,"msg":"密码错误"}` | 无数据库/缓存副作用 |
+| 账号已停用 | 通过 Mapper 直接插入 `status='1'` 的账号后登录 | `{"code":20109,"msg":"账号已被停用，请联系管理员"}` | `user` 表查询该账号时检测到 status='1'，抛出 `LoginException` |
+| 账号已注销 | 通过 Mapper 直接插入 `status='2'` 的账号后登录 | `{"code":20110,"msg":"账号已注销"}` | `user` 表查询该账号时检测到 status='2'，抛出 `LoginException` |
 | 空或null参数 - 登录失败 | `{"email":"","password":"password"}` / `{"email":null,"password":"password"}` 等 | `{"code":20106,"msg":"参数缺失"}` | 无数据库/缓存副作用 |
 
 ---
@@ -153,6 +157,11 @@ UserServiceApplicationTests       (@SpringBootTest, 无继承)
 | 大页码返回空 | `GET /user/page?pageNum=999&pageSize=10` | `{"code":200,"data":{"records":[]}}` | 返回空列表，不报错 |
 | 非法页码参数 | `pageNum=0&pageSize=10` / `pageNum=-1&pageSize=10` / `pageNum=1&pageSize=0` | `{"code":200/400/500}` | 行为依赖 PageHelper 配置 |
 | 超大pageSize仍正常返回 | `GET /user/page?pageNum=1&pageSize=1000` | `{"code":200}` | 可能正常返回大量数据（无上限保护） |
+| keyword 命中昵称 | `GET /user/page?pageNum=1&pageSize=10&keyword=<unique>` | `{"code":200,"data":{"records":[{"nickname":"kw_nick_<unique>"}]}}` | `user` 表 `nickname` 列 LIKE '%<keyword>%' |
+| keyword 命中邮箱 | `GET /user/page?pageNum=1&pageSize=10&keyword=<unique>` | `{"code":200,"data":{"records":[{"email":"kwemail_<unique>@example.com"}]}}` | `user` 表 `email` 列 LIKE '%<keyword>%`，与 nickname 为 OR 关系 |
+| nickname 精确筛选 | `GET /user/page?pageNum=1&pageSize=10&nickname=<exact>` | `{"code":200,"data":{"records":[{"nickname":"nickflt_<unique>"}]}}` | `user` 表 `nickname` 列 LIKE '%<nickname>%'（PageHelper LIKE 查询） |
+| email 精确筛选 | `GET /user/page?pageNum=1&pageSize=10&email=<exact>@example.com` | `{"code":200,"data":{"records":[{"email":"emailflt_<unique>@example.com"}]}}` | `user` 表 `email` 列 LIKE '%<email>%' |
+| status 筛选 - 仅返回 NORMAL 账号 | `GET /user/page?pageNum=1&pageSize=10&status=0` | `{"code":200,"data":{"records":[...不含 DISABLED]}}` | `user` 表 status='0' 的记录被返回，status='1' 的 DISABLED 账号被过滤 |
 
 ---
 
@@ -202,8 +211,8 @@ UserServiceApplicationTests       (@SpringBootTest, 无继承)
 | --- | --- |
 | Controller 接口 (10个) | `sendCode`、`forgotPassword`、`login`、`register`、`updateUser`、`deleteUser`、`getUserById`、`getUserPage`、`cancelAccount`、`listUsersByIds` 已在 `UserApiContractTest` 中 100% 覆盖 HTTP 层 |
 | 密码加密工具 | `PasswordUtils.encode` 和 `matches` 已 100% 覆盖单元测试 |
-| 全链路业务流 | 注册→登录→改密→注销→再注册；发送验证码→重置密码→新密码登录 已覆盖 |
-| 边界场景 | 参数校验、ID边界（0/-1）、分页边界（0/-1/1000）、混合ID批量查询、非法片段跳过、去重 已覆盖 |
+| 全链路业务流 | 注册→登录→改密→注销→再注册；发送验证码→重置密码→新密码登录；正常账号/停用账号/注销账号三种登录状态分支 已覆盖 |
+| 边界场景 | 参数校验、ID边界（0/-1）、分页边界（0/-1/1000）、keyword 搜索（昵称/邮箱 OR）、单字段筛选（nickname/email/status）、混合ID批量查询、非法片段跳过、去重、验证码60秒限流 已覆盖 |
 | 暂未覆盖 | `sendCode` 的 type 参数非法值场景；`forgotPassword` 的邮箱格式非法场景；`getUserPage` 的 pageSize=1000 无上限保护 |
 
 ---

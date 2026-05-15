@@ -6,6 +6,9 @@ spring:
   profiles:
     # 当前环境配置
     active: dev
+  cloud:
+    nacos:
+      server-addr: 127.0.0.1:8848
   config:
     import:
       # 共享基础设施配置（Redis、RabbitMQ、MyBatis-Plus、Knife4j）

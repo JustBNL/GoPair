@@ -93,7 +93,7 @@ public class JoinRoomConsumer {
                 return;
             }
 
-            // 非活跃成员，尝试查找历史记录
+            // 曾经加入过房间的成员
             LambdaQueryWrapper<RoomMember> historyQuery = new LambdaQueryWrapper<>();
             historyQuery.eq(RoomMember::getRoomId, roomId).eq(RoomMember::getUserId, userId)
                     .isNotNull(RoomMember::getLeaveTime);
@@ -152,8 +152,7 @@ public class JoinRoomConsumer {
                             stringRedisTemplate.opsForSet().size(RoomConst.membersKey(roomId)));
                 }
             } else {
-                // 补偿删除：仅在本次 insert 分支插入记录时执行（fromHistory=false）
-                // fromHistory=true 时，reactivateMember 已更新历史记录 leave_time 已清空，无需删除
+                // 补偿删除：仅在本次 insert 分支插入记录时执行（fromHistory=false
                 if (!fromHistory) {
                     try {
                         LambdaQueryWrapper<RoomMember> del = new LambdaQueryWrapper<>();

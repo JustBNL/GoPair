@@ -4,6 +4,7 @@ import com.gopair.common.constants.SystemConstants;
 import com.gopair.common.core.R;
 import com.gopair.framework.config.FrameworkAutoConfiguration;
 import com.gopair.voiceservice.base.BaseIntegrationTest;
+import com.gopair.voiceservice.base.RoomStatusStubber;
 import com.gopair.voiceservice.base.TestDataCleaner;
 import com.gopair.voiceservice.domain.dto.SignalingDto;
 import com.gopair.voiceservice.domain.vo.CallVO;
@@ -15,14 +16,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 /**
  * 语音通话 Controller 层集成测试。
@@ -512,5 +519,432 @@ class VoiceControllerIntegrationTest extends BaseIntegrationTest {
         headers.set(SystemConstants.HEADER_USER_ID, String.valueOf(userId));
         headers.set(SystemConstants.HEADER_NICKNAME, nickname);
         return headers;
+    }
+
+    // ==================== 分支流 E：cleanup 接口 ====================
+
+    @Nested
+    @DisplayName("分支流 E：cleanup 接口")
+    class CleanupFlow {
+
+        @BeforeEach
+        void cleanup() {
+            testDataCleaner.cleanupAll();
+            flushRedis();
+        }
+
+        private void flushRedis() {
+            var factory = stringRedisTemplate.getConnectionFactory();
+            if (factory != null && factory.getConnection() != null) {
+                factory.getConnection().serverCommands().flushDb();
+            }
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("POST /voice/room/{roomId}/cleanup -> 有通话记录时清理并返回数量")
+        void cleanup_WithExistingCalls_ShouldReturnCount() {
+            Long roomId = nextRoomId();
+            Long userId = 60200L;
+
+            CallVO call = voiceCallService.joinOrCreateCall(roomId, userId);
+            Long callId = call.getCallId();
+
+            log.info("==== [POST /voice/room/{}/cleanup] ====", roomId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + roomId + "/cleanup"),
+                    null,
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+            assertThat(response.getBody().getData()).isEqualTo(1);
+
+            // 验证通话已被物理删除
+            assertThat(voiceCallMapper.selectById(callId)).isNull();
+
+            log.info("清理成功: roomId={}, 返回清理数量=1, callId={} 已不存在", roomId, callId);
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("POST /voice/room/{roomId}/cleanup -> 无通话记录时返回 0")
+        void cleanup_NoCalls_ShouldReturnZero() {
+            Long emptyRoomId = freshRoomId();
+
+            log.info("==== [POST /voice/room/{}/cleanup 无通话] ====", emptyRoomId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + emptyRoomId + "/cleanup"),
+                    null,
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+            assertThat(response.getBody().getData()).isEqualTo(0);
+
+            log.info("无通话清理: roomId={}, 返回0", emptyRoomId);
+        }
+    }
+
+    // ==================== 边界流 F：房间状态校验 ====================
+
+    @Nested
+    @DisplayName("边界流 F：房间状态校验")
+    class RoomStatusValidationFlow {
+
+        @BeforeEach
+        void cleanup() {
+            testDataCleaner.cleanupAll();
+            flushRedis();
+        }
+
+        private void flushRedis() {
+            var factory = stringRedisTemplate.getConnectionFactory();
+            if (factory != null && factory.getConnection() != null) {
+                factory.getConnection().serverCommands().flushDb();
+            }
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("POST /voice/room/{roomId}/join -> 房间 CLOSED 时拒绝")
+        void joinOrCreateCall_RoomClosed_ShouldReturnError() {
+            Long roomId = nextRoomId();
+            Long userId = 60210L;
+            RoomStatusStubber.stub(restTemplate, roomId, 1); // CLOSED
+
+            log.info("==== [POST /voice/room/{}/join 房间 CLOSED] ====", roomId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + roomId + "/join"),
+                    new HttpEntity<>(userHeaders(userId, "UserClosed")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("房间 CLOSED 被拒绝: roomId={}, code={}", roomId, response.getBody().getCode());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("POST /voice/room/{roomId}/join -> 房间 EXPIRED 时拒绝")
+        void joinOrCreateCall_RoomExpired_ShouldReturnError() {
+            Long roomId = nextRoomId();
+            Long userId = 60211L;
+            RoomStatusStubber.stub(restTemplate, roomId, 2); // EXPIRED
+
+            log.info("==== [POST /voice/room/{}/join 房间 EXPIRED] ====", roomId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + roomId + "/join"),
+                    new HttpEntity<>(userHeaders(userId, "UserExpired")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("房间 EXPIRED 被拒绝: roomId={}, code={}", roomId, response.getBody().getCode());
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("POST /voice/room/{roomId}/join -> 房间 DISABLED 时拒绝")
+        void joinOrCreateCall_RoomDisabled_ShouldReturnError() {
+            Long roomId = nextRoomId();
+            Long userId = 60212L;
+            RoomStatusStubber.stub(restTemplate, roomId, 4); // DISABLED
+
+            log.info("==== [POST /voice/room/{}/join 房间 DISABLED] ====", roomId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + roomId + "/join"),
+                    new HttpEntity<>(userHeaders(userId, "UserDisabled")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("房间 DISABLED 被拒绝: roomId={}, code={}", roomId, response.getBody().getCode());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("POST /voice/room/{roomId}/join -> 房间 ARCHIVED 时拒绝")
+        void joinOrCreateCall_RoomArchived_ShouldReturnError() {
+            Long roomId = nextRoomId();
+            Long userId = 60213L;
+            RoomStatusStubber.stub(restTemplate, roomId, 3); // ARCHIVED
+
+            log.info("==== [POST /voice/room/{}/join 房间 ARCHIVED] ====", roomId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/room/" + roomId + "/join"),
+                    new HttpEntity<>(userHeaders(userId, "UserArchived")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("房间 ARCHIVED 被拒绝: roomId={}, code={}", roomId, response.getBody().getCode());
+        }
+    }
+
+    // ==================== 边界流 G：通话不存在时的操作 ====================
+
+    @Nested
+    @DisplayName("边界流 G：通话不存在时的操作")
+    class CallNotFoundFlow {
+
+        @BeforeEach
+        void cleanup() {
+            testDataCleaner.cleanupAll();
+            flushRedis();
+        }
+
+        private void flushRedis() {
+            var factory = stringRedisTemplate.getConnectionFactory();
+            if (factory != null && factory.getConnection() != null) {
+                factory.getConnection().serverCommands().flushDb();
+            }
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("POST /voice/{callId}/ready -> 通话不存在时返回错误")
+        void notifyReady_CallNotFound_ShouldReturnError() {
+            Long nonExistCallId = 999999L;
+
+            log.info("==== [POST /voice/{}/ready 不存在通话] ====", nonExistCallId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/" + nonExistCallId + "/ready"),
+                    new HttpEntity<>(userHeaders(60300L, "UserReady")),
+                    R.class);
+
+            assertThat(response.getStatusCode().value()).isNotEqualTo(200);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("ready 不存在通话被拒绝: callId={}, code={}",
+                    nonExistCallId, response.getBody().getCode());
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("POST /voice/{callId}/leave -> 通话不存在时返回错误")
+        void leaveCall_CallNotFound_ShouldReturnError() {
+            Long nonExistCallId = 999998L;
+
+            log.info("==== [POST /voice/{}/leave 不存在通话] ====", nonExistCallId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/" + nonExistCallId + "/leave"),
+                    new HttpEntity<>(userHeaders(60301L, "UserLeave")),
+                    R.class);
+
+            assertThat(response.getStatusCode().value()).isNotEqualTo(200);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("leave 不存在通话被拒绝: callId={}, code={}",
+                    nonExistCallId, response.getBody().getCode());
+        }
+
+        @Test
+        @Order(3)
+        @DisplayName("POST /voice/{callId}/end -> 通话不存在时返回错误")
+        void endCall_CallNotFound_ShouldReturnError() {
+            Long nonExistCallId = 999997L;
+
+            log.info("==== [POST /voice/{}/end 不存在通话] ====", nonExistCallId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/" + nonExistCallId + "/end"),
+                    new HttpEntity<>(userHeaders(60302L, "UserEnd")),
+                    R.class);
+
+            assertThat(response.getStatusCode().value()).isNotEqualTo(200);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("end 不存在通话被拒绝: callId={}, code={}",
+                    nonExistCallId, response.getBody().getCode());
+        }
+
+        @Test
+        @Order(4)
+        @DisplayName("POST /voice/{callId}/owner-leave -> 通话不存在时返回错误")
+        void ownerLeave_CallNotFound_ShouldReturnError() {
+            Long nonExistCallId = 999996L;
+
+            log.info("==== [POST /voice/{}/owner-leave 不存在通话] ====", nonExistCallId);
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/" + nonExistCallId + "/owner-leave"),
+                    new HttpEntity<>(userHeaders(60303L, "UserOwnerLeave")),
+                    R.class);
+
+            assertThat(response.getStatusCode().value()).isNotEqualTo(200);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isNotEqualTo(200);
+
+            log.info("owner-leave 不存在通话被拒绝: callId={}, code={}",
+                    nonExistCallId, response.getBody().getCode());
+        }
+    }
+
+    // ==================== 边界流 H：用户不在通话中的操作 ====================
+
+    @Nested
+    @DisplayName("边界流 H：用户不在通话中的操作")
+    class UserNotInCallFlow {
+
+        @BeforeEach
+        void cleanup() {
+            testDataCleaner.cleanupAll();
+            flushRedis();
+        }
+
+        private void flushRedis() {
+            var factory = stringRedisTemplate.getConnectionFactory();
+            if (factory != null && factory.getConnection() != null) {
+                factory.getConnection().serverCommands().flushDb();
+            }
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("POST /voice/{callId}/leave -> 用户不在通话中时静默返回 200")
+        void leaveCall_UserNotInCall_ShouldReturn200() {
+            Long roomId = nextRoomId();
+            Long ownerId = 60400L;
+            Long strangerId = 60401L;
+
+            CallVO call = voiceCallService.joinOrCreateCall(roomId, ownerId);
+
+            log.info("==== [POST /voice/{}/leave 用户不在通话中] ====", call.getCallId());
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/" + call.getCallId() + "/leave"),
+                    new HttpEntity<>(userHeaders(strangerId, "Stranger")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+
+            log.info("用户不在通话中离开返回200: callId={}, strangerId={}", call.getCallId(), strangerId);
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("POST /voice/{callId}/owner-leave -> 用户不在通话中时静默返回 200")
+        void ownerLeave_UserNotInCall_ShouldReturn200() {
+            Long roomId = nextRoomId();
+            Long ownerId = 60410L;
+            Long strangerId = 60411L;
+
+            CallVO call = voiceCallService.joinOrCreateCall(roomId, ownerId);
+
+            log.info("==== [POST /voice/{}/owner-leave 用户不在通话中] ====", call.getCallId());
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/" + call.getCallId() + "/owner-leave"),
+                    new HttpEntity<>(userHeaders(strangerId, "Stranger")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+
+            log.info("用户不在通话中owner-leave返回200: callId={}, strangerId={}", call.getCallId(), strangerId);
+        }
+    }
+
+    // ==================== 边界流 I：信令转发边界 ====================
+
+    @Nested
+    @DisplayName("边界流 I：信令转发边界")
+    class SignalingEdgeFlow {
+
+        @BeforeEach
+        void cleanup() {
+            testDataCleaner.cleanupAll();
+            flushRedis();
+        }
+
+        private void flushRedis() {
+            var factory = stringRedisTemplate.getConnectionFactory();
+            if (factory != null && factory.getConnection() != null) {
+                factory.getConnection().serverCommands().flushDb();
+            }
+        }
+
+        @Test
+        @Order(1)
+        @DisplayName("POST /voice/signaling -> 通话不存在时静默返回 200（不抛异常）")
+        void forwardSignaling_CallNotFound_ShouldReturn200() {
+            Long nonExistCallId = 999990L;
+            Long userId = 60500L;
+
+            SignalingDto dto = new SignalingDto();
+            dto.setCallId(nonExistCallId);
+            dto.setType("offer");
+            dto.setTargetUserId(60501L);
+            dto.setData(Map.of("sdp", "test"));
+
+            log.info("==== [POST /voice/signaling 通话不存在] ====");
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/signaling"),
+                    new HttpEntity<>(dto, userHeaders(userId, "UserSig")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+
+            log.info("信令转发到不存在通话静默丢弃: callId={}", nonExistCallId);
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("POST /voice/signaling -> 参与者成功转发信令")
+        void forwardSignaling_Participant_ShouldReturn200() {
+            Long roomId = nextRoomId();
+            Long ownerId = 60510L;
+            Long userId = 60511L;
+
+            CallVO call = voiceCallService.joinOrCreateCall(roomId, ownerId);
+            voiceCallService.joinCall(call.getCallId(), userId);
+
+            SignalingDto dto = new SignalingDto();
+            dto.setCallId(call.getCallId());
+            dto.setType("answer");
+            dto.setTargetUserId(ownerId);
+            dto.setData(Map.of("sdp", "answer"));
+
+            log.info("==== [POST /voice/signaling 参与者转发] ====");
+
+            ResponseEntity<R> response = testRestTemplate.postForEntity(
+                    getUrl("/voice/signaling"),
+                    new HttpEntity<>(dto, userHeaders(userId, "UserSig")),
+                    R.class);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().getCode()).isEqualTo(200);
+
+            log.info("参与者信令转发成功: callId={}, from={}, to={}", call.getCallId(), userId, ownerId);
+        }
     }
 }

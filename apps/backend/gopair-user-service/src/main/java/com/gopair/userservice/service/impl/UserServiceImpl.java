@@ -150,7 +150,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper,User> implements Use
         }
 
         // 邮箱不允许普通用户修改
-        userDto.setEmail(null);
+        if (StringUtils.hasText(userDto.getEmail())) {
+            User existingUser = getUserByEmail(userDto.getEmail());
+            if (existingUser != null && !existingUser.getUserId().equals(userDto.getUserId())) {
+                throw new UserException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+            }
+            throw new UserException(UserErrorCode.EMAIL_CANNOT_BE_MODIFIED);
+        }
 
         User user = BeanCopyUtils.copyBean(userDto, User.class);
 

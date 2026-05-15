@@ -45,9 +45,9 @@ const ROOM_ID = parseInt(__ENV.ROOM_ID || '0', 10);
 const MAX_MEMBERS = parseInt(__ENV.MAX_MEMBERS || '1000', 10);
 
 const SCENARIO_CONFIG = {
-  high_freq: { description: '单用户高频发送（摸上限）' },
-  group_chat: { description: '群聊并发（模拟真实）' },
-  reliability: { description: '可靠性验证（零丢失零重复）' },
+  high_freq: { description: '单用户高频发送' },
+  group_chat: { description: '群聊并发' },
+  reliability: { description: '可靠性验证）' },
 };
 
 // 三个模式对应的发送间隔（ms）

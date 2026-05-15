@@ -346,6 +346,7 @@ export function useVoiceCall(
 
     await VoiceAPI.notifyReady(resolvedCallId)
 
+    //重新拉一次参加的人，因为前面业务流程较长在处理此流程时其他用户可能加入了
     try {
       const refreshed = await VoiceAPI.getCall(resolvedCallId)
       if (refreshed.data) {
@@ -362,6 +363,7 @@ export function useVoiceCall(
       } catch {}
     }
 
+    //处理滞留的offer消息，兜底方案
     await drainPendingSignals()
 
     // 补充拉取一次 roster，确保加入前已存在的参与者（如房主）被重新触发信令交换
@@ -651,7 +653,8 @@ export function useVoiceCall(
         .filter((p) => p.userId !== currentUserId.value)
         .map((p) => Number(p.userId))
     )
-
+    
+    //清理已离开的人
     const localIdsBefore = new Set(webrtcManager.getParticipantIds())
     for (const id of localIdsBefore) {
       if (!activeIds.has(id)) {
@@ -659,6 +662,7 @@ export function useVoiceCall(
       }
     }
 
+    //新增缺失的人
     const localIdsAfterRemove = new Set(webrtcManager.getParticipantIds())
     for (const p of latestParticipants) {
       if (p.userId === currentUserId.value) continue

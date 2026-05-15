@@ -15,6 +15,8 @@ spring:
 
   # 网关路由配置（若 Nacos 不可用则此节为空，路由需手动配置或服务不可达）
   cloud:
+    nacos:
+      server-addr: 127.0.0.1:8848
     gateway:
       # 全局 HTTP 客户端超时配置，防止下游卡死导致线程池耗尽
       httpclient:

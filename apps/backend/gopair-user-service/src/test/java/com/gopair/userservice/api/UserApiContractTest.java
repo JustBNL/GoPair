@@ -221,7 +221,7 @@ class UserApiContractTest extends BaseIntegrationTest {
             String u = uid();
             String email = "update_" + u + "@example.com";
             Long userId = callRegister(buildRegister("updateuser_" + u, email, "P@ss1234")).getBody().getData().getUserId();
-            UserDto dto = buildUpdate(userId, "updated_" + uid(), "updated_" + uid() + "@example.com", null, null);
+            UserDto dto = buildUpdate(userId, "updated_" + uid(), null, null, null);
             ResponseEntity<R<Void>> resp = callUpdate(dto);
             assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(resp.getBody().isSuccess()).isTrue();
